@@ -1,1 +1,108 @@
-{"base_currency":"THB","channels":[{"fee_tiers":[{"fee":50,"max":5000,"min":100},{"fee":100,"max":10000,"min":5001},{"fee":150,"max":15000,"min":10001},{"fee":200,"max":20000,"min":15001},{"fee":250,"max":25000,"min":20001},{"fee":300,"max":30000,"min":25001}],"id":"truemoney","name":"TrueMoney","name_my":"ထရူးမန်းနီး","notes_my":"မှတ်ပုံတင်ပြီးသား အကောင့်လိုသည်","payout_my":"ငွေသား (TrueMoney ဆိုင်) / AYA Pay","rate_thb_mmk":61.5,"referral_url":"","transfer_time_my":"ချက်ချင်းနီးပါး","verified":false},{"flat_fee":160,"id":"western_union","name":"Western Union","name_my":"ဝက်စတန်ယူနီယံ","notes_my":"ID လိုသည်","payout_my":"ငွေသား (ကောင်တာများ)","rate_thb_mmk":60.8,"referral_url":"","transfer_time_my":"မိနစ်ပိုင်း","verified":false},{"fee_tiers":[{"fee":480,"max":4000,"min":100},{"fee":800,"max":10000,"min":4001}],"id":"moneygram","name":"MoneyGram","name_my":"မန်းနီဂရမ်","notes_my":"ID လိုသည်","payout_my":"ငွေသား (ကောင်တာများ)","rate_thb_mmk":60.5,"referral_url":"","transfer_time_my":"မိနစ်ပိုင်း","verified":false},{"fee_percent":5.0,"id":"hundi","name":"Hundi (informal)","name_my":"ဟွန်ဒီ (အသိပေး)","notes_my":"တရားဝင်မဟုတ် — လိမ်လည်မှုသတိထား။ ရည်ညွှန်းရန်သာ။","payout_my":"ငွေသား / WavePay / KBZPay","rate_thb_mmk":62.0,"referral_url":"","transfer_time_my":"နာရီပိုင်း - ၁ ရက်","verified":false}],"disclaimer_my":"နှုန်းထားများသည် ခန့်မှန်းခြေဖြစ်ပြီး နေ့စဉ်ပြောင်းလဲနိုင်သည်။ ငွေမလွှဲမီ channel အသီးသီးတွင် အတည်ပြုပါ။","mid_market_rate":62.55,"mid_market_source":"xe.com/converterhub (2026-10-13)","target_currency":"MMK","updated_at":"2026-10-13T22:10:00+07:00"}
+{
+  "base_currency": "THB",
+  "channels": [
+    {
+      "fee_tiers": [
+        {
+          "fee": 50,
+          "max": 5000,
+          "min": 100
+        },
+        {
+          "fee": 100,
+          "max": 10000,
+          "min": 5001
+        },
+        {
+          "fee": 150,
+          "max": 15000,
+          "min": 10001
+        },
+        {
+          "fee": 200,
+          "max": 20000,
+          "min": 15001
+        },
+        {
+          "fee": 250,
+          "max": 25000,
+          "min": 20001
+        },
+        {
+          "fee": 300,
+          "max": 30000,
+          "min": 25001
+        }
+      ],
+      "id": "truemoney",
+      "name": "TrueMoney",
+      "name_my": "ထရူးမန်းနီး",
+      "notes_my": "မှတ်ပုံတင်ပြီးသား အကောင့်လိုသည်",
+      "payout_my": "ငွေသား (TrueMoney ဆိုင်) / AYA Pay",
+      "rate_thb_mmk": 61.5,
+      "referral_url": "https://www.truemoney.com/",
+      "transfer_time_my": "ချက်ချင်းနီးပါး",
+      "verified": false,
+      "margin_mmk": 1.0,
+      "referral_note": "placeholder - replace with affiliate link"
+    },
+    {
+      "flat_fee": 160,
+      "id": "western_union",
+      "name": "Western Union",
+      "name_my": "ဝက်စတန်ယူနီယံ",
+      "notes_my": "ID လိုသည်",
+      "payout_my": "ငွေသား (ကောင်တာများ)",
+      "rate_thb_mmk": 60.8,
+      "referral_url": "https://www.westernunion.com/",
+      "transfer_time_my": "မိနစ်ပိုင်း",
+      "verified": false,
+      "margin_mmk": 1.7,
+      "referral_note": "placeholder - replace with affiliate link"
+    },
+    {
+      "fee_tiers": [
+        {
+          "fee": 480,
+          "max": 4000,
+          "min": 100
+        },
+        {
+          "fee": 800,
+          "max": 10000,
+          "min": 4001
+        }
+      ],
+      "id": "moneygram",
+      "name": "MoneyGram",
+      "name_my": "မန်းနီဂရမ်",
+      "notes_my": "ID လိုသည်",
+      "payout_my": "ငွေသား (ကောင်တာများ)",
+      "rate_thb_mmk": 60.5,
+      "referral_url": "https://www.moneygram.com/",
+      "transfer_time_my": "မိနစ်ပိုင်း",
+      "verified": false,
+      "margin_mmk": 2.0,
+      "referral_note": "placeholder - replace with affiliate link"
+    },
+    {
+      "fee_percent": 5.0,
+      "id": "hundi",
+      "name": "Hundi (informal)",
+      "name_my": "ဟွန်ဒီ (အသိပေး)",
+      "notes_my": "တရားဝင်မဟုတ် — လိမ်လည်မှုသတိထား။ ရည်ညွှန်းရန်သာ။",
+      "payout_my": "ငွေသား / WavePay / KBZPay",
+      "rate_thb_mmk": 62.0,
+      "referral_url": "",
+      "transfer_time_my": "နာရီပိုင်း - ၁ ရက်",
+      "verified": false,
+      "margin_mmk": 0.5,
+      "referral_note": ""
+    }
+  ],
+  "disclaimer_my": "နှုန်းထားများသည် ခန့်မှန်းခြေဖြစ်ပြီး နေ့စဉ်ပြောင်းလဲနိုင်သည်။ ငွေမလွှဲမီ channel အသီးသီးတွင် အတည်ပြုပါ။",
+  "mid_market_rate": 62.5,
+  "mid_market_source": "open.er-api.com (auto)",
+  "target_currency": "MMK",
+  "updated_at": "2026-10-13T22:13:23+07:00"
+}
