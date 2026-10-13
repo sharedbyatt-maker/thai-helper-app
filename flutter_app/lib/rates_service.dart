@@ -197,6 +197,27 @@ class RatesService {
 
   bool get usingLiveApi => apiBase.isNotEmpty;
 
+  /// Fire-and-forget referral click tracking (affiliate analytics).
+  /// No-op when running on the bundled snapshot (no backend).
+  void trackClick(String channelId) {
+    if (apiBase.isEmpty) return;
+    try {
+      http
+          .post(
+            Uri.parse('$apiBase/api/click'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'channel_id': channelId,
+              'ts': DateTime.now().toIso8601String(),
+            }),
+          )
+          .timeout(const Duration(seconds: 3))
+          .then((_) {}, onError: (_) {});
+    } catch (_) {
+      // never break the UX for analytics
+    }
+  }
+
   List<RateQuote> compare(RateData data, double amount) {
     final quotes = <RateQuote>[];
     for (final ch in data.channels) {

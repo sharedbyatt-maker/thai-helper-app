@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
@@ -124,6 +125,25 @@ class _RatesScreenState extends State<RatesScreen> {
   void initState() {
     super.initState();
     _future = RatesService().load();
+    _loadPrefs();
+  }
+
+  /// Remember last amount + mode (like Better_Remit's pre-population).
+  Future<void> _loadPrefs() async {
+    final p = await SharedPreferences.getInstance();
+    final amt = p.getString('amount');
+    final rev = p.getBool('reverse') ?? false;
+    if (amt != null && amt.isNotEmpty) {
+      _amountCtrl.text = amt;
+    }
+    if (rev != _reverse) _reverse = rev;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _savePrefs() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString('amount', _amountCtrl.text);
+    await p.setBool('reverse', _reverse);
   }
 
   @override
@@ -141,6 +161,7 @@ class _RatesScreenState extends State<RatesScreen> {
       _reverse = reverse;
       _amountCtrl.text = reverse ? '500000' : '10000';
     });
+    _savePrefs();
   }
 
   void _share(RateData data) {
@@ -270,6 +291,7 @@ class _RatesScreenState extends State<RatesScreen> {
               padding: const EdgeInsets.all(12),
               children: [
                 _marketHeader(data),
+                _staleBanner(data),
                 const SizedBox(height: 10),
                 _timingHint(data),
                 const SizedBox(height: 10),
@@ -355,6 +377,37 @@ class _RatesScreenState extends State<RatesScreen> {
         ],
       ),
     );
+  }
+
+  /// Warn when the data snapshot is older than 48h (stale-data rule).
+  Widget _staleBanner(RateData data) {
+    try {
+      final updated = DateTime.parse(data.updatedAt);
+      final age = DateTime.now().difference(updated);
+      if (age.inHours >= 48) {
+        final days = age.inHours ~/ 24;
+        return Container(
+          margin: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color:
+                    Colors.red.withValues(alpha: 0.35)),
+          ),
+          child: Text(
+            '⚠️ ဒေတာ $days ရက် ကြာပြီ — လွှဲခါနီး နှုန်း အတည်ပြုပါ',
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.red.shade700),
+          ),
+        );
+      }
+    } catch (_) {}
+    return const SizedBox.shrink();
   }
 
   Widget _timingHint(RateData data) {
@@ -453,7 +506,10 @@ class _RatesScreenState extends State<RatesScreen> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () => setState(() {}),
+                  onPressed: () {
+                    _savePrefs();
+                    setState(() {});
+                  },
                   child: const Text('တွက်'),
                 ),
               ],
@@ -467,6 +523,7 @@ class _RatesScreenState extends State<RatesScreen> {
                         selected: _amount.toInt() == c,
                         onSelected: (_) {
                           _amountCtrl.text = c.toString();
+                          _savePrefs();
                           setState(() {});
                         },
                       ))
@@ -516,7 +573,7 @@ class _RatesScreenState extends State<RatesScreen> {
       );
     }
     widgets.addAll(quotes.asMap().entries.map(
-          (e) => _forwardCard(e.value, e.key),
+          (e) => _forwardCard(e.value, e.key, quotes),
         ));
     return widgets;
   }
@@ -560,7 +617,7 @@ class _RatesScreenState extends State<RatesScreen> {
       );
     }
     widgets.addAll(quotes.asMap().entries.map(
-          (e) => _reverseCard(e.value, e.key),
+          (e) => _reverseCard(e.value, e.key, quotes),
         ));
     return widgets;
   }
@@ -622,7 +679,8 @@ class _RatesScreenState extends State<RatesScreen> {
       {required RateChannel ch,
       required int rank,
       required Widget highlight,
-      required List<Widget> details}) {
+      required List<Widget> details,
+      String? bestNote}) {
     final best = rank == 0;
     final brand = _brandColors[ch.id] ?? Colors.teal;
     return Card(
@@ -639,6 +697,15 @@ class _RatesScreenState extends State<RatesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _header(ch, rank),
+            if (bestNote != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(bestNote,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade700)),
+              ),
             const SizedBox(height: 10),
             highlight,
             const SizedBox(height: 8),
@@ -674,6 +741,7 @@ class _RatesScreenState extends State<RatesScreen> {
                         vertical: 12),
                   ),
                   onPressed: () async {
+                    RatesService().trackClick(ch.id);
                     final uri =
                         Uri.parse(ch.referralUrl);
                     if (await canLaunchUrl(uri)) {
@@ -744,11 +812,23 @@ class _RatesScreenState extends State<RatesScreen> {
     );
   }
 
-  Widget _forwardCard(RateQuote q, int rank) {
+  Widget _forwardCard(
+      RateQuote q, int rank, List<RateQuote> all) {
     final ch = q.channel;
+    String? bestNote;
+    if (rank == 0 && all.length > 1) {
+      final delta = q.receivedMmk - all[1].receivedMmk;
+      if (delta > 0) {
+        bestNote =
+            '🥇 နံပါတ် ၂ (${all[1].channel.nameMy}) ထက် ${_fmt(delta)} ကျပ် ပိုရ';
+      }
+    }
+    final effective =
+        _amount > 0 ? q.receivedMmk / _amount : 0.0;
     return _cardShell(
       ch: ch,
       rank: rank,
+      bestNote: bestNote,
       highlight: _highlightBox(
         label: 'လက်ခံရမယ်',
         value: '${_fmt(q.receivedMmk)} ကျပ်',
@@ -760,17 +840,31 @@ class _RatesScreenState extends State<RatesScreen> {
             'Fee', '${_fmt(q.feeThb.toInt())} ဘတ်'),
         _detailRow('နှုန်း',
             '1 ฿ = ${_fmtDouble(ch.rateThbMmk)} ကျပ်'),
+        _detailRow('အမှန်တကယ်နှုန်း',
+            '1 ฿ = ${_fmtDouble(effective)} ကျပ်'),
         _detailRow('⏱ ကြာချိန်', ch.transferTimeMy),
         _detailRow('💰 ထုတ်ယူရန်', ch.payoutMy),
       ],
     );
   }
 
-  Widget _reverseCard(ReverseQuote q, int rank) {
+  Widget _reverseCard(
+      ReverseQuote q, int rank, List<ReverseQuote> all) {
     final ch = q.channel;
+    String? bestNote;
+    if (rank == 0 && all.length > 1) {
+      final delta = all[1].thbNeeded - q.thbNeeded;
+      if (delta > 0) {
+        bestNote =
+            '🥇 နံပါတ် ၂ (${all[1].channel.nameMy}) ထက် ${_fmt(delta.toInt())} ဘတ် သက်သာ';
+      }
+    }
+    final effective =
+        q.thbNeeded > 0 ? _amount / q.thbNeeded : 0.0;
     return _cardShell(
       ch: ch,
       rank: rank,
+      bestNote: bestNote,
       highlight: _highlightBox(
         label: 'လွှဲရမယ့် ဘတ်',
         value: '${_fmt(q.thbNeeded.toInt())} ဘတ်',
@@ -782,6 +876,8 @@ class _RatesScreenState extends State<RatesScreen> {
             'Fee', '≈ ${_fmt(q.feeThb.toInt())} ဘတ် ပါ'),
         _detailRow('နှုန်း',
             '1 ฿ = ${_fmtDouble(ch.rateThbMmk)} ကျပ်'),
+        _detailRow('အမှန်တကယ်နှုန်း',
+            '1 ฿ = ${_fmtDouble(effective)} ကျပ်'),
         _detailRow('⏱ ကြာချိန်', ch.transferTimeMy),
         _detailRow('💰 ထုတ်ယူရန်', ch.payoutMy),
       ],
@@ -820,6 +916,11 @@ class _RatesScreenState extends State<RatesScreen> {
             data.disclaimerMy,
             style: const TextStyle(
                 fontSize: 11, color: Colors.grey),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '🔗 တချို့ link တွေက referral ဖြစ်နိုင်တယ် — မင်း လွှဲတဲ့ ပမာဏ/နှုန်း မပြောင်းလဲဘူး။',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ],
       ),

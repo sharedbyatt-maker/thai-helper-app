@@ -10,7 +10,7 @@ data freshness honestly.
 """
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -97,3 +97,38 @@ def compare():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+
+CLICKS_FILE = os.path.join(os.path.dirname(__file__), "clicks.json")
+
+
+@app.post("/api/click")
+def click():
+    """Log a referral-button tap (affiliate click tracking)."""
+    d = request.get_json(force=True, silent=True) or {}
+    try:
+        clicks = json.load(open(CLICKS_FILE, encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        clicks = []
+    clicks.append({
+        "ts": datetime.now(timezone(timedelta(hours=7))).isoformat(timespec="seconds"),
+        "channel_id": str(d.get("channel_id", ""))[:64],
+        "ip": request.headers.get("X-Forwarded-For", request.remote_addr or "")[:64],
+    })
+    json.dump(clicks[-5000:], open(CLICKS_FILE, "w", encoding="utf-8"),
+              ensure_ascii=False)
+    return jsonify({"ok": True})
+
+
+@app.get("/api/stats")
+def stats():
+    """Referral click counts per channel (owner only - add auth before exposing)."""
+    try:
+        clicks = json.load(open(CLICKS_FILE, encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        clicks = []
+    totals = {}
+    for c in clicks:
+        cid = c.get("channel_id", "?")
+        totals[cid] = totals.get(cid, 0) + 1
+    return jsonify({"total": len(clicks), "by_channel": totals})
