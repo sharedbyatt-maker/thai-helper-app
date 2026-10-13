@@ -449,8 +449,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   builder: (_) => AlertDialog(
                     title: Text(ok ? '✅ အဆင်ပြေတယ်' : '⚠️ အသံလိုနေတယ်'),
                     content: Text(ok
-                        ? 'ထိုင်းအသံ အသင့်ဖြစ်နေပြီ။'
-                        : 'Settings → Language → Text-to-speech မှာ ထိုင်း (ไทย) voice pack ကို download ဆွဲပါ။'),
+                        ? 'ထိုင်းအသံ အသင့်ဖြစ်နေပြီ။ 🔊 ခလုတ်တွေ အမှန်ထွက်မယ်။'
+                        : 'ထိုင်းအသံ မရှိသေးဘူး! အသံခလုတ်နှိပ်ရင် ဖုန်းက ထိုင်းစာကို တခြားဘာသာအသံနဲ့ ဖတ်မယ် — နားမလည်နိုင်ဘူး။\n\nဖြေရှင်းချက်: Settings → Language → Text-to-speech → ထိုင်း (ไทย) voice pack ကို download ဆွဲပါ။'),
                     actions: [
                       TextButton(
                           onPressed: () =>

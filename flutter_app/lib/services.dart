@@ -20,19 +20,46 @@ class TtsService {
   }
 
   Future<bool> get isThaiAvailable async {
+    return await _findThaiVoice() != null;
+  }
+
+  /// Explicitly select a Thai voice. Some platforms/browsers ignore
+  /// setLanguage('th-TH') and fall back to a wrong-language voice,
+  /// which mangles Thai pronunciation. Returns the voice map or null.
+  Future<Map<String, String>?> _findThaiVoice() async {
     try {
-      final langs = await _tts.getLanguages;
-      if (langs is List) {
-        return langs.any(
-            (l) => l.toString().toLowerCase().startsWith('th'));
+      final voices = await _tts.getVoices;
+      if (voices is List) {
+        for (final v in voices) {
+          if (v is Map) {
+            final locale =
+                (v['locale'] ?? '').toString().toLowerCase();
+            final name =
+                (v['name'] ?? '').toString().toLowerCase();
+            if (locale.startsWith('th') ||
+                name.contains('thai') ||
+                name.contains('th-th')) {
+              return {
+                'name': v['name'].toString(),
+                'locale': v['locale'].toString(),
+              };
+            }
+          }
+        }
       }
     } catch (_) {}
-    return false;
+    return null;
   }
 
   Future<void> speak(String text) async {
     if (!_ready) await init();
     await _tts.stop();
+    final voice = await _findThaiVoice();
+    if (voice != null) {
+      try {
+        await _tts.setVoice(voice);
+      } catch (_) {}
+    }
     await _tts.speak(text);
   }
 
