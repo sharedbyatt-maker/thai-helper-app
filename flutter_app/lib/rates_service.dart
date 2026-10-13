@@ -214,4 +214,46 @@ class RatesService {
         b.receivedMmk.compareTo(a.receivedMmk));
     return quotes;
   }
+
+  /// Reverse: how much THB is needed so the family receives [targetMmk]?
+  /// Binary search on the monotonic received(THB) function; rounds UP.
+  List<ReverseQuote> compareReverse(
+      RateData data, double targetMmk) {
+    final out = <ReverseQuote>[];
+    for (final ch in data.channels) {
+      if (ch.rateThbMmk <= 0) continue;
+      var lo = targetMmk / ch.rateThbMmk;
+      var hi = lo + 20000;
+      for (var i = 0; i < 50; i++) {
+        final mid = (lo + hi) / 2;
+        final fee = ch.feeFor(mid);
+        final recv = fee == null
+            ? -1.0
+            : (mid - fee) * ch.rateThbMmk;
+        if (recv >= targetMmk) {
+          hi = mid;
+        } else {
+          lo = mid;
+        }
+      }
+      final thb = hi.ceilToDouble();
+      final fee = ch.feeFor(thb);
+      if (fee == null || fee >= thb) continue;
+      out.add(ReverseQuote(
+          channel: ch, thbNeeded: thb, feeThb: fee));
+    }
+    out.sort((a, b) => a.thbNeeded.compareTo(b.thbNeeded));
+    return out;
+  }
+}
+
+class ReverseQuote {
+  final RateChannel channel;
+  final double thbNeeded;
+  final double feeThb;
+
+  ReverseQuote(
+      {required this.channel,
+      required this.thbNeeded,
+      required this.feeThb});
 }

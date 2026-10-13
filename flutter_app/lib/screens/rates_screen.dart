@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../main.dart';
 import '../rates_service.dart';
 
 const _appUrl = 'https://sharedbyatt-maker.github.io/thai-helper-app/';
@@ -96,7 +97,6 @@ class _SparklinePainter extends CustomPainter {
             ],
           ).createShader(
               Rect.fromLTWH(0, 0, size.width, size.height)));
-    // end dot
     canvas.drawCircle(
         pts.last, 4, Paint()..color = Colors.white);
   }
@@ -118,6 +118,7 @@ class RatesScreen extends StatefulWidget {
 class _RatesScreenState extends State<RatesScreen> {
   final _amountCtrl = TextEditingController(text: '10000');
   late Future<RateData> _future;
+  bool _reverse = false; // false: THB->MMK, true: MMK->THB
 
   @override
   void initState() {
@@ -135,26 +136,78 @@ class _RatesScreenState extends State<RatesScreen> {
       double.tryParse(_amountCtrl.text.replaceAll(',', '')) ??
       10000;
 
-  void _share(RateData data, List<RateQuote> quotes) {
-    if (quotes.isEmpty) return;
-    final medals = ['🥇', '🥈', '🥉', '4️⃣'];
+  void _setMode(bool reverse) {
+    setState(() {
+      _reverse = reverse;
+      _amountCtrl.text = reverse ? '500000' : '10000';
+    });
+  }
+
+  void _share(RateData data) {
     final buf = StringBuffer()
       ..writeln(
-          '💸 ဒီနေ့ ဘတ်ဈေး (${data.updatedAt.substring(0, 10)})')
-      ..writeln(
-          '${_fmt(_amount.toInt())} ဘတ် လွှဲရင်:')
-      ..writeln();
-    for (var i = 0;
-        i < quotes.length && i < medals.length;
-        i++) {
-      final q = quotes[i];
+          '💸 ဒီနေ့ ဘတ်ဈေး (${data.updatedAt.substring(0, 10)})');
+    if (!_reverse) {
+      final quotes =
+          RatesService().compare(data, _amount);
+      if (quotes.isEmpty) return;
+      final medals = ['🥇', '🥈', '🥉', '4️⃣'];
+      buf.writeln('${_fmt(_amount.toInt())} ဘတ် လွှဲရင်:');
+      buf.writeln();
+      for (var i = 0;
+          i < quotes.length && i < medals.length;
+          i++) {
+        final q = quotes[i];
+        buf.writeln(
+            '${medals[i]} ${q.channel.nameMy} → ${_fmt(q.receivedMmk)} ကျပ်');
+      }
+    } else {
+      final quotes =
+          RatesService().compareReverse(data, _amount);
+      if (quotes.isEmpty) return;
       buf.writeln(
-          '${medals[i]} ${q.channel.nameMy} → ${_fmt(q.receivedMmk)} ကျပ်');
+          '${_fmt(_amount.toInt())} ကျပ် ရောက်ဖို့:');
+      buf.writeln();
+      final medals = ['🥇', '🥈', '🥉', '4️⃣'];
+      for (var i = 0;
+          i < quotes.length && i < medals.length;
+          i++) {
+        final q = quotes[i];
+        buf.writeln(
+            '${medals[i]} ${q.channel.nameMy} → ${_fmt(q.thbNeeded.toInt())} ဘတ်');
+      }
     }
     buf
       ..writeln()
       ..writeln('📲 $_appUrl');
     Share.share(buf.toString());
+  }
+
+  void _showInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ℹ️ ဘယ်လိုတွက်လဲ'),
+        content: const SingleChildScrollView(
+          child: Text(
+            '• Mid-market နှုန်း = ဘဏ်တွေကြား အရောင်းအဝယ်နှုန်း (အမှန်)\n\n'
+            '• Channel နှုန်း = mid-market − margin။ Margin က ခန့်မှန်းခြေ — '
+            'နေ့တိုင်း အနည်းငယ် ရွေ့တယ်။\n\n'
+            '• ⚠️ မစစ်ရသေး = ဒီနှုန်း အတည်မပြုရသေး။ လွှဲခါနီး counter/app မှာ အတည်ပြုပါ။\n\n'
+            '• Fee = channel က ကောက်တဲ့ ဝန်ဆောင်ခ။ ပမာဏအလိုက် ကွာတယ်။\n\n'
+            '• Hundi = တရားဝင် channel မဟုတ် — လိမ်လည်မှု သတိထား။\n\n'
+            'ဒီ app က သတင်းအချက်အလက်သာ ပေးတယ်။ ငွေလွှဲခြင်း မလုပ်ဘူး။',
+            style: TextStyle(fontSize: 14, height: 1.6),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ပိတ်မယ်'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -163,17 +216,33 @@ class _RatesScreenState extends State<RatesScreen> {
       appBar: AppBar(
         title: const Text('💸 ဘတ်ဈေး'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'ရှင်းလင်းချက်',
+            onPressed: _showInfo,
+          ),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeMode,
+            builder: (_, mode, __) => IconButton(
+              icon: Icon(mode == ThemeMode.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode),
+              tooltip: 'အလင်း/အမှောင်',
+              onPressed: () {
+                themeMode.value =
+                    mode == ThemeMode.dark
+                        ? ThemeMode.light
+                        : ThemeMode.dark;
+              },
+            ),
+          ),
           FutureBuilder<RateData>(
             future: _future,
             builder: (context, snap) => IconButton(
               icon: const Icon(Icons.share),
               tooltip: 'မျှဝေမယ်',
-              onPressed: snap.hasData
-                  ? () => _share(
-                      snap.data!,
-                      RatesService()
-                          .compare(snap.data!, _amount))
-                  : null,
+              onPressed:
+                  snap.hasData ? () => _share(snap.data!) : null,
             ),
           ),
           IconButton(
@@ -194,8 +263,6 @@ class _RatesScreenState extends State<RatesScreen> {
             );
           }
           final data = snap.data!;
-          final quotes =
-              RatesService().compare(data, _amount);
           return RefreshIndicator(
             onRefresh: () async =>
                 setState(() => _future = RatesService().load()),
@@ -204,21 +271,16 @@ class _RatesScreenState extends State<RatesScreen> {
               children: [
                 _marketHeader(data),
                 const SizedBox(height: 10),
+                _timingHint(data),
+                const SizedBox(height: 10),
+                _modeToggle(),
+                const SizedBox(height: 10),
                 _amountCard(),
                 const SizedBox(height: 10),
-                if (quotes.isEmpty)
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                          'ဒီပမာဏအတွက် channel မရှိဘူး — ပမာဏ ချိန်ကြည့်'),
-                    ),
-                  )
+                if (!_reverse)
+                  ..._forwardQuotes(data)
                 else
-                  ...quotes.asMap().entries.map(
-                        (e) =>
-                            _quoteCard(context, e.value, e.key),
-                      ),
+                  ..._reverseQuotes(data),
                 const SizedBox(height: 8),
                 _footer(data),
               ],
@@ -295,16 +357,79 @@ class _RatesScreenState extends State<RatesScreen> {
     );
   }
 
+  Widget _timingHint(RateData data) {
+    if (data.history.length < 5 ||
+        data.high7d == null ||
+        data.low7d == null) {
+      return const SizedBox.shrink();
+    }
+    final span = data.high7d! - data.low7d!;
+    if (span == 0) return const SizedBox.shrink();
+    final pos =
+        (data.midMarketRate - data.low7d!) / span;
+    late String text;
+    late Color color;
+    if (pos >= 0.7) {
+      text = '📈 7-ရက် အမြင့်နားမှာ — လွှဲဖို့ အချိန်ကောင်း';
+      color = Colors.green;
+    } else if (pos <= 0.3) {
+      text = '📉 7-ရက် အနိမ့်နားမှာ — မလိုအပ်ရင် ခဏစောင့်ကြည့်';
+      color = Colors.orange;
+    } else {
+      text = '➡️ 7-ရက် အလယ်အလတ် — ပုံမှန်အတိုင်း လွှဲလို့ရ';
+      color = Colors.blue;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(text,
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: color)),
+    );
+  }
+
+  Widget _modeToggle() {
+    return Center(
+      child: SegmentedButton<bool>(
+        segments: const [
+          ButtonSegment(
+              value: false,
+              label: Text('လွှဲမယ့်ပမာဏ'),
+              icon: Icon(Icons.arrow_upward, size: 16)),
+          ButtonSegment(
+              value: true,
+              label: Text('လိုချင်တဲ့ပမာဏ'),
+              icon: Icon(Icons.arrow_downward, size: 16)),
+        ],
+        selected: {_reverse},
+        onSelectionChanged: (s) => _setMode(s.first),
+      ),
+    );
+  }
+
   Widget _amountCard() {
-    const chips = [5000, 10000, 20000, 50000];
+    final chips = _reverse
+        ? [100000, 300000, 500000, 1000000]
+        : [5000, 10000, 20000, 50000];
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('လွှဲမယ့် ပမာဏ (ဘတ်)',
-                style: TextStyle(
+            Text(
+                _reverse
+                    ? 'အိမ်ကို ရောက်စေချင်တဲ့ ပမာဏ (ကျပ်)'
+                    : 'လွှဲမယ့် ပမာဏ (ဘတ်)',
+                style: const TextStyle(
                     fontSize: 13, color: Colors.grey)),
             const SizedBox(height: 8),
             Row(
@@ -317,10 +442,11 @@ class _RatesScreenState extends State<RatesScreen> {
                       FilteringTextInputFormatter
                           .digitsOnly
                     ],
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
                       isDense: true,
-                      prefixText: '฿ ',
+                      prefixText:
+                          _reverse ? 'ကျပ် ' : '฿ ',
                     ),
                     onSubmitted: (_) => setState(() {}),
                   ),
@@ -338,8 +464,7 @@ class _RatesScreenState extends State<RatesScreen> {
               children: chips
                   .map((c) => ChoiceChip(
                         label: Text(_fmt(c)),
-                        selected:
-                            _amount.toInt() == c,
+                        selected: _amount.toInt() == c,
                         onSelected: (_) {
                           _amountCtrl.text = c.toString();
                           setState(() {});
@@ -353,9 +478,151 @@ class _RatesScreenState extends State<RatesScreen> {
     );
   }
 
-  Widget _quoteCard(
-      BuildContext context, RateQuote q, int rank) {
-    final ch = q.channel;
+  List<Widget> _forwardQuotes(RateData data) {
+    final quotes = RatesService().compare(data, _amount);
+    if (quotes.isEmpty) {
+      return const [
+        Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+                'ဒီပမာဏအတွက် channel မရှိဘူး — ပမာဏ ချိန်ကြည့်'),
+          ),
+        )
+      ];
+    }
+    final widgets = <Widget>[];
+    final save =
+        quotes.first.receivedMmk - quotes.last.receivedMmk;
+    if (save > 0) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color:
+                    Colors.amber.withValues(alpha: 0.4)),
+          ),
+          child: Text(
+            '💰 အကောင်းဆုံးရွေးရင် ${_fmt(save)} ကျပ် ပိုရမယ်',
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+    widgets.addAll(quotes.asMap().entries.map(
+          (e) => _forwardCard(e.value, e.key),
+        ));
+    return widgets;
+  }
+
+  List<Widget> _reverseQuotes(RateData data) {
+    final quotes =
+        RatesService().compareReverse(data, _amount);
+    if (quotes.isEmpty) {
+      return const [
+        Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+                'ဒီပမာဏအတွက် channel မရှိဘူး — ပမာဏ ချိန်ကြည့်'),
+          ),
+        )
+      ];
+    }
+    final widgets = <Widget>[];
+    final save =
+        quotes.last.thbNeeded - quotes.first.thbNeeded;
+    if (save > 0) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color:
+                    Colors.amber.withValues(alpha: 0.4)),
+          ),
+          child: Text(
+            '💰 အကောင်းဆုံးရွေးရင် ${_fmt(save.toInt())} ဘတ် သက်သာမယ်',
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+    widgets.addAll(quotes.asMap().entries.map(
+          (e) => _reverseCard(e.value, e.key),
+        ));
+    return widgets;
+  }
+
+  Widget _header(RateChannel ch, int rank) {
+    final best = rank == 0;
+    final brand = _brandColors[ch.id] ?? Colors.teal;
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 16,
+          backgroundColor:
+              brand.withValues(alpha: 0.15),
+          child: Text(
+            _brandEmoji[ch.id] ?? '💱',
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(ch.nameMy,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold)),
+              Text(ch.name,
+                  style: const TextStyle(
+                      fontSize: 11, color: Colors.grey)),
+            ],
+          ),
+        ),
+        Text('#${rank + 1}',
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade500)),
+        if (best)
+          Container(
+            margin: const EdgeInsets.only(left: 6),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: brand,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('အကောင်းဆုံး',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold)),
+          ),
+      ],
+    );
+  }
+
+  Widget _cardShell(
+      {required RateChannel ch,
+      required int rank,
+      required Widget highlight,
+      required List<Widget> details}) {
     final best = rank == 0;
     final brand = _brandColors[ch.id] ?? Colors.teal;
     return Card(
@@ -371,95 +638,16 @@ class _RatesScreenState extends State<RatesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor:
-                      brand.withValues(alpha: 0.15),
-                  child: Text(
-                    _brandEmoji[ch.id] ?? '💱',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(ch.nameMy,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold)),
-                      Text(ch.name,
-                          style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey)),
-                    ],
-                  ),
-                ),
-                Text('#${rank + 1}',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade500)),
-                if (best)
-                  Container(
-                    margin: const EdgeInsets.only(left: 6),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: brand,
-                      borderRadius:
-                          BorderRadius.circular(12),
-                    ),
-                    child: const Text('အကောင်းဆုံး',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
-                  ),
-              ],
-            ),
+            _header(ch, rank),
             const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: best
-                    ? brand.withValues(alpha: 0.08)
-                    : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('လက်ခံရမယ်',
-                      style: TextStyle(fontSize: 13)),
-                  Text(
-                    '${_fmt(q.receivedMmk)} ကျပ်',
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: best
-                            ? brand
-                            : Colors.grey.shade800),
-                  ),
-                ],
-              ),
-            ),
+            highlight,
             const SizedBox(height: 8),
-            _detailRow('Fee', '${_fmt(q.feeThb.toInt())} ဘတ်'),
-            _detailRow('နှုန်း',
-                '1 ฿ = ${_fmtDouble(ch.rateThbMmk)} ကျပ်'),
-            _detailRow('⏱ ကြာချိန်', ch.transferTimeMy),
-            _detailRow('💰 ထုတ်ယူရန်', ch.payoutMy),
+            ...details,
             if (!ch.verified)
               const Padding(
                 padding: EdgeInsets.only(top: 4),
-                child: Text('⚠️ နှုန်းမစစ်ရသေး — လွှဲခါနီး အတည်ပြုပါ',
+                child: Text(
+                    '⚠️ နှုန်းမစစ်ရသေး — လွှဲခါနီး အတည်ပြုပါ',
                     style: TextStyle(
                         fontSize: 11, color: Colors.orange)),
               ),
@@ -503,6 +691,39 @@ class _RatesScreenState extends State<RatesScreen> {
     );
   }
 
+  Widget _highlightBox(
+      {required String label,
+      required String value,
+      required bool best,
+      required String channelId}) {
+    final brand = _brandColors[channelId] ?? Colors.teal;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: best
+            ? brand.withValues(alpha: 0.08)
+            : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13)),
+          Text(
+            value,
+            style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: best
+                    ? brand
+                    : Colors.grey.shade800),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _detailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -520,6 +741,50 @@ class _RatesScreenState extends State<RatesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _forwardCard(RateQuote q, int rank) {
+    final ch = q.channel;
+    return _cardShell(
+      ch: ch,
+      rank: rank,
+      highlight: _highlightBox(
+        label: 'လက်ခံရမယ်',
+        value: '${_fmt(q.receivedMmk)} ကျပ်',
+        best: rank == 0,
+        channelId: ch.id,
+      ),
+      details: [
+        _detailRow(
+            'Fee', '${_fmt(q.feeThb.toInt())} ဘတ်'),
+        _detailRow('နှုန်း',
+            '1 ฿ = ${_fmtDouble(ch.rateThbMmk)} ကျပ်'),
+        _detailRow('⏱ ကြာချိန်', ch.transferTimeMy),
+        _detailRow('💰 ထုတ်ယူရန်', ch.payoutMy),
+      ],
+    );
+  }
+
+  Widget _reverseCard(ReverseQuote q, int rank) {
+    final ch = q.channel;
+    return _cardShell(
+      ch: ch,
+      rank: rank,
+      highlight: _highlightBox(
+        label: 'လွှဲရမယ့် ဘတ်',
+        value: '${_fmt(q.thbNeeded.toInt())} ဘတ်',
+        best: rank == 0,
+        channelId: ch.id,
+      ),
+      details: [
+        _detailRow(
+            'Fee', '≈ ${_fmt(q.feeThb.toInt())} ဘတ် ပါ'),
+        _detailRow('နှုန်း',
+            '1 ฿ = ${_fmtDouble(ch.rateThbMmk)} ကျပ်'),
+        _detailRow('⏱ ကြာချိန်', ch.transferTimeMy),
+        _detailRow('💰 ထုတ်ယူရန်', ch.payoutMy),
+      ],
     );
   }
 
