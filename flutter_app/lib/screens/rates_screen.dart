@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../rates_service.dart';
 
@@ -245,6 +246,24 @@ class _RatesScreenState extends State<RatesScreen> {
                     style: const TextStyle(
                         fontSize: 12, color: Colors.grey)),
               ),
+            if (ch.referralUrl.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: Text('${ch.name} ကနေ လွှဲမယ် →'),
+                  onPressed: () async {
+                    final uri = Uri.parse(ch.referralUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode:
+                              LaunchMode.externalApplication);
+                    }
+                  },
+                ),
+              ),
+            ],
           ],
         ),
       ),

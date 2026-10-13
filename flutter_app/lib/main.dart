@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'services.dart';
-import 'screens.dart';
+import 'screens/rates_screen.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Prefs.init();
-  await TtsService().init();
+void main() {
   runApp(const ThaiHelperApp());
 }
 
@@ -15,12 +11,12 @@ class ThaiHelperApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Thai Helper',
+      title: 'ငွေလွှဲနှုန်း',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const RatesScreen(),
     );
   }
 }
