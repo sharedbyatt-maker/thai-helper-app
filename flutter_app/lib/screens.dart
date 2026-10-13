@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models.dart';
 import 'services.dart';
+import 'screens/rates_screen.dart';
 
 // ---------------- Home ----------------
 
@@ -118,10 +119,15 @@ class HomeScreen extends StatelessWidget {
                   leading: const Text('💸',
                       style: TextStyle(fontSize: 28)),
                   title: const Text('ငွေလွှဲနှုန်း နှိုင်းယှဉ်ချက်'),
-                  subtitle: const Text('မကြာမီ လာမည်'),
-                  onTap: () => ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(
-                          content: Text('Phase 1B မှာ ပါမယ်'))),
+                  subtitle:
+                      const Text('ဘယ်က အသက်သာဆုံး နှိပ်ကြည့်'),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios),
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              const RatesScreen())),
                 ),
               ),
             ],

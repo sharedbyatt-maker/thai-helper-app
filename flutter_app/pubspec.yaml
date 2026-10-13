@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   flutter_tts: ^4.0.2
   shared_preferences: ^2.2.0
+  http: ^1.1.0
   cupertino_icons: ^1.0.6
 
 dev_dependencies:
@@ -23,3 +24,4 @@ flutter:
   assets:
     - assets/data/phrases.json
     - assets/data/phrase_categories.json
+    - assets/data/rates_snapshot.json
