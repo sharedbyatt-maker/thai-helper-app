@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,12 +13,15 @@ class TtsService {
 
   final FlutterTts _tts = FlutterTts();
   bool _ready = false;
+  Map<String, String>? _cachedThaiVoice;
 
   Future<void> init() async {
     await _tts.setLanguage('th-TH');
     await _tts.setSpeechRate(0.45); // slower = clearer for learners
     await _tts.setPitch(1.0);
     _ready = true;
+    // Warm the voice cache early; on web, voices arrive late.
+    unawaited(_findThaiVoice());
   }
 
   Future<bool> get isThaiAvailable async {
@@ -25,29 +30,38 @@ class TtsService {
 
   /// Explicitly select a Thai voice. Some platforms/browsers ignore
   /// setLanguage('th-TH') and fall back to a wrong-language voice,
-  /// which mangles Thai pronunciation. Returns the voice map or null.
+  /// which mangles Thai pronunciation. Voices can also arrive late
+  /// (web), so retry within a bounded window and cache the result.
   Future<Map<String, String>?> _findThaiVoice() async {
-    try {
-      final voices = await _tts.getVoices;
-      if (voices is List) {
-        for (final v in voices) {
-          if (v is Map) {
-            final locale =
-                (v['locale'] ?? '').toString().toLowerCase();
-            final name =
-                (v['name'] ?? '').toString().toLowerCase();
-            if (locale.startsWith('th') ||
-                name.contains('thai') ||
-                name.contains('th-th')) {
-              return {
-                'name': v['name'].toString(),
-                'locale': v['locale'].toString(),
-              };
+    if (_cachedThaiVoice != null) return _cachedThaiVoice;
+    final stopwatch = Stopwatch()..start();
+    const window = Duration(seconds: 4);
+    const poll = Duration(milliseconds: 250);
+    while (stopwatch.elapsed < window) {
+      try {
+        final voices = await _tts.getVoices;
+        if (voices is List) {
+          for (final v in voices) {
+            if (v is Map) {
+              final locale =
+                  (v['locale'] ?? '').toString().toLowerCase();
+              final name =
+                  (v['name'] ?? '').toString().toLowerCase();
+              if (locale.startsWith('th') ||
+                  name.contains('thai') ||
+                  name.contains('th-th')) {
+                _cachedThaiVoice = {
+                  'name': v['name'].toString(),
+                  'locale': v['locale'].toString(),
+                };
+                return _cachedThaiVoice;
+              }
             }
           }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+      await Future<void>.delayed(poll);
+    }
     return null;
   }
 

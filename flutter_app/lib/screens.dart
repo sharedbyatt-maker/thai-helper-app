@@ -2,23 +2,12 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 import 'services.dart';
 
-const Map<String, String> categoryIcons = {
-  'greetings': '👋',
-  'emergency': '🚨',
-  'hospital': '🏥',
-  'police_immigration': '👮',
-  'employer_work': '💼',
-  'market_shopping': '🛒',
-  'housing': '🏠',
-  'transport': '🚌',
-  'money': '💸',
-  'phone_sim': '📱',
-};
-
 // ---------------- Home ----------------
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  Future<ContentBundle> _content() => loadContent();
 
   @override
   Widget build(BuildContext context) {
@@ -29,24 +18,24 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () async {
-              final cats = await loadCategories();
+              final c = await _content();
               if (context.mounted) {
                 showSearch(
                     context: context,
-                    delegate: PhraseSearchDelegate(cats));
+                    delegate: PhraseSearchDelegate(c));
               }
             },
           ),
           IconButton(
             icon: const Icon(Icons.star_border),
             onPressed: () async {
-              final cats = await loadCategories();
+              final c = await _content();
               if (context.mounted) {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
                         builder: (_) =>
-                            FavoritesScreen(categories: cats)));
+                            FavoritesScreen(content: c)));
               }
             },
           ),
@@ -59,19 +48,18 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: FutureBuilder<List<Category>>(
-        future: loadCategories(),
+      body: FutureBuilder<ContentBundle>(
+        future: _content(),
         builder: (context, snap) {
           if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final cats = snap.data!;
-          final all = cats.expand((c) => c.phrases).toList();
+          final content = snap.data!;
           final dayIndex = DateTime.now()
                   .difference(DateTime(DateTime.now().year, 1, 1))
                   .inDays %
-              all.length;
-          final daily = all[dayIndex];
+              content.phrases.length;
+          final daily = content.phrases[dayIndex];
           return ListView(
             padding: const EdgeInsets.all(12),
             children: [
@@ -83,34 +71,39 @@ class HomeScreen extends StatelessWidget {
                 gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 1.4,
+                  childAspectRatio: 1.5,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
                 ),
-                itemCount: cats.length,
+                itemCount: content.categories.length,
                 itemBuilder: (context, i) {
-                  final c = cats[i];
+                  final cat = content.categories[i];
+                  final count =
+                      content.byCategory[cat.id]?.length ?? 0;
                   return Card(
                     child: InkWell(
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) =>
-                                  PhraseListScreen(category: c))),
+                              builder: (_) => PhraseListScreen(
+                                  content: content,
+                                  category: cat))),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(categoryIcons[c.id] ?? '💬',
+                            Text(cat.icon,
                                 style:
-                                    const TextStyle(fontSize: 32)),
+                                    const TextStyle(fontSize: 30)),
                             const SizedBox(height: 4),
-                            Text(c.my,
+                            Text(cat.my,
+                                textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            Text('${c.phrases.length} စကားစု',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13)),
+                            Text('$count စကားစု',
                                 style: const TextStyle(
-                                    fontSize: 12, color: Colors.grey)),
+                                    fontSize: 11, color: Colors.grey)),
                           ],
                         ),
                       ),
@@ -143,14 +136,14 @@ class HomeScreen extends StatelessWidget {
       color: Colors.amber.shade50,
       child: ListTile(
         leading: const Text('📅', style: TextStyle(fontSize: 28)),
-        title: Text(p.th,
+        title: Text(p.displayThai(Prefs.isMale),
             style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold)),
-        subtitle: Text('${p.my} • ${p.phon}'),
+                fontSize: 17, fontWeight: FontWeight.bold)),
+        subtitle: Text('${p.my} • ${p.pronunciation}'),
         trailing: IconButton(
           icon: const Icon(Icons.volume_up, size: 32),
           onPressed: () =>
-              TtsService().speak(p.displayTh(Prefs.isMale)),
+              TtsService().speak(p.displayThai(Prefs.isMale)),
         ),
         onTap: () => Navigator.push(
             context,
@@ -164,30 +157,32 @@ class HomeScreen extends StatelessWidget {
 // ---------------- Phrase list ----------------
 
 class PhraseListScreen extends StatelessWidget {
+  final ContentBundle content;
   final Category category;
-  const PhraseListScreen({super.key, required this.category});
+  const PhraseListScreen(
+      {super.key, required this.content, required this.category});
 
   @override
   Widget build(BuildContext context) {
+    final phrases = content.byCategory[category.id] ?? const [];
     return Scaffold(
       appBar: AppBar(
-          title: Text(
-              '${categoryIcons[category.id] ?? ''} ${category.my}')),
+          title: Text('${category.icon} ${category.my}')),
       body: ListView.separated(
-        itemCount: category.phrases.length,
+        itemCount: phrases.length,
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, i) {
-          final p = category.phrases[i];
+          final p = phrases[i];
           return ListTile(
-            title: Text(p.th,
+            title: Text(p.displayThai(Prefs.isMale),
                 style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w600)),
-            subtitle: Text('${p.my}\n${p.phon}'),
+                    fontSize: 16, fontWeight: FontWeight.w600)),
+            subtitle: Text('${p.my}\n${p.pronunciation}'),
             isThreeLine: true,
             trailing: IconButton(
               icon: const Icon(Icons.volume_up),
               onPressed: () =>
-                  TtsService().speak(p.displayTh(Prefs.isMale)),
+                  TtsService().speak(p.displayThai(Prefs.isMale)),
             ),
             onTap: () => Navigator.push(
                 context,
@@ -228,7 +223,7 @@ class _PhraseDetailScreenState extends State<PhraseDetailScreen> {
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -236,10 +231,16 @@ class _PhraseDetailScreenState extends State<PhraseDetailScreen> {
             Text(p.my,
                 style:
                     const TextStyle(fontSize: 16, color: Colors.grey)),
+            if (p.en != null && p.en!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(p.en!,
+                  style: const TextStyle(
+                      fontSize: 14, color: Colors.grey)),
+            ],
             const SizedBox(height: 16),
-            Text(p.displayTh(Prefs.isMale),
+            Text(p.displayThai(Prefs.isMale),
                 style: const TextStyle(
-                    fontSize: 34, fontWeight: FontWeight.bold)),
+                    fontSize: 32, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -247,7 +248,7 @@ class _PhraseDetailScreenState extends State<PhraseDetailScreen> {
                 color: Colors.teal.shade50,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text('🔊 ${p.phon}',
+              child: Text('🔊 ${p.pronunciation}',
                   style: const TextStyle(fontSize: 20)),
             ),
             const SizedBox(height: 32),
@@ -259,7 +260,7 @@ class _PhraseDetailScreenState extends State<PhraseDetailScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               onPressed: () =>
-                  TtsService().speak(p.displayTh(Prefs.isMale)),
+                  TtsService().speak(p.displayThai(Prefs.isMale)),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -308,11 +309,8 @@ class _PhraseDetailScreenState extends State<PhraseDetailScreen> {
 // ---------------- Search ----------------
 
 class PhraseSearchDelegate extends SearchDelegate<Phrase?> {
-  final List<Category> categories;
-  PhraseSearchDelegate(this.categories);
-
-  List<Phrase> _all() =>
-      categories.expand((c) => c.phrases).toList();
+  final ContentBundle content;
+  PhraseSearchDelegate(this.content);
 
   @override
   List<Widget> buildActions(BuildContext context) => [
@@ -338,23 +336,18 @@ class PhraseSearchDelegate extends SearchDelegate<Phrase?> {
     final q = query.trim();
     final hits = q.isEmpty
         ? <Phrase>[]
-        : _all()
-            .where((p) =>
-                p.my.contains(q) ||
-                p.th.contains(q) ||
-                p.phon.contains(q))
-            .toList();
+        : content.phrases.where((p) => p.matches(q)).toList();
     return ListView.builder(
       itemCount: hits.length,
       itemBuilder: (context, i) {
         final p = hits[i];
         return ListTile(
-          title: Text(p.th),
-          subtitle: Text('${p.my} • ${p.phon}'),
+          title: Text(p.displayThai(Prefs.isMale)),
+          subtitle: Text('${p.my} • ${p.pronunciation}'),
           trailing: IconButton(
             icon: const Icon(Icons.volume_up),
             onPressed: () =>
-                TtsService().speak(p.displayTh(Prefs.isMale)),
+                TtsService().speak(p.displayThai(Prefs.isMale)),
           ),
           onTap: () => Navigator.push(
               context,
@@ -369,19 +362,19 @@ class PhraseSearchDelegate extends SearchDelegate<Phrase?> {
 // ---------------- Favorites ----------------
 
 class FavoritesScreen extends StatelessWidget {
-  final List<Category> categories;
-  const FavoritesScreen({super.key, required this.categories});
+  final ContentBundle content;
+  const FavoritesScreen({super.key, required this.content});
 
   @override
   Widget build(BuildContext context) {
-    final favs = categories
-        .expand((c) => c.phrases)
+    final favs = content.phrases
         .where((p) => Prefs.favorites.contains(p.id))
         .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('⭐ ကြိုက်နှစ်သက်ရာ')),
       body: favs.isEmpty
-          ? const Center(child: Text('မရှိသေးဘူး — ⭐ နှိပ်ပြီး သိမ်းပါ'))
+          ? const Center(
+              child: Text('မရှိသေးဘူး — ⭐ နှိပ်ပြီး သိမ်းပါ'))
           : ListView.separated(
               itemCount: favs.length,
               separatorBuilder: (_, __) =>
@@ -389,14 +382,15 @@ class FavoritesScreen extends StatelessWidget {
               itemBuilder: (context, i) {
                 final p = favs[i];
                 return ListTile(
-                  title: Text(p.th,
+                  title: Text(p.displayThai(Prefs.isMale),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600)),
-                  subtitle: Text('${p.my} • ${p.phon}'),
+                  subtitle:
+                      Text('${p.my} • ${p.pronunciation}'),
                   trailing: IconButton(
                     icon: const Icon(Icons.volume_up),
                     onPressed: () => TtsService()
-                        .speak(p.displayTh(Prefs.isMale)),
+                        .speak(p.displayThai(Prefs.isMale)),
                   ),
                   onTap: () => Navigator.push(
                       context,
@@ -447,7 +441,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 showDialog(
                   context: context,
                   builder: (_) => AlertDialog(
-                    title: Text(ok ? '✅ အဆင်ပြေတယ်' : '⚠️ အသံလိုနေတယ်'),
+                    title:
+                        Text(ok ? '✅ အဆင်ပြေတယ်' : '⚠️ အသံလိုနေတယ်'),
                     content: Text(ok
                         ? 'ထိုင်းအသံ အသင့်ဖြစ်နေပြီ။ 🔊 ခလုတ်တွေ အမှန်ထွက်မယ်။'
                         : 'ထိုင်းအသံ မရှိသေးဘူး! အသံခလုတ်နှိပ်ရင် ဖုန်းက ထိုင်းစာကို တခြားဘာသာအသံနဲ့ ဖတ်မယ် — နားမလည်နိုင်ဘူး။\n\nဖြေရှင်းချက်: Settings → Language → Text-to-speech → ထိုင်း (ไทย) voice pack ကို download ဆွဲပါ။'),
@@ -466,7 +461,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: Icon(Icons.info_outline),
             title: Text('Thai Helper v1.0'),
             subtitle: Text(
-                'ထိုင်းရောက် မြန်မာလုပ်သားများအတွက်\nထိုင်းစာသားများ native speaker စစ်ဆေးဆဲ (beta)'),
+                'စကားစု ၅၀၀ • ထိုင်းရောက် မြန်မာလုပ်သားများအတွက်\nContent: thai-for-myanmar audit (PROVISIONAL)'),
           ),
         ],
       ),
