@@ -12,11 +12,13 @@ spot-check TrueMoney/WU counters daily and flip verified=true.
 Run daily (cron):  python3 update_rates.py
 """
 import json
+import os
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
 ER_API = "https://open.er-api.com/v6/latest/THB"
-RATES_FILE = "rates.json"
+HERE = os.path.dirname(os.path.abspath(__file__))
+RATES_FILE = os.path.join(HERE, "rates.json")
 BKK = timezone(timedelta(hours=7))
 
 
