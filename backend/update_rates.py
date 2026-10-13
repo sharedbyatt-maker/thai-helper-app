@@ -38,11 +38,17 @@ def main():
         ch["verified"] = False  # estimates until human confirms
     data["mid_market_rate"] = round(mid, 2)
     data["mid_market_source"] = "open.er-api.com (auto)"
+    today = datetime.now(BKK).date().isoformat()
     data["updated_at"] = datetime.now(BKK).isoformat(timespec="seconds")
+    # Append to history (keep 90 days)
+    hist = data.get("history", [])
+    hist = [h for h in hist if h.get("date") != today]
+    hist.append({"date": today, "mid": round(mid, 2)})
+    data["history"] = hist[-90:]
     with open(RATES_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     print(f"mid-market {mid:.2f} -> updated {len(data['channels'])} channels "
-          f"(estimates, verified=false)")
+          f"(estimates, verified=false), history {len(data['history'])} pts")
 
 
 if __name__ == "__main__":

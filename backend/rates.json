@@ -104,5 +104,36 @@
   "mid_market_rate": 62.5,
   "mid_market_source": "open.er-api.com (auto)",
   "target_currency": "MMK",
-  "updated_at": "2026-10-13T22:13:23+07:00"
+  "updated_at": "2026-10-13T22:13:23+07:00",
+  "history": [
+    {
+      "date": "2026-10-07",
+      "mid": 62.42
+    },
+    {
+      "date": "2026-10-08",
+      "mid": 62.42
+    },
+    {
+      "date": "2026-10-09",
+      "mid": 62.55
+    },
+    {
+      "date": "2026-10-10",
+      "mid": 62.55
+    },
+    {
+      "date": "2026-10-11",
+      "mid": 62.48
+    },
+    {
+      "date": "2026-10-12",
+      "mid": 62.43
+    },
+    {
+      "date": "2026-10-13",
+      "mid": 62.5
+    }
+  ],
+  "history_source": "exchangerate.guru (Oct 7-12), open.er-api.com (Oct 13)"
 }

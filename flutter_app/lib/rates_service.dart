@@ -102,12 +102,14 @@ class RateData {
   final double midMarketRate;
   final String disclaimerMy;
   final List<RateChannel> channels;
+  final List<HistoryPoint> history;
 
   RateData({
     required this.updatedAt,
     required this.midMarketRate,
     required this.disclaimerMy,
     required this.channels,
+    required this.history,
   });
 
   factory RateData.fromJson(Map<String, dynamic> j) => RateData(
@@ -119,6 +121,44 @@ class RateData {
             .map((c) =>
                 RateChannel.fromJson(c as Map<String, dynamic>))
             .toList(),
+        history: ((j['history'] ?? []) as List)
+            .map((h) =>
+                HistoryPoint.fromJson(h as Map<String, dynamic>))
+            .toList(),
+      );
+
+  /// 7-day change in percent, null when not enough data.
+  double? get change7dPct {
+    if (history.length < 2) return null;
+    final first = history.first.mid;
+    final last = history.last.mid;
+    if (first == 0) return null;
+    return (last - first) / first * 100;
+  }
+
+  double? get high7d => history.isEmpty
+      ? null
+      : history
+          .map((h) => h.mid)
+          .reduce((a, b) => a > b ? a : b);
+
+  double? get low7d => history.isEmpty
+      ? null
+      : history
+          .map((h) => h.mid)
+          .reduce((a, b) => a < b ? a : b);
+}
+
+class HistoryPoint {
+  final String date;
+  final double mid;
+
+  HistoryPoint({required this.date, required this.mid});
+
+  factory HistoryPoint.fromJson(Map<String, dynamic> j) =>
+      HistoryPoint(
+        date: j['date'] as String? ?? '',
+        mid: ((j['mid'] ?? 0) as num).toDouble(),
       );
 }
 
