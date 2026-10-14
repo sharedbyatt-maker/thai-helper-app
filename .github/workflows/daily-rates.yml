@@ -53,4 +53,11 @@ jobs:
           publish_branch: gh-pages
 
       - name: Push rates.json changes
-        run: git push origin master || true
+        # NOTE 2026-10-14: the scheduled run's push was once rejected by GitHub
+        # ("[remote rejected] master -> master (failed)") while the gh-pages
+        # deploy in the same run succeeded. Do NOT mask push failures with
+        # `|| true` — a red run here is the signal we need. Rebase first to
+        # survive races with manual web edits of rates.json.
+        run: |
+          git pull --rebase origin master
+          git push origin master
