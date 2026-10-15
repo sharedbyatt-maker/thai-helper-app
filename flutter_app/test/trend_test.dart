@@ -25,7 +25,7 @@ void main() {
         'day': day,
         'quote_id': 'a',
         'source_name': source,
-        'source_url': '',
+        'source_url': 'https://example.com/different-post',
         'payout_method': 'bank',
         'direction': direction,
         'rate_micros': 125000000,

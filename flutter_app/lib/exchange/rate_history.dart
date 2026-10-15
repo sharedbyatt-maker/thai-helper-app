@@ -40,7 +40,6 @@ class RatePoint {
       quoteId == q.id &&
       direction == q.direction &&
       sourceName == q.sourceName &&
-      sourceUrl == q.sourceUrl &&
       payoutMethod == q.payoutMethod;
 }
 

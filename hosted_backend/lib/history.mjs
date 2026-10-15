@@ -11,7 +11,7 @@ export function publicHistory(rows, now=Date.now()) {
    if(!Number.isFinite(observed)||observed>now+300000)continue;
    const day=new Date(observed+7*3600000).toISOString().slice(0,10);
    if(day<first||day>today)continue;
-   const identity=[q.id,q.direction,q.source_name,q.source_url,q.payout_method];
+   const identity=[q.id,q.direction,q.source_name,q.payout_method];
    const key=JSON.stringify([day,...identity]);
    if(daily.has(key))continue;
    daily.set(key,{day,quote_id:q.id,direction:q.direction,source_name:q.source_name,source_url:q.source_url,payout_method:q.payout_method,rate_micros:q.rate_micros});
