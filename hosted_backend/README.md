@@ -34,3 +34,7 @@ This deployment does not create a paid Render service. Direct Cloudflare Workers
 ## Public rate trend
 
 `/api/v2/history` exposes only already-published rate observations from the last 30 Bangkok calendar days (up to the latest 400 revisions). The chart separates quote ID, direction, source name and payout method; it keeps the last published observation for each source/day and does not fill missing days. Rates are MMK per THB, excluding fees. At least two observed days are needed to draw a trend. Low/high and percentage change describe the available observations, not an inferred market-wide price. Draft and admin data are never included.
+
+## Guided daily entry
+
+Direction shortcuts reuse existing quote IDs. The ordinary form asks for a rate and source name, with faded format examples and a live equivalent-rate explanation. New opposite-direction quotes copy source descriptions but require their own rate. The Today button refreshes observation/expiry and clears source confirmation. Optional labels, payout details, timestamps, notes and deductions are collapsed. Blank deductions save as zero; existing nonzero deductions are expanded and preserved. Examples are never used as rate defaults.

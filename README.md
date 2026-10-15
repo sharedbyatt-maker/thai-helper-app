@@ -16,6 +16,12 @@ Enter separate THB→MMK and MMK→THB quotes, include source/fee/expiry, check 
 
 The GitHub Pages workflow uses this hosted API by default. Set the optional repository Actions variable `RATES_API` to a different origin when migrating. The Flutter client itself retains same-origin API behavior when built without that define, suitable for the optional Python/Docker deployment below.
 
+## Simple daily workflow
+
+The public calculator starts with amount and rate only. Comparison and target-payout options are collapsed. Separate deductions are optional and collapsed for zero-charge quotes; existing nonzero deductions automatically remain visible and included in calculations. The rate board keeps source/time details collapsed and shows a compact card while history is unavailable.
+
+The hosted admin form has direction shortcuts, faded input examples, a live equivalent-rate explanation, required source confirmation, and a button to refresh observation/expiry times for daily editing. Existing quote IDs are reused by direction shortcuts. New opposite-direction rows copy source details but never infer a rate. Names, payout method, timestamps, notices and separate deductions are optional details; blank deduction values save as zero. Example numbers are never saved as actual rates.
+
 ## User interface and rate trend
 
 The public board includes a source-specific 7/30-day chart, selectable observations, low/high summaries and calculator/chat shortcuts. The chart uses already-published observations from the hosted `/api/v2/history` endpoint, groups days in Bangkok time, and separates directions, source identity and payout method. It does not fill missing days. At least two recorded days are needed for a line; empty, loading, unavailable and cached-history states are labeled. Displayed chart rates exclude fees. The optional standalone Python backend does not currently expose the history endpoint; its calculator and daily sheet remain usable.

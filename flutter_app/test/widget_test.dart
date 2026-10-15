@@ -81,7 +81,7 @@ void main() {
       await tester.enterText(find.byKey(const ValueKey('amount')), '10000');
       await reveal(tester, find.byKey(const ValueKey('rate_0')), 200);
       await tester.enterText(find.byKey(const ValueKey('rate_0')), '125');
-      final calculate = find.text('တွက်ပြီး နှိုင်းမယ်');
+      final calculate = find.byKey(const ValueKey('calculate'));
       await reveal(tester, calculate, 250);
       await tester.tap(calculate);
       await tester.pumpAndSettle();

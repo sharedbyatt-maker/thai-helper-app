@@ -37,6 +37,8 @@ class _TrendCardState extends State<TrendCard> {
         ? <RatePoint>[]
         : widget.history?.series(q, days) ?? <RatePoint>[];
     final canChart = points.length >= 2;
+    final hasHistory =
+        q != null && (widget.history?.series(q, 30).length ?? 0) >= 2;
     final current = q?.rateMicros;
     final low = points.isEmpty
         ? null
@@ -103,7 +105,7 @@ class _TrendCardState extends State<TrendCard> {
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'နှုန်းလမ်းကြောင်း',
+                        'ယနေ့ ငွေလဲနှုန်း',
                         style: TextStyle(
                           color: pale,
                           fontWeight: FontWeight.w600,
@@ -123,7 +125,7 @@ class _TrendCardState extends State<TrendCard> {
             const SizedBox(height: 18),
             Text(
               q == null
-                  ? 'နှုန်းအသစ် စောင့်နေပါတယ်'
+                  ? 'ယနေ့နှုန်း မတင်ရသေးပါ'
                   : '၁ ဘတ် = ${rateText(current!)} ကျပ်',
               style: const TextStyle(
                 fontSize: 30,
@@ -190,43 +192,45 @@ class _TrendCardState extends State<TrendCard> {
                   }),
                 ),
               ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final n in [7, 30])
-                  Semantics(
-                    selected: days == n,
-                    child: TextButton(
-                      onPressed: () => setState(() {
-                        days = n;
-                        hovered = null;
-                      }),
-                      style: TextButton.styleFrom(
-                        foregroundColor: days == n
-                            ? const Color(0xff075d4d)
-                            : Colors.white,
-                        backgroundColor: days == n
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: .10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 9,
+            if (hasHistory) ...[
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final n in [7, 30])
+                    Semantics(
+                      selected: days == n,
+                      child: TextButton(
+                        onPressed: () => setState(() {
+                          days = n;
+                          hovered = null;
+                        }),
+                        style: TextButton.styleFrom(
+                          foregroundColor: days == n
+                              ? const Color(0xff075d4d)
+                              : Colors.white,
+                          backgroundColor: days == n
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: .10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 9,
+                          ),
+                          minimumSize: const Size(64, 42),
                         ),
-                        minimumSize: const Size(64, 42),
+                        child: Text('$n ရက်'),
                       ),
-                      child: Text('$n ရက်'),
                     ),
-                  ),
-                if (change != null)
-                  tag(
-                    '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}% · မှတ်တမ်းကာလ',
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                  if (change != null)
+                    tag(
+                      '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}% · မှတ်တမ်းကာလ',
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             if (canChart) ...[
               Text(
                 focus == null
@@ -290,58 +294,23 @@ class _TrendCardState extends State<TrendCard> {
               ),
               const SizedBox(height: 14),
               Text(
-                '${widget.history?.cached == true ? 'သိမ်းထားသောမှတ်တမ်း · ' : ''}၁ ဘတ်အတွက် ကျပ် · Fee မပါ · မှတ်တမ်းရှိသည့်ရက်များသာ · ထိုင်းအချိန်',
+                '${widget.history?.cached == true ? 'သိမ်းထားသောမှတ်တမ်း · ' : ''}၁ ဘတ်အတွက် ကျပ် · သီးသန့်နုတ်ငွေ မပါ · မှတ်တမ်းရှိသည့်ရက်များသာ · ထိုင်းအချိန်',
                 style: const TextStyle(fontSize: 11, color: pale, height: 1.8),
               ),
-            ] else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 24,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .07),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: .13),
+            ] else if (q != null || widget.loading)
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: Text(
+                  widget.loading
+                      ? 'မှတ်တမ်း ရယူနေပါတယ်'
+                      : widget.unavailable
+                      ? 'ယခင်ရက် မှတ်တမ်းကို ရယူမရသေးပါ။'
+                      : 'ယခင်ရက် နှုန်းမှတ်တမ်း ရလာလျှင် graph ပြပေးပါမယ်။',
+                  style: const TextStyle(
+                    color: pale,
+                    fontSize: 12,
+                    height: 1.8,
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      widget.loading
-                          ? Icons.hourglass_empty_rounded
-                          : Icons.insights_rounded,
-                      color: pale,
-                      size: 28,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      widget.loading
-                          ? 'မှတ်တမ်း ရယူနေပါတယ်'
-                          : widget.unavailable
-                          ? 'နှုန်းမှတ်တမ်းကို ရယူမရသေးပါ'
-                          : 'Graph အတွက် မှတ်တမ်းစုဆောင်းနေပါတယ်',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.unavailable
-                          ? 'နောက်တစ်ကြိမ် Refresh လုပ်ပြီး ကြည့်နိုင်ပါတယ်။'
-                          : 'Source တူ၊ ဦးတည်ချက်တူ နှုန်းမှတ်တမ်း အနည်းဆုံး ၂ ရက်ရှိလျှင် ပြပေးပါမယ်။',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: pale,
-                        fontSize: 12,
-                        height: 1.8,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             if (q != null && active)
