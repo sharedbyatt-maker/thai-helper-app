@@ -155,7 +155,9 @@ class CalcLine {
         flat == null ||
         bps == null ||
         bps >= 10000) {
-      throw FormatException('ဈေး ${index + 1}: နှုန်း / Fee ကို ပြန်စစ်ပါ');
+      throw FormatException(
+        'ဈေး ${index + 1}: နှုန်းနှင့် နုတ်ငွေကို ပြန်စစ်ပါ',
+      );
     }
     final scaled = (perLakh ? 100000 / value : value) * rateScale;
     if (!scaled.isFinite || scaled < 1 || scaled > 1000000000000) {
@@ -196,7 +198,7 @@ class ExchangeHome extends StatefulWidget {
 class _ExchangeHomeState extends State<ExchangeHome> {
   late final repo = widget.repository ?? RatesRepository();
   final store = RecordStore();
-  final amount = TextEditingController(text: '10000');
+  final amount = TextEditingController();
   final lines = <CalcLine>[CalcLine(label: 'ဈေး A')];
   List<Calculation> results = [];
   List<PersonalRecord> records = [];
@@ -332,7 +334,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
       direction = next;
       results = [];
       calcError = null;
-      amount.text = next == ExchangeDirection.thbMmk ? '10000' : '1000000';
+      amount.clear();
       for (final line in lines) {
         line.dispose();
       }
@@ -368,7 +370,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
         }
         final received = q.payout(budget);
         if (received <= 0) {
-          throw const FormatException('Fee ထက် ပေးငွေ နည်းနေပါသည်။');
+          throw const FormatException('သီးသန့်နုတ်ငွေထက် ပေးငွေ နည်းနေပါသည်။');
         }
         calculated.add(Calculation(q, budget, received));
       }
@@ -553,7 +555,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'နှုန်းကိုကြည့်၊ ကိုယ့်ဈေးနဲ့တွက်၊ စိတ်ချလက်ချ နှိုင်းယှဉ်ပါ။',
+                  'ယနေ့နှုန်းကို ကြည့်ပြီး လဲမလဲ ဆုံးဖြတ်ပါ။',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     height: 1.8,
@@ -572,37 +574,6 @@ class _ExchangeHomeState extends State<ExchangeHome> {
             onCalculate: useQuote,
           ),
           const SizedBox(height: 18),
-          LayoutBuilder(
-            builder: (context, c) {
-              final actions = [
-                quickAction(
-                  Icons.calculate_outlined,
-                  'ကိုယ့်ဈေးနဲ့ တွက်မယ်',
-                  'ပေးငွေ၊ ရငွေ၊ Fee နှိုင်းယှဉ်ရန်',
-                  () => setState(() => tab = 1),
-                ),
-                quickAction(
-                  Icons.chat_bubble_outline_rounded,
-                  'Chat ကနှုန်း ထည့်မယ်',
-                  'ရထားတဲ့စာသားကို ကူးထည့်နိုင်ပါတယ်',
-                  () async {
-                    setState(() => tab = 1);
-                    await pasteQuote();
-                  },
-                ),
-              ];
-              return c.maxWidth < 540
-                  ? Column(children: actions)
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: actions[0]),
-                        const SizedBox(width: 12),
-                        Expanded(child: actions[1]),
-                      ],
-                    );
-            },
-          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -653,73 +624,53 @@ class _ExchangeHomeState extends State<ExchangeHome> {
             if (data.sheet.notice.isNotEmpty) panel(Text(data.sheet.notice)),
           ],
           if (!loading && quotes.isEmpty)
-            panel(
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.edit_note, size: 32),
-                  const SizedBox(height: 8),
-                  Text('${direction.label} နှုန်း မတင်ရသေးပါ။'),
-                  const Text(
-                    'Chat ကရထားတဲ့ဈေး သို့မဟုတ် ကိုယ်မေးထားတဲ့ဈေးနဲ့ တွက်နိုင်ပါတယ်။',
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => setState(() => tab = 1),
-                    child: const Text('ဈေးထည့်တွက်မယ်'),
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: FilledButton.icon(
+                onPressed: () => setState(() => tab = 1),
+                icon: const Icon(Icons.calculate_outlined),
+                label: const Text('ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်မယ်'),
               ),
             ),
           ...quotes.map((q) {
             final active = q.activeAt(now);
-            return panel(
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            return Card(
+              child: ExpansionTile(
+                key: PageStorageKey('quote_details_${q.direction.key}_${q.id}'),
+                tilePadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                title: Text(
+                  quotes.length == 1
+                      ? 'နှုန်းရင်းမြစ်နှင့် အချိန်အသေးစိတ်'
+                      : q.label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  quotes.length == 1
+                      ? q.sourceName
+                      : '၁ ဘတ် = ${rateText(q.rateMicros)} ကျပ်',
+                ),
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        q.label,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      pill(
-                        active
-                            ? (q.sourceChecked
-                                  ? 'Source စစ်ထားသည်'
-                                  : 'Source မစစ်ရသေး')
-                            : 'သက်တမ်းကုန် / မစတင်ရသေး',
-                        warning: !active,
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '၁ ဘတ် = ${rateText(q.rateMicros)} ကျပ်',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).colorScheme.primary,
+                  if (!active)
+                    const Text('ဤနှုန်းသည် သက်တမ်းကုန် / မစတင်ရသေးပါ။'),
+                  Text('နှုန်းရင်းမြစ်: ${q.sourceName}'),
+                  if (q.payoutMethod.isNotEmpty &&
+                      q.payoutMethod != 'မဖော်ပြထားပါ')
+                    Text('လက်ခံနည်း: ${q.payoutMethod}'),
+                  if (q.flatFeeMinor > 0 || q.feeBps > 0)
+                    Text(
+                      'သီးသန့်နုတ်ငွေ ${money(q.flatFeeMinor)} ${q.direction.from} + ${q.feeBps / 100}% ပါရှိသည်။',
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'ကျပ် ၁ သိန်း ≈ ${money((BigInt.from(10000000) * BigInt.from(rateScale) ~/ BigInt.from(q.rateMicros)).toInt())} ဘတ်',
-                  ),
-                  const Divider(),
-                  Text('Source: ${q.sourceName}'),
-                  Text('လက်ခံနည်း: ${q.payoutMethod}'),
-                  Text(
-                    'Fee: ${money(q.flatFeeMinor)} ${q.direction.from} + ${q.feeBps / 100}%',
-                  ),
                   Text('စစ်ထားချိန် ${when(q.observedAt)}'),
-                  Text('သက်တမ်း ${when(q.validUntil)}'),
-                  if (q.note.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(q.note),
-                    ),
-                  const SizedBox(height: 12),
+                  Text('ပြသမည့်နောက်ဆုံးအချိန် ${when(q.validUntil)}'),
+                  if (q.note.isNotEmpty) Text(q.note),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -743,7 +694,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
           const Padding(
             padding: EdgeInsets.all(10),
             child: Text(
-              'ငွေလွှဲခါနီး နှုန်း၊ Fee နှင့် လက်ခံမည့်နည်းလမ်းကို ပြန်အတည်ပြုပါ။ ဤ app သည် ငွေကို ကိုင်တွယ်လွှဲပေးခြင်း မလုပ်ပါ။',
+              'ငွေလဲမည့်အချိန်တွင် ငွေလဲသူနှင့် နှုန်းကို ပြန်အတည်ပြုပါ။',
             ),
           ),
           if (data?.origin == SheetOrigin.server)
@@ -835,17 +786,28 @@ class _ExchangeHomeState extends State<ExchangeHome> {
     });
   }
 
+  void setTargetMode(bool value) {
+    setState(() {
+      targetMode = value;
+      results = [];
+      calcError = null;
+      amount.clear();
+    });
+  }
+
   Widget calculator() => ListView(
     key: const PageStorageKey('calculator'),
     padding: const EdgeInsets.all(14),
     children: [
       Text(
-        'ကိုယ့်ဈေးနဲ့ တွက်မယ်',
-        style: Theme.of(context).textTheme.headlineSmall,
+        'ငွေလဲတွက်မယ်',
+        style: Theme.of(
+          context,
+        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
       const SizedBox(height: 8),
       const Text(
-        'ဈေး ၃ ခုအထိ နှိုင်းနိုင်သည်။ ဦးတည်ချက်ပြောင်းလျှင် ဈေးကို အသစ်ထည့်ပါ။',
+        'ပေးမယ့်ငွေနဲ့ ရထားတဲ့နှုန်းကို ဖြည့်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။',
       ),
       const SizedBox(height: 14),
       directionPicker(),
@@ -853,30 +815,9 @@ class _ExchangeHomeState extends State<ExchangeHome> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('ပေးမယ့်ငွေ သိတယ်'),
-                  selected: !targetMode,
-                  onSelected: (_) => setState(() {
-                    targetMode = false;
-                    results = [];
-                    calcError = null;
-                    amount.clear();
-                  }),
-                ),
-                ChoiceChip(
-                  label: const Text('ရချင်တဲ့ငွေ သိတယ်'),
-                  selected: targetMode,
-                  onSelected: (_) => setState(() {
-                    targetMode = true;
-                    results = [];
-                    calcError = null;
-                    amount.clear();
-                  }),
-                ),
-              ],
+            Text(
+              targetMode ? '၁။ ဘယ်လောက် ရချင်လဲ?' : '၁။ ဘယ်လောက် ပေးမလဲ?',
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -889,11 +830,13 @@ class _ExchangeHomeState extends State<ExchangeHome> {
               decoration: InputDecoration(
                 labelText: targetMode
                     ? 'ရချင်သည့်ပမာဏ (${direction.to})'
-                    : 'Fee အပါအဝင် ပေးမယ့်ပမာဏ (${direction.from})',
-                helperText: 'မြန်မာ / English နံပါတ်၊ ဒသမ ၂ နေရာအထိ',
+                    : 'ပေးမယ့်စုစုပေါင်းငွေ (${direction.from})',
+                hintText: targetMode || direction == ExchangeDirection.mmkThb
+                    ? 'ဥပမာ 100000'
+                    : 'ဥပမာ 10000',
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 6,
@@ -912,43 +855,35 @@ class _ExchangeHomeState extends State<ExchangeHome> {
                       )
                       .toList(),
             ),
+            if (targetMode)
+              TextButton(
+                onPressed: () => setTargetMode(false),
+                child: const Text('ပေးမယ့်ငွေနဲ့ ပြန်တွက်မယ်'),
+              ),
           ],
         ),
       ),
       for (var i = 0; i < lines.length; i++) lineEditor(lines[i], i),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          OutlinedButton.icon(
-            onPressed: lines.length < 3
-                ? () => setState(() {
-                    lines.add(CalcLine(label: 'ဈေး ${lines.length + 1}'));
-                    results = [];
-                  })
-                : null,
-            icon: const Icon(Icons.add),
-            label: const Text('ဈေးတစ်ခု ထပ်ထည့်'),
-          ),
-          OutlinedButton.icon(
-            onPressed: pasteQuote,
-            icon: const Icon(Icons.content_paste),
-            label: const Text('Chat စာသားမှ နှုန်းထည့်'),
-          ),
-        ],
-      ),
-      const SizedBox(height: 12),
-      const Text(
-        'Fee သည် စုစုပေါင်းပေးငွေထဲမှ နုတ်ပါသည်။ ဈေး၊ Fee၊ လက်ခံနည်း တူညီသော ရွေးချယ်စရာများကို နှိုင်းပါ။',
-      ),
-      const SizedBox(height: 14),
       FilledButton.icon(
+        key: const ValueKey('calculate'),
         onPressed: calculate,
-        icon: const Icon(Icons.calculate),
-        label: const Padding(
-          padding: EdgeInsets.all(10),
-          child: Text('တွက်ပြီး နှိုင်းမယ်'),
+        icon: const Icon(Icons.calculate_outlined),
+        label: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            targetMode
+                ? 'လိုအပ်မယ့်ငွေ တွက်မယ်'
+                : lines.length > 1
+                ? 'တွက်ပြီး နှိုင်းမယ်'
+                : 'ရမယ့်ငွေ တွက်မယ်',
+          ),
         ),
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        onPressed: pasteQuote,
+        icon: const Icon(Icons.content_paste),
+        label: const Text('Chat စာသားမှ နှုန်းထည့်'),
       ),
       if (calcError != null)
         Padding(
@@ -967,134 +902,207 @@ class _ExchangeHomeState extends State<ExchangeHome> {
           ),
         ),
       for (var i = 0; i < results.length; i++) resultCard(results[i], i),
+      const SizedBox(height: 10),
+      ExpansionTile(
+        key: const PageStorageKey('calculator_options'),
+        title: const Text(
+          'နှုန်းနှိုင်းယှဉ်ခြင်း / ပြန်တွက်ခြင်း',
+          style: TextStyle(fontSize: 14),
+        ),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+        childrenPadding: const EdgeInsets.all(12),
+        children: [
+          const Text(
+            'တခြားလူပေးတဲ့ဈေးနဲ့ နှိုင်းချင်မှ နှုန်းအသစ် ထပ်ထည့်ပါ။ အများဆုံး ၃ ခု နှိုင်းနိုင်ပါတယ်။',
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: lines.length < 3
+                ? () => setState(() {
+                    lines.add(CalcLine(label: 'ဈေး ${lines.length + 1}'));
+                    results = [];
+                  })
+                : null,
+            icon: const Icon(Icons.add),
+            label: const Text('နှိုင်းရန် နှုန်းတစ်ခု ထပ်ထည့်'),
+          ),
+          TextButton(
+            onPressed: () => setTargetMode(!targetMode),
+            child: Text(
+              targetMode
+                  ? 'ပေးမယ့်ငွေနဲ့ တွက်မယ်'
+                  : 'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်',
+            ),
+          ),
+        ],
+      ),
       const SizedBox(height: 18),
     ],
   );
 
-  Widget lineEditor(CalcLine line, int index) => panel(
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
+  Widget lineEditor(CalcLine line, int index) {
+    final hasDeduction =
+        (parseMoney(line.fee.text, allowZero: true) ?? 0) > 0 ||
+        (parseMoney(line.percent.text, allowZero: true) ?? 0) > 0;
+    return panel(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  lines.length == 1
+                      ? '၂။ ရထားတဲ့ ငွေလဲနှုန်း'
+                      : 'နှိုင်းမည့်နှုန်း ${index + 1}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (lines.length > 1)
+                IconButton(
+                  tooltip: 'ဤဈေးဖယ်မယ်',
+                  onPressed: () => setState(() {
+                    lines.removeAt(index).dispose();
+                    results = [];
+                  }),
+                  icon: const Icon(Icons.close),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<bool>(
+            key: ValueKey('${identityHashCode(line)}_${line.perLakh}'),
+            initialValue: line.perLakh,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'ရထားတဲ့ဈေးရဲ့ ရေးပုံ',
+            ),
+            items: const [
+              DropdownMenuItem(value: false, child: Text('၁ ဘတ်အတွက် ကျပ်')),
+              DropdownMenuItem(
+                value: true,
+                child: Text('ကျပ် ၁ သိန်းအတွက် ဘတ်'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null || value == line.perLakh) return;
+              final old = double.tryParse(
+                normalizeDigits(line.rate.text).replaceAll(',', ''),
+              );
+              if (old != null && old.isFinite && old > 0) {
+                line.rate.text = (100000 / old).toStringAsFixed(6);
+              }
+              line.perLakh = value;
+              invalidate(line);
+            },
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: ValueKey('rate_$index'),
+            controller: line.rate,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => invalidate(line),
+            decoration: InputDecoration(
+              labelText: line.perLakh ? 'ရမည့် ဘတ်ပမာဏ' : 'ရမည့် ကျပ်ပမာဏ',
+              hintText: line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
+              helperText: 'ရေးပုံဥပမာသာ ဖြစ်သည်။ ရထားတဲ့နှုန်းအစစ်ကို ဖြည့်ပါ။',
+              helperMaxLines: 2,
+            ),
+          ),
+          if (line.original != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
               child: Text(
-                'ဈေး ${index + 1}',
-                style: Theme.of(context).textTheme.titleMedium,
+                'နှုန်းရင်းမြစ်: ${line.original!.sourceName}',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-            if (lines.length > 1)
-              IconButton(
-                tooltip: 'ဤဈေးဖယ်မယ်',
-                onPressed: () => setState(() {
-                  lines.removeAt(index).dispose();
-                  results = [];
-                }),
-                icon: const Icon(Icons.close),
+          const SizedBox(height: 10),
+          ExpansionTile(
+            key: PageStorageKey('deduction_${identityHashCode(line)}'),
+            initiallyExpanded: hasDeduction,
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 12),
+            title: Text(
+              hasDeduction
+                  ? 'သီးသန့်နုတ်မည့်ငွေ ပါရှိသည်'
+                  : 'သီးသန့်နုတ်ငွေ ရှိမှ ဖြည့်ရန်',
+              style: TextStyle(
+                fontSize: 13,
+                color: hasDeduction
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-          ],
-        ),
-        TextField(
-          controller: line.name,
-          maxLength: 100,
-          onChanged: (_) => invalidate(line),
-          decoration: const InputDecoration(
-            labelText: 'ကိုယ်မှတ်မည့် အမည် (ဆိုင် / အသိ / ဈေး A)',
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<bool>(
-          key: ValueKey('${identityHashCode(line)}_${line.perLakh}'),
-          initialValue: line.perLakh,
-          isExpanded: true,
-          decoration: const InputDecoration(labelText: 'နှုန်းရေးသည့်ပုံစံ'),
-          items: const [
-            DropdownMenuItem(value: false, child: Text('၁ ဘတ်အတွက် ကျပ်')),
-            DropdownMenuItem(value: true, child: Text('ကျပ် ၁ သိန်းအတွက် ဘတ်')),
-          ],
-          onChanged: (value) {
-            if (value == null || value == line.perLakh) return;
-            final old = double.tryParse(
-              normalizeDigits(line.rate.text).replaceAll(',', ''),
-            );
-            if (old != null && old.isFinite && old > 0) {
-              line.rate.text = (100000 / old).toStringAsFixed(6);
-            }
-            line.perLakh = value;
-            invalidate(line);
-          },
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          key: ValueKey('rate_$index'),
-          controller: line.rate,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          onChanged: (_) => invalidate(line),
-          decoration: InputDecoration(
-            labelText: line.perLakh
-                ? 'ကျပ် ၁ သိန်းအတွက် ဘတ် ဘယ်လောက်လဲ?'
-                : '၁ ဘတ်အတွက် ကျပ် ဘယ်လောက်လဲ?',
-          ),
-        ),
-        const SizedBox(height: 14),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final children = [
+            ),
+            children: [
+              const Text(
+                'နှုန်းအတိုင်း တိုက်ရိုက်လဲလျှင် မဖြည့်ပါနှင့်။ ငွေလဲသူက သီးသန့် ထပ်နုတ်မည်ဟု ပြောထားမှသာ ဖြည့်ပါ။',
+              ),
+              const SizedBox(height: 12),
               TextField(
+                key: ValueKey('deduction_$index'),
                 controller: line.fee,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 onChanged: (_) => invalidate(line),
                 decoration: InputDecoration(
-                  labelText: 'ပုံသေ Fee (${direction.from})',
+                  labelText: 'သီးသန့်နုတ်မည့်ငွေ (${direction.from})',
+                  hintText: 'ဥပမာ 20',
+                  helperText: 'ပေးမယ့်ငွေထဲမှ နုတ်သည်။ မနုတ်လျှင် 0 ထားပါ။',
+                  helperMaxLines: 2,
                 ),
               ),
+              const SizedBox(height: 12),
               TextField(
+                key: ValueKey('deduction_percent_$index'),
                 controller: line.percent,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 onChanged: (_) => invalidate(line),
                 decoration: const InputDecoration(
-                  labelText: 'Fee ရာခိုင်နှုန်း (%)',
+                  labelText: 'ရာခိုင်နှုန်းနဲ့ နုတ်မှသာ (%)',
+                  hintText: 'ဥပမာ 1',
+                  helperText: '၁% နုတ်လျှင် 1။ မနုတ်လျှင် 0 ထားပါ။',
+                  helperMaxLines: 2,
                 ),
               ),
-            ];
-            return constraints.maxWidth < 420
-                ? Column(
-                    children: [
-                      children[0],
-                      const SizedBox(height: 14),
-                      children[1],
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Expanded(child: children[0]),
-                      const SizedBox(width: 12),
-                      Expanded(child: children[1]),
-                    ],
-                  );
-          },
-        ),
-        if (line.original != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Text(
-              'Source: ${line.original!.sourceName} · ${when(line.original!.observedAt)}',
-            ),
+            ],
           ),
-      ],
-    ),
-  );
+          if (lines.length > 1)
+            ExpansionTile(
+              key: PageStorageKey('quote_name_${identityHashCode(line)}'),
+              tilePadding: EdgeInsets.zero,
+              title: const Text(
+                'နှုန်းကို အမည်ပေးမှတ်ရန် (ရှိမှ)',
+                style: TextStyle(fontSize: 13),
+              ),
+              children: [
+                TextField(
+                  controller: line.name,
+                  maxLength: 100,
+                  onChanged: (_) => invalidate(line),
+                  decoration: const InputDecoration(
+                    labelText: 'မှတ်ထားမည့်အမည်',
+                    hintText: 'ဥပမာ အသိတစ်ယောက်ပေးသောဈေး',
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget resultCard(Calculation result, int index) => panel(
     Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${index + 1}. ${result.quote.label}',
+          results.length > 1
+              ? '${index + 1}. ${result.quote.label}'
+              : 'တွက်ချက်ရလဒ်',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         if (results.length > 1 && index == 0)
@@ -1105,9 +1113,10 @@ class _ExchangeHomeState extends State<ExchangeHome> {
           'ရငွေ ${money(result.received)} ${result.quote.direction.to}',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        Text(
-          'ပါဝင်သော Fee ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from}',
-        ),
+        if (result.quote.feeFor(result.budget) > 0)
+          Text(
+            'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသောရငွေ ဖြစ်သည်။',
+          ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
