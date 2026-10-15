@@ -1,4 +1,5 @@
 import { Invalid, validate } from './validate.mjs';
+import { publicHistory } from './history.mjs';
 class TooLarge extends Error {}
 async function bodyText(req, limit) {
  if(Number(req.headers.get('Content-Length'))>limit)throw new TooLarge();
@@ -12,13 +13,18 @@ const EMPTY={schema_version:2,revision:0,published_at:null,notice:'နှုန�
 const conflict={error:'Draft ပြောင်းထားပါသည်။ Reload လုပ်ပါ။'};
 export async function handle(req, db, user, bootstrapEmail) {
  const path=new URL(req.url).pathname;
- const publicRoute=['/api/v2/rates','/api/rates'].includes(path);
+ const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history'].includes(path);
  const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...(publicRoute?{'Access-Control-Allow-Origin':'*'}:{})}});
  const publicSheet=async()=>{
   const row=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
   return row?{...JSON.parse(row.payload),schema_version:2,revision:row.id,published_at:row.published_at}:EMPTY;
  };
  try {
+  if(path==='/api/v2/history'&&req.method==='GET'){
+   const since=new Date(Date.now()-31*86400000).toISOString();
+   const rows=await db.prepare('SELECT id,payload,published_at FROM revisions WHERE published_at>=? ORDER BY id DESC LIMIT 400').bind(since).all();
+   return json(publicHistory(rows.results));
+  }
   if(publicRoute&&req.method==='GET')return json(await publicSheet());
   if(path==='/api/health'&&req.method==='GET'){await db.prepare('SELECT 1').first();return json({ok:true,storage:'D1'});}
   if(!path.startsWith('/api/admin/'))return json({error:'Not found'},404);

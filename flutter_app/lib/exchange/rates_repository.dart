@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
+import 'rate_history.dart';
 
 enum SheetOrigin { server, cache, bundled }
 
@@ -52,6 +53,31 @@ class RatesRepository {
         ),
         SheetOrigin.bundled,
       );
+    }
+  }
+
+  Future<RateHistory> loadHistory() async {
+    const key = 'published_rate_history_v1';
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final uri = endpoint.replace(path: '/api/v2/history');
+      final r = await client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 8));
+      if (r.statusCode != 200) {
+        throw const FormatException('History unavailable');
+      }
+      final result = RateHistory.decode(r.body);
+      try {
+        await prefs.setString(key, r.body);
+      } catch (_) {
+        /* optional cache */
+      }
+      return result;
+    } catch (_) {
+      final raw = prefs.getString(key);
+      if (raw != null) return RateHistory.decode(raw, cached: true);
+      rethrow;
     }
   }
 

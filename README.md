@@ -16,6 +16,10 @@ Enter separate THB→MMK and MMK→THB quotes, include source/fee/expiry, check 
 
 The GitHub Pages workflow uses this hosted API by default. Set the optional repository Actions variable `RATES_API` to a different origin when migrating. The Flutter client itself retains same-origin API behavior when built without that define, suitable for the optional Python/Docker deployment below.
 
+## User interface and rate trend
+
+The public board includes a source-specific 7/30-day chart, selectable observations, low/high summaries and calculator/chat shortcuts. The chart uses already-published observations from the hosted `/api/v2/history` endpoint, groups days in Bangkok time, and separates directions, source identity and payout method. It does not fill missing days. At least two recorded days are needed for a line; empty, loading, unavailable and cached-history states are labeled. Displayed chart rates exclude fees. The optional standalone Python backend does not currently expose the history endpoint; its calculator and daily sheet remain usable.
+
 ## Features
 
 Currency-only tools for Myanmar users: owner-published directional quotes, personal quote comparison, pasted chat rates, and device-local exchange records. Thai language features and simulated provider rankings are not part of the active app.

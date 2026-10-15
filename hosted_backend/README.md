@@ -30,3 +30,7 @@ No actual exchange rates are seeded. The owner must verify and publish real rate
 Use the Sites skill to install, build and publish. `npm run db:generate` generates migrations from `db/schema.ts`. Runtime secrets belong in native Site settings, never `.openai/hosting.json`. The source repository retains the full build integration and lockfile.
 
 This deployment does not create a paid Render service. Direct Cloudflare Workers Free/D1 is a possible later migration subject to Cloudflare quotas and a Cloudflare account; this Site is provisioned through ChatGPT Sites, whose account terms and availability apply.
+
+## Public rate trend
+
+`/api/v2/history` exposes only already-published rate observations from the last 30 Bangkok calendar days (up to the latest 400 revisions). The chart separates quote ID, direction, source name/link and payout method; it keeps the last published observation for each source/day and does not fill missing days. Rates are MMK per THB, excluding fees. At least two observed days are needed to draw a trend. Low/high and percentage change describe the available observations, not an inferred market-wide price. Draft and admin data are never included.
