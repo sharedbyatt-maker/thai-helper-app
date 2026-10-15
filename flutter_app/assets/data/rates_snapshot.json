@@ -39,7 +39,7 @@
       "name_my": "ထရူးမန်းနီး",
       "notes_my": "မှတ်ပုံတင်ပြီးသား အကောင့်လိုသည်",
       "payout_my": "ငွေသား (TrueMoney ဆိုင်) / AYA Pay",
-      "rate_thb_mmk": 61.46,
+      "rate_thb_mmk": 61.53,
       "referral_url": "https://www.truemoney.com/",
       "transfer_time_my": "ချက်ချင်းနီးပါး",
       "verified": false,
@@ -53,7 +53,7 @@
       "name_my": "ဝက်စတန်ယူနီယံ",
       "notes_my": "ID လိုသည်",
       "payout_my": "ငွေသား (ကောင်တာများ)",
-      "rate_thb_mmk": 60.76,
+      "rate_thb_mmk": 60.83,
       "referral_url": "https://www.westernunion.com/",
       "transfer_time_my": "မိနစ်ပိုင်း",
       "verified": false,
@@ -78,7 +78,7 @@
       "name_my": "မန်းနီဂရမ်",
       "notes_my": "ID လိုသည်",
       "payout_my": "ငွေသား (ကောင်တာများ)",
-      "rate_thb_mmk": 60.46,
+      "rate_thb_mmk": 60.53,
       "referral_url": "https://www.moneygram.com/",
       "transfer_time_my": "မိနစ်ပိုင်း",
       "verified": false,
@@ -92,7 +92,7 @@
       "name_my": "ဟွန်ဒီ (အသိပေး)",
       "notes_my": "တရားဝင်မဟုတ် — လိမ်လည်မှုသတိထား။ ရည်ညွှန်းရန်သာ။",
       "payout_my": "ငွေသား / WavePay / KBZPay",
-      "rate_thb_mmk": 61.96,
+      "rate_thb_mmk": 62.03,
       "referral_url": "",
       "transfer_time_my": "နာရီပိုင်း - ၁ ရက်",
       "verified": false,
@@ -101,10 +101,10 @@
     }
   ],
   "disclaimer_my": "နှုန်းထားများသည် ခန့်မှန်းခြေဖြစ်ပြီး နေ့စဉ်ပြောင်းလဲနိုင်သည်။ ငွေမလွှဲမီ channel အသီးသီးတွင် အတည်ပြုပါ။",
-  "mid_market_rate": 62.46,
+  "mid_market_rate": 62.53,
   "mid_market_source": "open.er-api.com (auto)",
   "target_currency": "MMK",
-  "updated_at": "2026-10-14T12:54:08+07:00",
+  "updated_at": "2026-10-15T12:38:30+07:00",
   "history": [
     {
       "date": "2026-10-07",
@@ -137,6 +137,10 @@
     {
       "date": "2026-10-14",
       "mid": 62.46
+    },
+    {
+      "date": "2026-10-15",
+      "mid": 62.53
     }
   ],
   "history_source": "exchangerate.guru (Oct 7-12), open.er-api.com (Oct 13)"
