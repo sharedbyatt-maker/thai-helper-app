@@ -55,3 +55,13 @@ test('same-origin header, source validation, expiry and oversize bodies',async()
  assert.equal((await call(db,'admin/draft','PUT',{sheet:{notice:'a'.repeat(140000),quotes:[]},expected_version:1})).status,413);
  db.sqlite.close();
 });
+test('public trend contains published observations only and permits cross-origin reads',async()=>{
+ const db=await setup();await enroll(db);
+ await call(db,'admin/draft','PUT',{sheet:sheet(),expected_version:0});
+ assert.deepEqual((await call(db,'v2/history','GET',undefined,null)).data.points,[]);
+ await call(db,'admin/publish','POST',{expected_version:1});
+ const h=await call(db,'v2/history','GET',undefined,null);
+ assert.equal(h.status,200);assert.equal(h.headers.get('Access-Control-Allow-Origin'),'*');assert.equal(h.data.points.length,1);
+ assert.equal(h.data.points[0].quote_id,'test');assert.equal(h.data.timezone,'Asia/Bangkok');
+ db.sqlite.close();
+});

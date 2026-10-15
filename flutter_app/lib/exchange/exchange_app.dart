@@ -9,9 +9,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'models.dart';
 import 'rates_repository.dart';
 import 'storage.dart';
+import 'rate_history.dart';
+import 'trend_card.dart';
 
 class CurrencyApp extends StatefulWidget {
-  const CurrencyApp({super.key});
+  final RatesRepository? repository;
+  const CurrencyApp({super.key, this.repository});
   @override
   State<CurrencyApp> createState() => _CurrencyAppState();
 }
@@ -48,27 +51,71 @@ class _CurrencyAppState extends State<CurrencyApp> {
 
   @override
   Widget build(BuildContext context) {
-    ThemeData theme(Brightness b) => ThemeData(
-      useMaterial3: true,
-      brightness: b,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xff08765f),
+    ThemeData theme(Brightness b) {
+      final dark = b == Brightness.dark;
+      final scheme = ColorScheme.fromSeed(
+        seedColor: const Color(0xff087f6d),
         brightness: b,
-      ),
-      inputDecorationTheme: const InputDecorationTheme(
-        border: OutlineInputBorder(),
-        filled: false,
-      ),
-      fontFamily: 'Noto Sans Myanmar',
-      fontFamilyFallback: const ['Noto Sans Symbols 2'],
-    );
+      );
+      return ThemeData(
+        useMaterial3: true,
+        brightness: b,
+        colorScheme: scheme,
+        scaffoldBackgroundColor: dark
+            ? const Color(0xff101c1a)
+            : const Color(0xfff3f7f5),
+        appBarTheme: AppBarTheme(
+          backgroundColor: dark
+              ? const Color(0xff101c1a)
+              : const Color(0xfff3f7f5),
+          surfaceTintColor: Colors.transparent,
+          centerTitle: false,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 7),
+          color: dark ? const Color(0xff192a26) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(
+              color: dark ? const Color(0xff293e37) : const Color(0xffe3ebe6),
+            ),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: scheme.outlineVariant),
+          ),
+          filled: true,
+          fillColor: dark ? const Color(0xff14231f) : const Color(0xfff7faf8),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: dark ? const Color(0xff14231f) : Colors.white,
+          indicatorColor: scheme.primaryContainer,
+          elevation: 0,
+        ),
+        fontFamily: 'Noto Sans Myanmar',
+        fontFamilyFallback: const ['Noto Sans Symbols 2'],
+      );
+    }
+
     return MaterialApp(
       title: 'ဘတ်ဈေး',
       debugShowCheckedModeBanner: false,
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
       themeMode: mode,
-      home: ExchangeHome(onTheme: _toggleTheme),
+      home: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository),
     );
   }
 }
@@ -154,6 +201,8 @@ class _ExchangeHomeState extends State<ExchangeHome> {
   List<Calculation> results = [];
   List<PersonalRecord> records = [];
   LoadedSheet? loaded;
+  RateHistory? rateHistory;
+  bool trendLoading = true, trendUnavailable = false;
   ExchangeDirection direction = ExchangeDirection.thbMmk;
   bool targetMode = false,
       loading = true,
@@ -223,6 +272,24 @@ class _ExchangeHomeState extends State<ExchangeHome> {
         loading = false;
         loadError = null;
       });
+      try {
+        final history = await repo.loadHistory();
+        if (!mounted || id != requestId) return;
+        setState(() {
+          rateHistory = history;
+          trendLoading = false;
+          trendUnavailable = false;
+        });
+      } catch (_) {
+        if (!mounted || id != requestId) return;
+        setState(() {
+          trendLoading = false;
+          trendUnavailable = rateHistory == null;
+          if (rateHistory != null) {
+            rateHistory = RateHistory(rateHistory!.points, cached: true);
+          }
+        });
+      }
     } catch (_) {
       if (!mounted || id != requestId) return;
       setState(() {
@@ -367,7 +434,32 @@ class _ExchangeHomeState extends State<ExchangeHome> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ဘတ်ဈေး'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(9),
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                Icons.currency_exchange_rounded,
+                color: scheme.onPrimary,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 11),
+            const Flexible(
+              child: Text(
+                'ဘတ်ဈေး',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'အလင်း / အမှောင်',
@@ -401,7 +493,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: const BoxConstraints(maxWidth: 1040),
             child: tab == 0
                 ? daily()
                 : tab == 1
@@ -448,40 +540,69 @@ class _ExchangeHomeState extends State<ExchangeHome> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(14),
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            margin: const EdgeInsets.only(bottom: 14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xff075d4d), Color(0xff168574)],
-              ),
-              borderRadius: BorderRadius.circular(22),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ဘတ် ↔ ကျပ်',
-                  style: TextStyle(color: Colors.white70, fontSize: 15),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'ဈေးကို သိပါ။\nပေးငွေ၊ ရငွေ တိတိကျကျတွက်ပါ။',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                Text(
+                  'ဒီနေ့ ငွေလဲမလား?',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 16),
-                FilledButton.tonal(
-                  onPressed: () => setState(() => tab = 1),
-                  child: const Text('ကိုယ့်ဈေးနဲ့ တွက်မယ် →'),
+                const SizedBox(height: 5),
+                Text(
+                  'နှုန်းကိုကြည့်၊ ကိုယ့်ဈေးနဲ့တွက်၊ စိတ်ချလက်ချ နှိုင်းယှဉ်ပါ။',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    height: 1.8,
+                  ),
                 ),
               ],
             ),
           ),
           directionPicker(),
+          const SizedBox(height: 18),
+          TrendCard(
+            quotes: quotes,
+            history: rateHistory,
+            loading: loading || trendLoading,
+            unavailable: trendUnavailable,
+            onCalculate: useQuote,
+          ),
+          const SizedBox(height: 18),
+          LayoutBuilder(
+            builder: (context, c) {
+              final actions = [
+                quickAction(
+                  Icons.calculate_outlined,
+                  'ကိုယ့်ဈေးနဲ့ တွက်မယ်',
+                  'ပေးငွေ၊ ရငွေ၊ Fee နှိုင်းယှဉ်ရန်',
+                  () => setState(() => tab = 1),
+                ),
+                quickAction(
+                  Icons.chat_bubble_outline_rounded,
+                  'Chat ကနှုန်း ထည့်မယ်',
+                  'ရထားတဲ့စာသားကို ကူးထည့်နိုင်ပါတယ်',
+                  () async {
+                    setState(() => tab = 1);
+                    await pasteQuote();
+                  },
+                ),
+              ];
+              return c.maxWidth < 540
+                  ? Column(children: actions)
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: actions[0]),
+                        const SizedBox(width: 12),
+                        Expanded(child: actions[1]),
+                      ],
+                    );
+            },
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -503,18 +624,27 @@ class _ExchangeHomeState extends State<ExchangeHome> {
           if (data != null) ...[
             Wrap(
               spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                pill(
+                Icon(
                   data.origin == SheetOrigin.server
-                      ? 'Server မှ ရယူထားသည်'
-                      : data.origin == SheetOrigin.cache
-                      ? 'သိမ်းထားသောဒေတာ · offline ဖြစ်နိုင်သည်'
-                      : 'App နှင့်ပါသောဒေတာ',
-                  warning: data.origin != SheetOrigin.server,
+                      ? Icons.cloud_done_outlined
+                      : Icons.offline_bolt_outlined,
+                  size: 16,
+                  color: schemeColor(context),
                 ),
-                pill('Version ${data.sheet.revision}'),
+                Text(
+                  data.origin == SheetOrigin.server
+                      ? 'နောက်ဆုံးနှုန်း ရယူထားပါပြီ'
+                      : data.origin == SheetOrigin.cache
+                      ? 'သိမ်းထားသောနှုန်း · offline ဖြစ်နိုင်သည်'
+                      : 'နေ့စဉ်နှုန်း စောင့်နေပါတယ်',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
+            const SizedBox(height: 5),
             if (data.sheet.publishedAt != null)
               Text(
                 'ထုတ်ပြချိန် ${when(data.sheet.publishedAt!)} · ဖုန်းအချိန်',
@@ -567,8 +697,12 @@ class _ExchangeHomeState extends State<ExchangeHome> {
                   ),
                   Text(
                     '၁ ဘတ် = ${rateText(q.rateMicros)} ကျပ်',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     'ကျပ် ၁ သိန်း ≈ ${money((BigInt.from(10000000) * BigInt.from(rateScale) ~/ BigInt.from(q.rateMicros)).toInt())} ဘတ်',
                   ),
@@ -618,8 +752,8 @@ class _ExchangeHomeState extends State<ExchangeHome> {
                 const base = RatesRepository.apiBase;
                 openSource(
                   base.isEmpty
-                      ? Uri.base.resolve('/admin').toString()
-                      : '$base/admin',
+                      ? Uri.base.resolve('/admin/index.html').toString()
+                      : '$base/admin/index.html',
                 );
               },
               icon: const Icon(Icons.admin_panel_settings_outlined),
@@ -629,6 +763,62 @@ class _ExchangeHomeState extends State<ExchangeHome> {
       ),
     );
   }
+
+  Color schemeColor(BuildContext context) =>
+      Theme.of(context).colorScheme.primary;
+  Widget quickAction(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) => Card(
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: .6),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.7,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.arrow_outward_rounded, size: 18),
+          ],
+        ),
+      ),
+    ),
+  );
 
   void useQuote(ExchangeQuote q) {
     changeDirection(q.direction);
