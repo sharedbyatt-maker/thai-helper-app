@@ -1,63 +1,38 @@
-# Daily rates update — no manual work needed.
-# Every day 08:00 Bangkok: fetch mid-market rate, rebuild web app, deploy.
-# Manual corrections: edit backend/rates.json on GitHub web, then
-# "Run workflow" here, or wait for the next daily run.
-name: Daily rates update
-
+# Live directional quotes now come from /api/v2/rates, published in /admin.
+# Do not generate estimated provider rates or overwrite owner-published quotes.
+name: Publish currency web
 on:
-  schedule:
-    - cron: '0 1 * * *' # 08:00 Asia/Bangkok (UTC+7)
-  workflow_dispatch: # manual "Run workflow" button
-
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ['flutter_app/**', '.github/workflows/daily-rates.yml']
 permissions:
   contents: write
-
+concurrency:
+  group: currency-web-deploy
+  cancel-in-progress: false
 jobs:
-  update-and-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Update rates (mid-market + margins)
-        run: python3 backend/update_rates.py
-
-      - name: Sync snapshot into Flutter assets
-        run: cp backend/rates.json flutter_app/assets/data/rates_snapshot.json
-
-      - name: Commit updated rates.json
-        run: |
-          git config user.name "rates-bot"
-          git config user.email "rates-bot@local"
-          git add backend/rates.json flutter_app/assets/data/rates_snapshot.json
-          git diff --staged --quiet || git commit -m "daily rates update [skip ci]"
-
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.7'
           channel: stable
-
-      - name: Build web
+          cache: true
+      - name: Validate and build
+        working-directory: flutter_app
+        env:
+          RATES_API: ${{ vars.RATES_API || 'https://bahtzay-rates.muddyhinny2048.chatgpt.site' }}
         run: |
-          cd flutter_app
+          python3 ../scripts/fetch_fonts.py
           flutter pub get
-          flutter build web --release --base-href /thai-helper-app/
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+          flutter analyze
+          flutter test
+          flutter build web --release --no-web-resources-cdn --base-href /thai-helper-app/ --dart-define=RATES_API="$RATES_API"
+      - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: flutter_app/build/web
           publish_branch: gh-pages
-
-      - name: Push rates.json changes
-        # NOTE 2026-10-14: the scheduled run's push was once rejected by GitHub
-        # ("[remote rejected] master -> master (failed)") while the gh-pages
-        # deploy in the same run succeeded. Do NOT mask push failures with
-        # `|| true` — a red run here is the signal we need. Rebase first to
-        # survive races with manual web edits of rates.json.
-        run: |
-          git pull --rebase origin master
-          git push origin master

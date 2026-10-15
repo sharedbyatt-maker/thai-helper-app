@@ -1,10 +1,10 @@
 name: thai_helper
-description: Thai phrasebook + remittance rates for Myanmar workers in Thailand.
+description: Baht and kyat quotes, personal comparison, and exchange records.
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.12.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -23,4 +23,14 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/data/rates_snapshot.json
+    - assets/data/exchange_snapshot.json
+    - assets/fonts/OFL.txt
+    - assets/fonts/Symbols-OFL.txt
+
+  fonts:
+    - family: Noto Sans Myanmar
+      fonts:
+        - asset: assets/fonts/NotoSansMyanmar.ttf
+    - family: Noto Sans Symbols 2
+      fonts:
+        - asset: assets/fonts/NotoSansSymbols2-Regular.ttf

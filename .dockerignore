@@ -1,0 +1,7 @@
+.git
+**/.venv
+**/__pycache__
+**/build
+**/.dart_tool
+backend/instance
+.env*

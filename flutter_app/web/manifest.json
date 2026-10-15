@@ -1,35 +1,35 @@
 {
-    "name": "ဘတ်ဈေး — ငွေလွှဲနှုန်း",
-    "short_name": "ဘတ်ဈေး",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#00695C",
-    "theme_color": "#00695C",
-    "description": "ထိုင်းမှ မြန်မာသို့ ငွေလွှဲနှုန်း နှိုင်းယှဉ်",
-    "orientation": "portrait-primary",
-    "prefer_related_applications": false,
-    "icons": [
-        {
-            "src": "icons/Icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/Icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        },
-        {
-            "src": "icons/Icon-maskable-192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "maskable"
-        },
-        {
-            "src": "icons/Icon-maskable-512.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "maskable"
-        }
-    ]
+  "name": "ဘတ်ဈေး — ဘတ် ↔ ကျပ်",
+  "short_name": "ဘတ်ဈေး",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#00695C",
+  "theme_color": "#00695C",
+  "description": "ဘတ် ↔ ကျပ် နှုန်း၊ calculator နှင့် မှတ်တမ်း",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-maskable-192.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }

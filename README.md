@@ -1,0 +1,114 @@
+# ဘတ်ဈေး · Currency app
+
+## Live app and daily administration
+
+- Public app: https://sharedbyatt-maker.github.io/thai-helper-app/
+- Daily rates administration: https://bahtzay-rates.muddyhinny2048.chatgpt.site/admin/index.html
+- Public rates API: https://bahtzay-rates.muddyhinny2048.chatgpt.site/api/v2/rates
+
+The hosted backend uses ChatGPT Sites with a durable Cloudflare D1 database. No paid Render service is required or provisioned. Sites account terms and availability apply; this is not a promise of unlimited hosting or permanent pricing.
+
+Sign into the dashboard with the ChatGPT account that owns this Site. The initial owner is checked against the trusted Sites access record, then its Site-specific identity is pinned in the database. Other signed-in accounts cannot edit rates. No new password, API key, or activation code is needed.
+
+Enter separate THB→MMK and MMK→THB quotes, include source/fee/expiry, check the source, then **Save Draft → Preview → Publish**. Drafts stay private. The app refreshes about once a minute. No invented live rates are supplied: the owner must publish the first real daily sheet.
+
+`hosted_backend/` retains the deployed backend source, migrations, tests and Sites build integration. Its native Site source repository is synchronized separately by the Sites workflow. Personal transaction records remain browser-local, not in the shared backend.
+
+The GitHub Pages workflow uses this hosted API by default. Set the optional repository Actions variable `RATES_API` to a different origin when migrating. The Flutter client itself retains same-origin API behavior when built without that define, suitable for the optional Python/Docker deployment below.
+
+## Features
+
+Currency-only tools for Myanmar users: owner-published directional quotes, personal quote comparison, pasted chat rates, and device-local exchange records. Thai language features and simulated provider rankings are not part of the active app.
+
+## What the owner does each day
+
+1. Open `/admin` and sign in.
+2. Add or edit **ဘတ်ပေး → ကျပ်ယူ** and **ကျပ်ပေး → ဘတ်ယူ** separately. Neither direction is inferred from the other.
+3. Enter a rate as MMK per THB or THB per 100,000 MMK, plus the fee in the paying currency, source, payout method, observed time and expiry (up to seven days).
+4. Check the source confirmation, save Draft, then Preview.
+5. Publish. Public clients refresh automatically once per minute and can pull to refresh. Unpublished drafts remain private.
+6. To correct a mistake, restore an earlier version to Draft, review its rate/expiry, then publish a new version. Restoring alone does not change public data.
+
+Empty publishing is supported to withdraw all quotes. Expired or future quotes are visible with a warning but cannot be selected for calculation. A successful source check is not a guarantee about an exchanger or payment completion.
+
+## Optional standalone Python deployment
+
+Use Flutter **3.47.7**, Dart **3.13**, Python **3.12**. Font files are fetched once from a pinned Google Fonts commit and SHA-256 verified at build time; the built app bundles them for offline use. The same server can serve the Flutter build, public API and admin dashboard; this avoids cross-site login problems.
+
+```bash
+python scripts/fetch_fonts.py
+cd flutter_app
+flutter pub get
+flutter analyze
+flutter test
+flutter build web --release --no-web-resources-cdn
+cd ..
+python -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+.venv/bin/python backend/set_password.py
+```
+
+The password helper prompts without echoing and prints a password hash. Set that output as the server's `ADMIN_PASSWORD_HASH` environment variable. There is no default password. Do not commit credentials.
+
+For local HTTP development only, set `COOKIE_SECURE=false`. Run:
+
+```bash
+.venv/bin/python backend/app.py
+```
+
+Then open `http://127.0.0.1:5000` and `http://127.0.0.1:5000/admin`.
+
+For production use HTTPS, `COOKIE_SECURE=true`, and a **persistent writable disk** for `EXCHANGE_DATABASE`. The default path is `backend/instance/exchange.sqlite3`. A temporary filesystem loses rate versions and sessions when the host restarts. The database uses WAL and transactions; use SQLite's backup API or stop the service for a consistent backup, rather than copying only the main database file while it is running.
+
+```bash
+cd backend
+gunicorn --bind 0.0.0.0:8000 --workers 2 app:app
+```
+
+If the service sits behind exactly one trusted HTTPS reverse proxy, set `TRUST_PROXY=true` so the admin same-origin check sees HTTPS. Do not enable that setting on a server directly reachable around the proxy. Proxy-forwarded IPs are not trusted for authentication throttling.
+
+`Dockerfile` builds the web app and serves everything on port 8000. `render.yaml` is an optional Render blueprint using a **paid** persistent disk service; review hosting costs before deployment. This repository change does not create a hosting account or deploy a paid service. The container user (UID 10001) must be able to write to `/data`.
+
+## GitHub Pages deployment
+
+The public Flutter build stays on GitHub Pages; the daily-rate API and admin run on Sites. `Publish currency web` builds with the hosted API origin by default. An optional `RATES_API` Actions variable can override it. Missing network access falls back to a cached sheet or empty bundled sheet, while personal calculators keep working. No market quotes are invented.
+
+The previous scheduled estimated-provider updater is removed. Legacy data and archived phrasebook files are not read by this UI or the publishing API.
+
+## Calculator contract
+
+- Amounts accept Myanmar, Thai and English digits, commas and up to two decimal places.
+- Quotes store MMK per THB as integer millionths. Both paying and receiving amounts use 1/100 minor units.
+- **Input is total spending, including fees.** `fee = flat + ceil(total × percentage)`; payout converts the remaining amount and rounds down to a minor unit.
+- Target-payout calculation returns the smallest total budget that meets the target using the chosen flat/percentage fee. It does not use the previous global search across stepped provider fees.
+- The calculator compares at most three quotes in the same direction. A comparison assumes the user has checked matching payout methods and conditions.
+- Pasted text is parsed on the device, not sent to an AI service. Supported examples: `1 THB = 125 MMK`, `၁ ဘတ် = ၁၂၅ ကျပ်`, `၁ သိန်း = ၈၀၀ ဘတ်`. These numbers are **format examples, not real quotes**. Ambiguous/multiple different rates are rejected. The user must confirm the interpretation and separately enter direction/fees. Screenshot OCR is not included.
+- Source-selected quotes lose their checked-source provenance when the user edits them. Expired source quotes cannot be calculated as current quotes.
+
+## Personal records
+
+No customer login is needed. Rate snapshots, amounts and optional notes are stored using SharedPreferences on the current device/browser; no personal records are sent to the publishing backend. Users can mark a saved calculation as completed, delete records, and export/share JSON. Completion is user-reported, not independently verified.
+
+The monthly THB→MMK summary includes only records marked completed and groups them by the month the calculation was saved. Limits: 500 records; browser storage can be cleared or lost; no cross-device sync. Export important records. Corrupt stored data is not silently replaced.
+
+## Security and operational limits
+
+The optional Python backend has hashed-password login, random server-side sessions (8 hours), HttpOnly/Secure/SameSite cookies, CSRF tokens, origin checks, database-backed login throttling, draft version conflict detection, immutable published revisions and safe DOM rendering. Changing the password hash invalidates prior sessions. Source URLs are limited to HTTP(S).
+
+There are no payment handling, public seller listings, referral click tracking, unprotected statistics or claimed exchanger trust badges. This is not an audited production financial system: owner source checks, hosting configuration, backups and fresh quotes remain required.
+
+## Checks
+
+```bash
+python -m pip install -r backend/requirements.txt pytest
+python -m pytest backend/tests -q
+npm ci --ignore-scripts
+node --check backend/admin/app.js
+npm run test:admin
+cd flutter_app
+flutter analyze
+flutter test
+flutter build web --release --no-web-resources-cdn
+```
+
+CI runs backend checks plus Flutter analysis, tests and web build for pull requests. Publishing is a separate workflow after merge/manual dispatch.

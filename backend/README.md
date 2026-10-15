@@ -1,35 +1,13 @@
-# Rates Backend (Flask)
+# Currency publishing backend
 
-## Run locally
-```
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python app.py   # http://localhost:5000
-```
+See the root [README](../README.md) for setup, password configuration, persistent storage, deployment and daily publishing.
 
-## Endpoints
-- `GET /api/health`
-- `GET /api/rates` — raw channel data
-- `GET /api/compare?amount=10000` — sorted comparison
+Public endpoints: `GET /api/health`, `GET /api/v2/rates` (`/api/rates` alias).
 
-## Update rates (v1: manual)
-Edit `rates.json`:
-- `rate_thb_mmk` per channel (check TrueMoney/WU counters or their sites)
-- `updated_at` to now
-- `verified: true` once you confirm a channel's numbers
-- restart the app
+Owner dashboard: `/admin`.
 
-## Deploy
-Any Python host (Railway/Render/VPS):
-```
-gunicorn app:app
-```
-Then rebuild the Flutter web app with:
-```
-flutter build web --release --base-href /thai-helper-app/ \
-  --dart-define=RATES_API=https://your-api-host
-```
-Without RATES_API the app uses the bundled `rates_snapshot.json`
-(manually synced from `backend/rates.json`).
+Admin endpoints: `POST /api/admin/login`, `GET /api/admin/state`, `PUT /api/admin/draft`, `POST /api/admin/publish`, `POST /api/admin/restore`, `POST /api/admin/logout`.
 
-## Legal note
-Information only. This service does not transmit money.
+All admin mutations require the same-origin dashboard's `X-Admin-Request` header; authenticated mutations additionally require its CSRF token. Draft save/publish/restore require `expected_version` and return HTTP 409 when another edit has changed the draft.
+
+The public payload is schema version 2. Legacy provider comparison/click/statistics endpoints are retired. There is no customer-record API; personal records remain device-local.

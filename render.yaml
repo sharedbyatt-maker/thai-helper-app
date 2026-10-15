@@ -1,0 +1,19 @@
+# Deploying this blueprint creates a PAID persistent disk service.
+# Review the hosting cost before creating it. No service is created by this file alone.
+services:
+  - type: web
+    name: bahtzay
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: TRUST_PROXY
+        value: 'true'
+    disk:
+      name: quote-data
+      mountPath: /data
+      sizeGB: 1
