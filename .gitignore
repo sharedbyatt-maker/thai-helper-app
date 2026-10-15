@@ -1,0 +1,12 @@
+**/.venv/
+**/__pycache__/
+*.pyc
+backend/instance/
+*.sqlite3*
+.env
+.env.*
+!.env.example
+node_modules/
+
+# Build-time fonts are pinned and verified by scripts/fetch_fonts.py
+flutter_app/assets/fonts/*.ttf

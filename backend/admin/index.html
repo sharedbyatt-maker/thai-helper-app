@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="my"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ဘတ်ဈေး · Admin</title><link rel="stylesheet" href="/admin/style.css"><script defer src="/admin/app.js"></script></head>
+<body><main>
+<header><div><span class="eyebrow">ဘတ်ဈေး / ADMIN</span><h1>နေ့စဉ် ငွေလဲနှုန်း</h1><p>စစ်ပြီးသား source မှ နှုန်းကို Draft → Preview → Publish လုပ်ပါ။</p></div><button id="logout" hidden>ထွက်မယ်</button></header>
+<div id="message" role="status" aria-live="polite"></div>
+<section id="login-panel" class="panel"><h2>Admin ဝင်ရန်</h2><form id="login-form"><label>Password<input id="password" type="password" autocomplete="current-password" required maxlength="1024"></label><button type="submit" class="primary">ဝင်မယ်</button></form><p class="muted">Owner သတ်မှတ်ထားသော password ဖြင့်သာ ဝင်နိုင်ပါသည်။</p></section>
+<div id="workspace" hidden>
+<div class="summary"><section class="panel"><span class="eyebrow">PUBLIC VERSION</span><h2 id="published-version">—</h2><p id="published-time">—</p></section><section class="panel"><span class="eyebrow">DRAFT</span><h2 id="draft-count">—</h2><p>Draft ပြင်နေစဉ် user များ မမြင်ရပါ။</p></section></div>
+<section class="panel"><div class="row"><h2>နှုန်း ပြင်ဆင်ရန်</h2><button id="reload">Reload</button></div><p class="muted">နှစ်ဖက်ဈေး သီးခြားတင်ပါ။ Fee သည် ပေးမည့် currency ဖြင့်ဖြစ်ပြီး စုစုပေါင်း budget ထဲမှ နုတ်ပါသည်။ Source စစ်ပြီးခြင်းသည် ငွေလဲသူအတွက် အာမခံမဟုတ်ပါ။</p><label>ကြေညာချက်<textarea id="notice" maxlength="500" rows="2" placeholder="ယနေ့အတွက် အသိပေးလိုသည့် အချက်"></textarea></label><div id="editors"></div><button id="add">＋ နှုန်းအသစ် ထည့်မယ်</button></section>
+<div class="toolbar"><button id="save">Draft သိမ်းမယ်</button><button id="preview-button">Preview စစ်မယ်</button><button id="publish" class="primary" disabled>အတည်ပြုပြီး Publish လုပ်မယ်</button><span id="dirty" class="muted"></span></div>
+<section id="preview" class="panel" hidden><h2>ထုတ်ပြမည့် Preview</h2><p>Source၊ ဦးတည်ချက်၊ rate၊ fee နှင့် အချိန်ကို စစ်ပြီး Publish နှိပ်ပါ။</p><div id="preview-cards"></div></section>
+<section class="panel"><div class="row"><h2>ယခင် ထုတ်ပြထားသော Versions</h2><button id="export">လက်ရှိနှုန်း JSON သိမ်းမယ်</button></div><p class="muted">Version အဟောင်းကို Draft အဖြစ်ပြန်ယူပြီး အချိန်/နှုန်း ပြန်စစ်ကာ Publish လုပ်နိုင်သည်။</p><div id="history"></div></section>
+</div></main></body></html>

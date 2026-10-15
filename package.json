@@ -1,0 +1,1 @@
+{"name":"bahtzay-admin-checks","private":true,"scripts":{"test:admin":"node --test backend/tests/admin.test.cjs"},"devDependencies":{"jsdom":"26.1.0"}}
