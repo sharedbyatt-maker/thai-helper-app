@@ -24,7 +24,7 @@ jobs:
       - name: Validate and build
         working-directory: flutter_app
         env:
-          RATES_API: ${{ vars.RATES_API }}
+          RATES_API: ${{ vars.RATES_API || 'https://bahtzay-rates.muddyhinny2048.chatgpt.site' }}
         run: |
           python3 ../scripts/fetch_fonts.py
           flutter pub get

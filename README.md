@@ -1,4 +1,22 @@
-# ဘတ်ဈေး — THB ↔ MMK
+# ဘတ်ဈေး · Currency app
+
+## Live app and daily administration
+
+- Public app: https://sharedbyatt-maker.github.io/thai-helper-app/
+- Daily rates administration: https://bahtzay-rates.muddyhinny2048.chatgpt.site/admin/index.html
+- Public rates API: https://bahtzay-rates.muddyhinny2048.chatgpt.site/api/v2/rates
+
+The hosted backend uses ChatGPT Sites with a durable Cloudflare D1 database. No paid Render service is required or provisioned. Sites account terms and availability apply; this is not a promise of unlimited hosting or permanent pricing.
+
+Sign into the dashboard with the ChatGPT account that owns this Site. The initial owner is checked against the trusted Sites access record, then its Site-specific identity is pinned in the database. Other signed-in accounts cannot edit rates. No new password, API key, or activation code is needed.
+
+Enter separate THB→MMK and MMK→THB quotes, include source/fee/expiry, check the source, then **Save Draft → Preview → Publish**. Drafts stay private. The app refreshes about once a minute. No invented live rates are supplied: the owner must publish the first real daily sheet.
+
+`hosted_backend/` retains the deployed backend source, migrations, tests and Sites build integration. Its native Site source repository is synchronized separately by the Sites workflow. Personal transaction records remain browser-local, not in the shared backend.
+
+The GitHub Pages workflow uses this hosted API by default. Set the optional repository Actions variable `RATES_API` to a different origin when migrating. The Flutter client itself retains same-origin API behavior when built without that define, suitable for the optional Python/Docker deployment below.
+
+## Features
 
 Currency-only tools for Myanmar users: owner-published directional quotes, personal quote comparison, pasted chat rates, and device-local exchange records. Thai language features and simulated provider rankings are not part of the active app.
 
@@ -13,7 +31,7 @@ Currency-only tools for Myanmar users: owner-published directional quotes, perso
 
 Empty publishing is supported to withdraw all quotes. Expired or future quotes are visible with a warning but cannot be selected for calculation. A successful source check is not a guarantee about an exchanger or payment completion.
 
-## Running the complete app
+## Optional standalone Python deployment
 
 Use Flutter **3.47.7**, Dart **3.13**, Python **3.12**. Font files are fetched once from a pinned Google Fonts commit and SHA-256 verified at build time; the built app bundles them for offline use. The same server can serve the Flutter build, public API and admin dashboard; this avoids cross-site login problems.
 
@@ -51,13 +69,11 @@ If the service sits behind exactly one trusted HTTPS reverse proxy, set `TRUST_P
 
 `Dockerfile` builds the web app and serves everything on port 8000. `render.yaml` is an optional Render blueprint using a **paid** persistent disk service; review hosting costs before deployment. This repository change does not create a hosting account or deploy a paid service. The container user (UID 10001) must be able to write to `/data`.
 
-## Keeping GitHub Pages
+## GitHub Pages deployment
 
-GitHub Pages can serve the public Flutter UI, but cannot run the admin/database service. Deploy the backend separately and set repository **Actions variable** `RATES_API` to its HTTPS origin, without a trailing slash. Run **Publish currency web**. `/admin` lives at that backend origin.
+The public Flutter build stays on GitHub Pages; the daily-rate API and admin run on Sites. `Publish currency web` builds with the hosted API origin by default. An optional `RATES_API` Actions variable can override it. Missing network access falls back to a cached sheet or empty bundled sheet, while personal calculators keep working. No market quotes are invented.
 
-Without `RATES_API`, the UI tries `/api/v2/rates` on its own origin. On GitHub Pages that endpoint is unavailable: the app uses a cached sheet or an empty bundled sheet and personal calculators continue to work. It never invents market quotes. For a live daily rate board, the backend must be configured and reachable.
-
-The previous scheduled estimate updater has been removed from the deployment workflow. Legacy `rates.json`, `update_rates.py`, and archived phrasebook files are retained for historical reference and are not used by this currency UI or publishing API. They cannot overwrite the SQLite-published quote sheet.
+The previous scheduled estimated-provider updater is removed. Legacy data and archived phrasebook files are not read by this UI or the publishing API.
 
 ## Calculator contract
 
@@ -77,7 +93,7 @@ The monthly THB→MMK summary includes only records marked completed and groups 
 
 ## Security and operational limits
 
-Admin has hashed-password login, random server-side sessions (8 hours), HttpOnly/Secure/SameSite cookies, CSRF tokens, origin checks, database-backed login throttling, draft version conflict detection, immutable published revisions and safe DOM rendering. Changing the password hash invalidates prior sessions. Source URLs are limited to HTTP(S).
+The optional Python backend has hashed-password login, random server-side sessions (8 hours), HttpOnly/Secure/SameSite cookies, CSRF tokens, origin checks, database-backed login throttling, draft version conflict detection, immutable published revisions and safe DOM rendering. Changing the password hash invalidates prior sessions. Source URLs are limited to HTTP(S).
 
 There are no payment handling, public seller listings, referral click tracking, unprotected statistics or claimed exchanger trust badges. This is not an audited production financial system: owner source checks, hosting configuration, backups and fresh quotes remain required.
 
