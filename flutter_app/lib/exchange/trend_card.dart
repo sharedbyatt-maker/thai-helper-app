@@ -222,7 +222,7 @@ class _TrendCardState extends State<TrendCard> {
                   ),
                 if (change != null)
                   tag(
-                    '${change >= 0 ? '↑' : '↓'} ${change.abs().toStringAsFixed(2)}% · မှတ်တမ်းကာလ',
+                    '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}% · မှတ်တမ်းကာလ',
                   ),
               ],
             ),
