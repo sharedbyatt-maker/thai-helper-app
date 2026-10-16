@@ -28,25 +28,35 @@ class _CurrencyAppState extends State<CurrencyApp> {
   }
 
   Future<void> _restoreTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    final raw = prefs.getString('currency_theme');
-    setState(
-      () => mode = raw == 'dark'
-          ? ThemeMode.dark
-          : raw == 'light'
-          ? ThemeMode.light
-          : ThemeMode.system,
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 1),
+      );
+      if (!mounted) return;
+      final raw = prefs.getString('currency_theme');
+      setState(
+        () => mode = raw == 'dark'
+            ? ThemeMode.dark
+            : raw == 'light'
+            ? ThemeMode.light
+            : ThemeMode.system,
+      );
+    } catch (_) {
+      // The system theme remains usable when browser storage is blocked.
+    }
   }
 
   Future<void> _toggleTheme() async {
     final next = mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
     setState(() => mode = next);
-    await (await SharedPreferences.getInstance()).setString(
-      'currency_theme',
-      next.name,
-    );
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 1),
+      );
+      await prefs.setString('currency_theme', next.name);
+    } catch (_) {
+      // Theme changes still apply for this session without local storage.
+    }
   }
 
   @override
@@ -635,7 +645,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 title: const Text('အသုံးပြုနည်း'),
                 content: const SingleChildScrollView(
                   child: Text(
-                    'ဘတ်ပေး / ကျပ်ပေး ဈေးကို သီးခြားရွေးပါ။\n\nပေးငွေသည် Fee ပါဝင်သော စုစုပေါင်း budget ဖြစ်သည်။ Fee ကိုနုတ်ပြီး ကျန်ငွေကို လဲတွက်ပါသည်။\n\nAdmin source စစ်ထားခြင်းသည် ငွေလဲသူ သို့မဟုတ် ငွေရောက်ရှိမှုအတွက် အာမခံမဟုတ်ပါ။\n\nကိုယ့်မှတ်တမ်းများကို ဤဖုန်း/browser ထဲတွင်သာ သိမ်းပါသည်။ Browser data ဖျက်လျှင် ပျောက်နိုင်သဖြင့် export လုပ်ထားပါ။',
+                    'ဘတ်ပေး / ကျပ်ပေး ဈေးကို သီးခြားရွေးပါ။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။ သီးသန့်နုတ်ငွေရှိမှ အပိုရွေးချယ်မှုထဲမှာ ထည့်ပါ။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းများကို ဤဖုန်း/browser ထဲတွင်သာ သိမ်းပါသည်။ Browser data ဖျက်လျှင် ပျောက်နိုင်သဖြင့် export လုပ်ထားပါ။',
                   ),
                 ),
                 actions: [
