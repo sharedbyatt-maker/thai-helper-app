@@ -39,17 +39,16 @@ class _TrendCardState extends State<TrendCard> {
     final canChart = points.length >= 2;
     final hasHistory =
         q != null && (widget.history?.series(q, 30).length ?? 0) >= 2;
-    final current = q?.rateMicros;
-    final low = points.isEmpty
-        ? null
-        : points.map((p) => p.rateMicros).reduce(math.min);
-    final high = points.isEmpty
-        ? null
-        : points.map((p) => p.rateMicros).reduce(math.max);
+    final direction = q?.direction ?? ExchangeDirection.thbMmk;
+    double value(RatePoint p) => displayRateValue(p.rateMicros, direction);
+    String formatted(double value) => rateValueText(value, direction);
+    final unit = direction == ExchangeDirection.mmkThb
+        ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်'
+        : '၁ ဘတ်အတွက် ကျပ်';
+    final low = points.isEmpty ? null : points.map(value).reduce(math.min);
+    final high = points.isEmpty ? null : points.map(value).reduce(math.max);
     final change = canChart
-        ? (points.last.rateMicros - points.first.rateMicros) /
-              points.first.rateMicros *
-              100
+        ? (value(points.last) - value(points.first)) / value(points.first) * 100
         : null;
     final active = q?.activeAt(DateTime.now()) ?? false;
     final focus = hovered != null && hovered! < points.length
@@ -105,7 +104,7 @@ class _TrendCardState extends State<TrendCard> {
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'ယနေ့ ငွေလဲနှုန်း',
+                        'နောက်ဆုံး ငွေလဲနှုန်း',
                         style: TextStyle(
                           color: pale,
                           fontWeight: FontWeight.w600,
@@ -118,15 +117,13 @@ class _TrendCardState extends State<TrendCard> {
                   tag(
                     active
                         ? 'နောက်ဆုံး ထုတ်ပြထားသောနှုန်း'
-                        : 'သက်တမ်းကုန်သောနှုန်း',
+                        : 'ပြန်မစစ်ရသေးသောနှုန်း',
                   ),
               ],
             ),
             const SizedBox(height: 18),
             Text(
-              q == null
-                  ? 'ယနေ့နှုန်း မတင်ရသေးပါ'
-                  : '၁ ဘတ် = ${rateText(current!)} ကျပ်',
+              q == null ? 'ဒီဘက်နှုန်း မတင်ရသေးပါ' : quoteRateLabel(q),
               style: const TextStyle(
                 fontSize: 30,
                 fontWeight: FontWeight.w700,
@@ -139,6 +136,14 @@ class _TrendCardState extends State<TrendCard> {
               Text(
                 '${q.sourceName} · ${q.direction.label}',
                 style: const TextStyle(color: pale, fontSize: 13),
+              ),
+            if (q != null && !active)
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: Text(
+                  'နောက်ဆုံးသိမ်းထားသောနှုန်းကို ပြထားသည်။ အသစ်ပြန်မစစ်ရသေးသဖြင့် လက်ရှိနှုန်းအဖြစ် မတွက်ပေးပါ။',
+                  style: TextStyle(color: pale, height: 1.8),
+                ),
               ),
             if (q == null)
               const Text(
@@ -235,14 +240,14 @@ class _TrendCardState extends State<TrendCard> {
               Text(
                 focus == null
                     ? 'မှတ်တမ်းကို ထိပြီး ကြည့်နိုင်ပါတယ်'
-                    : '${dateLabel(focus.day)} · ၁ ဘတ် = ${rateText(focus.rateMicros)} ကျပ်',
+                    : '${dateLabel(focus.day)} · ${formatted(value(focus))} · $unit',
                 style: const TextStyle(color: pale, fontSize: 12),
               ),
               const SizedBox(height: 8),
               LayoutBuilder(
                 builder: (context, c) => Semantics(
                   label:
-                      '$days ရက်အတွင်း ${points.length} ရက်၏ နှုန်းမှတ်တမ်း။ အနိမ့် ${rateText(low!)}၊ အမြင့် ${rateText(high!)} ကျပ်။',
+                      '$days ရက်အတွင်း ${points.length} ရက်၏ နှုန်းမှတ်တမ်း။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)} · $unit။',
                   child: MouseRegion(
                     onHover: (event) =>
                         selectPoint(event.localPosition.dx, c.maxWidth, points),
@@ -262,7 +267,11 @@ class _TrendCardState extends State<TrendCard> {
                         height: 146,
                         width: double.infinity,
                         child: CustomPaint(
-                          painter: RateTrendPainter(points, hovered),
+                          painter: RateTrendPainter(
+                            points,
+                            hovered,
+                            direction: direction,
+                          ),
                         ),
                       ),
                     ),
@@ -287,14 +296,14 @@ class _TrendCardState extends State<TrendCard> {
                 spacing: 24,
                 runSpacing: 10,
                 children: [
-                  metric('အနိမ့်', rateText(low!)),
-                  metric('အမြင့်', rateText(high!)),
+                  metric('အနိမ့်', formatted(low!)),
+                  metric('အမြင့်', formatted(high!)),
                   metric('မှတ်တမ်းရှိသည့်ရက်', '${points.length} ရက်'),
                 ],
               ),
               const SizedBox(height: 14),
               Text(
-                '${widget.history?.cached == true ? 'သိမ်းထားသောမှတ်တမ်း · ' : ''}၁ ဘတ်အတွက် ကျပ် · သီးသန့်နုတ်ငွေ မပါ · မှတ်တမ်းရှိသည့်ရက်များသာ · ထိုင်းအချိန်',
+                '${widget.history?.cached == true ? 'သိမ်းထားသောမှတ်တမ်း · ' : ''}$unit · သီးသန့်နုတ်ငွေ မပါ · မှတ်တမ်းရှိသည့်ရက်များသာ · ထိုင်းအချိန်',
                 style: const TextStyle(fontSize: 11, color: pale, height: 1.8),
               ),
             ] else if (q != null || widget.loading)
@@ -369,13 +378,19 @@ String dateLabel(DateTime d) => '${d.day}/${d.month}';
 class RateTrendPainter extends CustomPainter {
   final List<RatePoint> points;
   final int? selected;
-  RateTrendPainter(this.points, this.selected);
+  final ExchangeDirection direction;
+  RateTrendPainter(
+    this.points,
+    this.selected, {
+    this.direction = ExchangeDirection.thbMmk,
+  });
   @override
   void paint(Canvas canvas, Size size) {
     if (points.length < 2) return;
-    final low = points.map((p) => p.rateMicros.toDouble()).reduce(math.min),
-        high = points.map((p) => p.rateMicros.toDouble()).reduce(math.max);
-    final range = math.max(high - low, math.max(high * .002, 1.0));
+    double value(RatePoint p) => displayRateValue(p.rateMicros, direction);
+    final low = points.map(value).reduce(math.min),
+        high = points.map(value).reduce(math.max);
+    final range = math.max(high - low, math.max(high * .002, .000001));
     final mid = (high + low) / 2;
     final span = points.last.day.difference(points.first.day).inDays;
     final positions = points
@@ -385,7 +400,7 @@ class RateTrendPainter extends CustomPainter {
                 (size.width - 16) *
                     p.day.difference(points.first.day).inDays /
                     math.max(span, 1),
-            size.height * .5 - (p.rateMicros - mid) / range * size.height * .68,
+            size.height * .5 - (value(p) - mid) / range * size.height * .68,
           ),
         )
         .toList();
@@ -451,5 +466,7 @@ class RateTrendPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RateTrendPainter old) =>
-      old.points != points || old.selected != selected;
+      old.points != points ||
+      old.selected != selected ||
+      old.direction != direction;
 }

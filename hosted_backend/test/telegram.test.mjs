@@ -60,10 +60,10 @@ test('single text publishes exact units, zeros fees, syncs clean draft, immutabl
 });
 test('multiple rates require exactly one owner choice, stale/reused callback cannot publish again',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);await message(f,secret,20,'/stk');
+  const secret=await setup(f);await pair(f,secret);await message(f,secret,20,'/help');
   const r=await message(f,secret,21,stk);const buttons=r.data.reply_markup.inline_keyboard.flat();assert.equal(buttons.length,4);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
   await message(f,secret,22,null,99,buttons[1].callback_data);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
-  await message(f,secret,23,null,42,buttons[1].callback_data);const p=(await call(f,'/api/v2/rates')).data;assert.equal(p.revision,1);assert.equal(p.quotes[0].source_name,'S.T.K Money Exchange');assert.equal(p.quotes[0].rate_micros,Math.round(100000/726*1e6));
+  await message(f,secret,23,null,42,buttons[1].callback_data);const p=(await call(f,'/api/v2/rates')).data;assert.equal(p.revision,1);assert.equal(p.quotes[0].source_name,'Test Source');assert.equal(p.quotes[0].rate_micros,Math.round(100000/726*1e6));
   await message(f,secret,24,null,42,buttons[2].callback_data);assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
  }finally{f.db.sqlite.close();}
 });
@@ -110,5 +110,29 @@ test('expired pairing and pending choices cannot grant access or publish',async(
   f.db.sqlite.exec('UPDATE telegram_pending SET expires=0');
   await message(f,secret,72,null,42,r.data.reply_markup.inline_keyboard[0][0].callback_data);
   assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+ }finally{f.db.sqlite.close();}
+});
+
+test('any channel uses configured/default label, ignores retired presets, and publishes app link',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);
+  f.db.sqlite.prepare('INSERT INTO telegram_session(id,source) VALUES(1,?)').run('Old named preset');
+  const help=await message(f,secret,80,'/help');assert.ok(!help.data.text.includes('/stk'));assert.ok(!help.data.text.includes('/kumar'));
+  const result=await message(f,secret,81,'726');assert.match(result.data.reply_markup.inline_keyboard[0][0].url,/github.io/);
+  assert.equal((await call(f,'/api/v2/rates')).data.quotes[0].source_name,'Test Source');
+  const saved=await call(f,'/api/admin/telegram','POST',{source_name:'',source_url:'',direction:'mmk_thb'});assert.equal(saved.status,200);assert.equal(saved.data.paired,true);
+  await message(f,secret,82,'727');assert.equal((await call(f,'/api/v2/rates')).data.quotes[0].source_name,'နေ့စဉ်ရည်ညွှန်းနှုန်း');
+ }finally{f.db.sqlite.close();}
+});
+test('new publication invalidates older rate-choice buttons and retains stale opposite direction',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);const choices=await message(f,secret,90,stk);
+  await message(f,secret,91,'726');await message(f,secret,92,null,42,choices.data.reply_markup.inline_keyboard[0][0].callback_data);
+  assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
+  const published=(await call(f,'/api/v2/rates')).data;
+  const stale={...published.quotes[0],id:'stale-other-side',direction:'thb_mmk',observed_at:new Date(Date.now()-2*86400000).toISOString(),valid_until:new Date(Date.now()-86400000).toISOString()};
+  f.db.sqlite.prepare('UPDATE revisions SET payload=? WHERE id=1').run(JSON.stringify({notice:'',quotes:[published.quotes[0],stale]}));
+  await message(f,secret,93,'727');const q=(await call(f,'/api/v2/rates')).data.quotes;
+  assert.equal(q.length,2);assert.equal(q.find(q=>q.direction==='thb_mmk').valid_until,stale.valid_until);
  }finally{f.db.sqlite.close();}
 });

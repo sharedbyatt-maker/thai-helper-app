@@ -122,12 +122,15 @@ class _CurrencyAppState extends State<CurrencyApp> {
 
 class CalcLine {
   final TextEditingController name, rate, fee, percent;
-  bool perLakh = false;
+  bool perLakh;
   ExchangeQuote? original;
   CalcLine({String label = '', ExchangeQuote? quote})
-    : name = TextEditingController(text: quote?.label ?? label),
+    : perLakh = quote?.direction == ExchangeDirection.mmkThb,
+      name = TextEditingController(text: quote?.label ?? label),
       rate = TextEditingController(
-        text: quote == null ? '' : '${quote.rateMicros / rateScale}',
+        text: quote == null
+            ? ''
+            : displayRateText(quote.rateMicros, quote.direction),
       ),
       fee = TextEditingController(
         text: quote == null ? '0' : '${quote.flatFeeMinor / 100}',
@@ -195,7 +198,8 @@ class ExchangeHome extends StatefulWidget {
   State<ExchangeHome> createState() => _ExchangeHomeState();
 }
 
-class _ExchangeHomeState extends State<ExchangeHome> {
+class _ExchangeHomeState extends State<ExchangeHome>
+    with WidgetsBindingObserver {
   late final repo = widget.repository ?? RatesRepository();
   final store = RecordStore();
   final amount = TextEditingController();
@@ -206,6 +210,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
   RateHistory? rateHistory;
   bool trendLoading = true, trendUnavailable = false;
   ExchangeDirection direction = ExchangeDirection.thbMmk;
+  bool directionChosen = false;
   bool targetMode = false,
       loading = true,
       recordsReady = false,
@@ -217,6 +222,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refresh();
     _loadRecords();
     timer = Timer.periodic(
@@ -227,6 +233,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
     repo.close();
     amount.dispose();
@@ -234,6 +241,11 @@ class _ExchangeHomeState extends State<ExchangeHome> {
       line.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh(silent: true);
   }
 
   void toast(String message) {
@@ -269,6 +281,20 @@ class _ExchangeHomeState extends State<ExchangeHome> {
           results = [];
           calcError =
               'ထုတ်ပြထားသောနှုန်း ပြောင်းသွားပါသည်။ နှုန်းအသစ်ကို ပြန်ရွေးပါ။';
+        }
+        // Opening the app should show a published direction, even when only
+        // MMK -> THB exists. Respect an explicit selection after that.
+        if (!directionChosen &&
+            next.sheet.quotes.isNotEmpty &&
+            lines.every((line) => line.rate.text.trim().isEmpty) &&
+            amount.text.trim().isEmpty) {
+          final active = next.sheet.quotes
+              .where((q) => q.activeAt(DateTime.now()))
+              .toList();
+          final available = active.isNotEmpty ? active : next.sheet.quotes;
+          if (!available.any((q) => q.direction == direction)) {
+            direction = available.first.direction;
+          }
         }
         loaded = next;
         loading = false;
@@ -329,6 +355,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
   }
 
   void changeDirection(ExchangeDirection next) {
+    directionChosen = true;
     if (next == direction) return;
     setState(() {
       direction = next;
@@ -623,6 +650,31 @@ class _ExchangeHomeState extends State<ExchangeHome> {
               ),
             if (data.sheet.notice.isNotEmpty) panel(Text(data.sheet.notice)),
           ],
+          if (!loading &&
+              quotes.isEmpty &&
+              data != null &&
+              data.sheet.quotes.isNotEmpty)
+            panel(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${direction.label} နှုန်း မတင်ရသေးပါ။'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final available
+                          in data.sheet.quotes.map((q) => q.direction).toSet())
+                        FilledButton.tonal(
+                          onPressed: () => changeDirection(available),
+                          child: Text('${available.label} နှုန်းကြည့်မယ်'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           if (!loading && quotes.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -652,13 +704,13 @@ class _ExchangeHomeState extends State<ExchangeHome> {
                   ),
                 ),
                 subtitle: Text(
-                  quotes.length == 1
-                      ? q.sourceName
-                      : '၁ ဘတ် = ${rateText(q.rateMicros)} ကျပ်',
+                  quotes.length == 1 ? q.sourceName : quoteRateLabel(q),
                 ),
                 children: [
                   if (!active)
-                    const Text('ဤနှုန်းသည် သက်တမ်းကုန် / မစတင်ရသေးပါ။'),
+                    const Text(
+                      'နောက်ဆုံးသိမ်းထားသောနှုန်းဖြစ်သည်။ လက်ရှိနှုန်းအဖြစ် သုံးရန် ပြန်စစ်ဖို့လိုပါသည်။',
+                    ),
                   Text('နှုန်းရင်းမြစ်: ${q.sourceName}'),
                   if (q.payoutMethod.isNotEmpty &&
                       q.payoutMethod != 'မဖော်ပြထားပါ')
@@ -668,7 +720,7 @@ class _ExchangeHomeState extends State<ExchangeHome> {
                       'သီးသန့်နုတ်ငွေ ${money(q.flatFeeMinor)} ${q.direction.from} + ${q.feeBps / 100}% ပါရှိသည်။',
                     ),
                   Text('စစ်ထားချိန် ${when(q.observedAt)}'),
-                  Text('ပြသမည့်နောက်ဆုံးအချိန် ${when(q.validUntil)}'),
+                  Text('ပြန်စစ်ရန် သတ်မှတ်ချိန် ${when(q.validUntil)}'),
                   if (q.note.isNotEmpty) Text(q.note),
                   const SizedBox(height: 10),
                   Wrap(

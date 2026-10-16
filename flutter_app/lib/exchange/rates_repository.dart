@@ -25,7 +25,15 @@ class RatesRepository {
     final prefs = await SharedPreferences.getInstance();
     try {
       final response = await client
-          .get(endpoint, headers: {'Accept': 'application/json'})
+          .get(
+            endpoint.replace(
+              queryParameters: {
+                ...endpoint.queryParameters,
+                'v': DateTime.now().millisecondsSinceEpoch.toString(),
+              },
+            ),
+            headers: {'Accept': 'application/json'},
+          )
           .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) {
         throw const FormatException('Server unavailable');
