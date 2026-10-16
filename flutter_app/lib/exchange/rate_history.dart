@@ -93,8 +93,9 @@ class RateHistory {
           p.payoutMethod != q.payoutMethod ||
           p.day.isBefore(first) ||
           p.day.isAfter(today) ||
-          p.timestamp.isAfter(current.add(const Duration(minutes: 5))))
+          p.timestamp.isAfter(current.add(const Duration(minutes: 5)))) {
         continue;
+      }
       // One stable published quote ID is the owner's reference feed. Preserve
       // its real observations when the optional display/source name changes.
       final key = days == 1 ? p.timestamp : p.day;
@@ -102,8 +103,9 @@ class RateHistory {
       if (existing == null ||
           p.timestamp.isAfter(existing.timestamp) ||
           (p.timestamp == existing.timestamp &&
-              p.revision >= existing.revision))
+              p.revision >= existing.revision)) {
         result[key] = p;
+      }
     }
     final observed = q.observedAt.toUtc();
     final observedBangkok = observed.add(const Duration(hours: 7));
@@ -127,8 +129,9 @@ class RateHistory {
       );
       final key = days == 1 ? observed : quoteDay;
       final existing = result[key];
-      if (existing == null || !existing.timestamp.isAfter(observed))
+      if (existing == null || !existing.timestamp.isAfter(observed)) {
         result[key] = point;
+      }
     }
     return result.values.toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));

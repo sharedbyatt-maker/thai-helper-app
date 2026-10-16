@@ -220,7 +220,7 @@ class _TrendCardState extends State<TrendCard> {
                 child: MouseRegion(
                   onHover: (event) =>
                       selectPoint(event.localPosition.dx, c.maxWidth, points),
-                  onExit: () => setState(() => hovered = null),
+                  onExit: (_) => setState(() => hovered = null),
                   child: GestureDetector(
                     onTapDown: (event) =>
                         selectPoint(event.localPosition.dx, c.maxWidth, points),
@@ -380,7 +380,7 @@ class _TrendCardState extends State<TrendCard> {
         .inMilliseconds;
     final at = span * ((dx - 8) / math.max(width - 16, 1)).clamp(0.0, 1.0);
     var best = 0;
-    for (var i = 1; i < points.length; i++)
+    for (var i = 1; i < points.length; i++) {
       if ((points[i].timestamp
                       .difference(points.first.timestamp)
                       .inMilliseconds -
@@ -390,8 +390,10 @@ class _TrendCardState extends State<TrendCard> {
                       .difference(points.first.timestamp)
                       .inMilliseconds -
                   at)
-              .abs())
+              .abs()) {
         best = i;
+      }
+    }
     if (hovered != best) setState(() => hovered = best);
   }
 }
@@ -422,13 +424,15 @@ class RateTrendPainter extends CustomPainter {
     final grid = Paint()
       ..color = Colors.white.withValues(alpha: .12)
       ..strokeWidth = 1;
-    for (final y in [.15, .5, .85])
-      for (double x = 0; x < size.width; x += 9)
+    for (final y in [.15, .5, .85]) {
+      for (double x = 0; x < size.width; x += 9) {
         canvas.drawLine(
           Offset(x, size.height * y),
           Offset(math.min(x + 4, size.width), size.height * y),
           grid,
         );
+      }
+    }
     if (points.isEmpty) return;
     final values = points.map((p) => referenceRateValue(p.rateMicros)).toList();
     final low = values.reduce(math.min), high = values.reduce(math.max);
@@ -453,7 +457,9 @@ class RateTrendPainter extends CustomPainter {
     ];
     if (points.length > 1) {
       final line = Path()..moveTo(positions.first.dx, positions.first.dy);
-      for (final p in positions.skip(1)) line.lineTo(p.dx, p.dy);
+      for (final p in positions.skip(1)) {
+        line.lineTo(p.dx, p.dy);
+      }
       final fill = Path.from(line)
         ..lineTo(positions.last.dx, size.height)
         ..lineTo(positions.first.dx, size.height)
@@ -484,18 +490,20 @@ class RateTrendPainter extends CustomPainter {
           0,
           positions.length - 1,
         )];
-    if (selected != null)
+    if (selected != null) {
       canvas.drawLine(
         Offset(p.dx, 0),
         Offset(p.dx, size.height),
         grid..color = Colors.white.withValues(alpha: .4),
       );
-    for (final position in positions)
+    }
+    for (final position in positions) {
       canvas.drawCircle(
         position,
         2.3,
         Paint()..color = Colors.white.withValues(alpha: .65),
       );
+    }
     canvas.drawCircle(
       p,
       9,
