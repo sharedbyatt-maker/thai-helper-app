@@ -19,7 +19,8 @@ function setup(quotes=[]){
   if(endpoint==='publish'){assert.equal(data.expected_version,state.draft_version);state.draft_version++;state.published={...structuredClone(state.draft),revision:state.published.revision+1,published_at:new Date().toISOString()};return ok({published:state.published});}
   throw Error('Unexpected endpoint '+endpoint);
  };
- w.eval(fs.readFileSync(path.join(root,'app.js'),'utf8'));
+ // Strict eval has its own declaration scope; expose the classic-script API as a browser would.
+ w.eval(fs.readFileSync(path.join(root,'app.js'),'utf8')+'\nwindow.api=api;');
  return {dom,w,state,$:id=>w.document.getElementById(id),get:(card,key)=>card.querySelector(`[data-key="${key}"]`)};
 }
 test('Guided inputs show examples, accept Myanmar digits and keep optional deductions at zero',async()=>{
@@ -64,5 +65,29 @@ test('Unit conversion stays equivalent and preview treats source markup as text'
   get(card,'source_name').value='<script>bad()</script>';get(card,'source_checked').checked=true;
   $('preview-button').click();await until(()=>$('publish').disabled===false);
   assert.equal(state.draft.quotes[0].rate_micros,125000000);assert.equal($('preview-cards').querySelector('script,img'),null);assert.match($('preview-cards').textContent,/<script>/);
+ }finally{dom.window.close();}
+});
+test('Telegram setup keeps token out of displayed state and provides an expiring pairing link',async()=>{
+ const {dom,w,$}=setup();let configured=false,enabled=false,submitted;
+ const original=w.fetch;
+ w.fetch=async(url,options={})=>{
+  if(!url.includes('/telegram'))return original(url,options);
+  const ok=data=>({ok:true,status:200,json:async()=>data});
+  const data=options.body?JSON.parse(options.body):{};
+  if(url.endsWith('/pair'))return ok({url:'https://t.me/example_bot?start=pair_abc',expires_in:600});
+  if(url.endsWith('/disconnect')){enabled=false;return ok({ok:true});}
+  if(options.method==='POST'){submitted=data;configured=true;enabled=true;}
+  return ok({configured,enabled,paired:false,username:configured?'example_bot':'',source_name:configured?'S.T.K Money Exchange':'',source_url:'',direction:'mmk_thb'});
+ };
+ try{
+  w.eval(fs.readFileSync(path.join(root,'telegram.js'),'utf8'));
+  await until(()=>$('tg-status').textContent.includes('Bot မချိတ်ရသေး'));
+  await until(()=>$('tg-refresh').disabled===false);
+  $('tg-token').value='secret-test-token';$('tg-source').value='S.T.K Money Exchange';$('tg-connect').click();
+  await until(()=>$('tg-status').textContent.includes('@example_bot'));
+  assert.equal(submitted.token,'secret-test-token');assert.equal(submitted.direction,'mmk_thb');assert.equal($('tg-token').value,'');assert.equal($('tg-status').textContent.includes('secret-test-token'),false);
+  await until(()=>$('tg-setup').inert===false);$('tg-pair').click();await until(()=>$('tg-pair-link').hidden===false);
+  assert.match($('tg-pair-link').href,/https:\/\/t.me\/example_bot\?start=pair_/);
+  await until(()=>$('tg-setup').inert===false);$('tg-disconnect').click();await until(()=>$('tg-status').textContent.includes('ရပ်ထား'));
  }finally{dom.window.close();}
 });

@@ -23,6 +23,7 @@ jobs:
       - run: node --check backend/admin/app.js
       - run: npm run test:admin
       - run: node --check hosted_backend/public/admin/app.js
+      - run: node --check hosted_backend/public/admin/telegram.js
       - run: node --test hosted_backend/test/*.test.mjs
   flutter:
     runs-on: ubuntu-latest
