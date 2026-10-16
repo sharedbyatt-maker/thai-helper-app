@@ -140,6 +140,7 @@ void main() {
     'A published nonzero deduction stays visible and is included in the result',
     (tester) async {
       await start(tester, charged: true);
+      await reveal(tester, find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
       await tester.tap(find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('amount')), '1000');

@@ -98,6 +98,10 @@ void main() {
         find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'),
       );
       expect(selected.selected, true);
+      await tester.ensureVisible(find.text('7 ရက်'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('7 ရက်'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('+ 0.14%'), findsOneWidget);
       final paint = tester.widget<CustomPaint>(
         find.byWidgetPredicate(

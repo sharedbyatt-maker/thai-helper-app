@@ -125,12 +125,10 @@ class CalcLine {
   bool perLakh;
   ExchangeQuote? original;
   CalcLine({String label = '', ExchangeQuote? quote})
-    : perLakh = quote?.direction == ExchangeDirection.mmkThb,
+    : perLakh = quote != null,
       name = TextEditingController(text: quote?.label ?? label),
       rate = TextEditingController(
-        text: quote == null
-            ? ''
-            : displayRateText(quote.rateMicros, quote.direction),
+        text: quote == null ? '' : referenceRateText(quote.rateMicros),
       ),
       fee = TextEditingController(
         text: quote == null ? '0' : '${quote.flatFeeMinor / 100}',
@@ -207,6 +205,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   List<Calculation> results = [];
   List<PersonalRecord> records = [];
   LoadedSheet? loaded;
+  DateTime? lastFetched;
   RateHistory? rateHistory;
   bool trendLoading = true, trendUnavailable = false;
   ExchangeDirection direction = ExchangeDirection.thbMmk;
@@ -272,15 +271,39 @@ class _ExchangeHomeState extends State<ExchangeHome>
             next.origin == SheetOrigin.server &&
             next.sheet.revision != loaded!.sheet.revision &&
             lines.any((line) => line.original?.sourceChecked == true)) {
-          for (final line in lines) {
-            line.dispose();
+          var changedQuote = false;
+          for (var i = 0; i < lines.length; i++) {
+            final original = lines[i].original;
+            if (original == null || !original.sourceChecked) continue;
+            final replacement = next.sheet.quotes
+                .where(
+                  (q) =>
+                      q.id == original.id &&
+                      q.direction == original.direction &&
+                      q.activeAt(DateTime.now()),
+                )
+                .firstOrNull;
+            final same =
+                replacement != null &&
+                replacement.rateMicros == original.rateMicros &&
+                replacement.flatFeeMinor == original.flatFeeMinor &&
+                replacement.feeBps == original.feeBps &&
+                replacement.observedAt == original.observedAt &&
+                replacement.validUntil == original.validUntil &&
+                replacement.sourceName == original.sourceName;
+            if (same) continue;
+            final previousLine = lines[i];
+            lines[i] = replacement == null
+                ? CalcLine(label: previousLine.name.text)
+                : CalcLine(quote: replacement);
+            previousLine.dispose();
+            changedQuote = true;
           }
-          lines
-            ..clear()
-            ..add(CalcLine(label: 'ဈေး A'));
-          results = [];
-          calcError =
-              'ထုတ်ပြထားသောနှုန်း ပြောင်းသွားပါသည်။ နှုန်းအသစ်ကို ပြန်ရွေးပါ။';
+          if (changedQuote) {
+            results = [];
+            calcError =
+                'နှုန်းအသစ် ရောက်လာပါသည်။ ပေးငွေကို ထိန်းထားပြီး ပြန်တွက်နိုင်ပါသည်။';
+          }
         }
         // Opening the app should show a published direction, even when only
         // MMK -> THB exists. Respect an explicit selection after that.
@@ -297,6 +320,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           }
         }
         loaded = next;
+        lastFetched = DateTime.now();
         loading = false;
         loadError = null;
       });
@@ -314,7 +338,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
           trendLoading = false;
           trendUnavailable = rateHistory == null;
           if (rateHistory != null) {
-            rateHistory = RateHistory(rateHistory!.points, cached: true);
+            rateHistory = RateHistory(
+              rateHistory!.points,
+              observations: rateHistory!.observations,
+              cached: true,
+            );
           }
         });
       }
@@ -367,7 +395,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
       lines
         ..clear()
-        ..add(CalcLine(label: 'ဈေး A'));
+        ..add(
+          CalcLine(quote: dailyQuote(next, onlyActive: true), label: 'ဈေး A'),
+        );
     });
   }
 
@@ -431,7 +461,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   String when(DateTime date) {
-    final d = date.toLocal();
+    final d = date.toUtc().add(const Duration(hours: 7));
     String p(int n) => n.toString().padLeft(2, '0');
     return '${d.year}-${p(d.month)}-${p(d.day)} ${p(d.hour)}:${p(d.minute)}';
   }
@@ -444,18 +474,108 @@ class _ExchangeHomeState extends State<ExchangeHome>
     avatar: Icon(warning ? Icons.schedule : Icons.info_outline, size: 16),
     label: Text(text),
   );
-  Widget directionPicker() => Wrap(
+  ExchangeQuote? dailyQuote(ExchangeDirection d, {bool onlyActive = false}) {
+    final quotes =
+        loaded?.sheet.quotes.where((q) => q.direction == d).toList() ?? [];
+    quotes.sort((a, b) => b.observedAt.compareTo(a.observedAt));
+    return quotes.where((q) => q.activeAt(DateTime.now())).firstOrNull ??
+        (onlyActive ? null : quotes.firstOrNull);
+  }
+
+  Widget directionPicker({bool showRates = false}) => Wrap(
     spacing: 8,
-    runSpacing: 6,
-    children: ExchangeDirection.values
-        .map(
-          (d) => ChoiceChip(
-            label: Text(d.label),
-            selected: d == direction,
-            onSelected: (_) => changeDirection(d),
+    runSpacing: 8,
+    children: ExchangeDirection.values.map((d) {
+      final q = dailyQuote(d);
+      return ChoiceChip(
+        label: showRates
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(d.label),
+                  const SizedBox(height: 4),
+                  Text(
+                    q == null
+                        ? 'မတင်ရသေးပါ'
+                        : '${referenceRateText(q.rateMicros)} ဘတ် / ၁ သိန်း',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if (q != null && !q.activeAt(DateTime.now()))
+                    const Text('ပြန်မစစ်ရသေး', style: TextStyle(fontSize: 11)),
+                ],
+              )
+            : Text(d.label),
+        selected: d == direction,
+        onSelected: (_) => changeDirection(d),
+        showCheckmark: !showRates,
+        labelPadding: showRates
+            ? const EdgeInsets.symmetric(horizontal: 9, vertical: 8)
+            : null,
+      );
+    }).toList(),
+  );
+  void selectTab(int value) {
+    if (value == 1 &&
+        lines.length == 1 &&
+        lines.first.rate.text.trim().isEmpty) {
+      final q = dailyQuote(direction, onlyActive: true);
+      if (q != null) {
+        lines.first.dispose();
+        lines[0] = CalcLine(quote: q);
+      }
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => tab = value);
+  }
+
+  Widget connectionBanner(LoadedSheet data) => Container(
+    padding: const EdgeInsets.all(12),
+    margin: const EdgeInsets.only(bottom: 14),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          data.origin == SheetOrigin.server
+              ? Icons.cloud_done_outlined
+              : Icons.offline_bolt_outlined,
+          size: 20,
+          color: data.origin == SheetOrigin.server
+              ? schemeColor(context)
+              : Theme.of(context).colorScheme.tertiary,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data.origin == SheetOrigin.server
+                    ? 'အွန်လိုင်းမှ နှုန်းရယူထားပါပြီ'
+                    : data.origin == SheetOrigin.cache
+                    ? 'လိုင်းမရသေးပါ · သိမ်းထားသောနှုန်းကို ပြထားသည်'
+                    : 'နေ့စဉ်နှုန်း စောင့်နေပါတယ်',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (lastFetched != null)
+                Text(
+                  'ချိတ်ဆက်စစ်ချိန် ${when(lastFetched!)} · ထိုင်းအချိန်',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
           ),
-        )
-        .toList(),
+        ),
+      ],
+    ),
   );
 
   @override
@@ -490,6 +610,17 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'နှုန်းအသစ် ရယူမယ်',
+            onPressed: loading ? null : _refresh,
+            icon: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
           IconButton(
             tooltip: 'အလင်း / အမှောင်',
             onPressed: widget.onTheme,
@@ -534,10 +665,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       bottomNavigationBar: NavigationBar(
         selectedIndex: tab,
         indicatorColor: scheme.primaryContainer,
-        onDestinationSelected: (value) {
-          FocusScope.of(context).unfocus();
-          setState(() => tab = value);
-        },
+        onDestinationSelected: selectTab,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.currency_exchange),
@@ -575,7 +703,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'ဒီနေ့ ငွေလဲမလား?',
+                  'နေ့စဉ် ဘတ်–ကျပ်ဈေး',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -591,8 +719,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ],
             ),
           ),
-          directionPicker(),
-          const SizedBox(height: 18),
+          if (data != null) connectionBanner(data),
+          if (loading) const LinearProgressIndicator(),
+          if (loadError != null) panel(Text(loadError!)),
+          if (data?.sheet.notice.isNotEmpty == true)
+            panel(Text(data!.sheet.notice)),
+          directionPicker(showRates: true),
+          const SizedBox(height: 16),
           TrendCard(
             quotes: quotes,
             history: rateHistory,
@@ -600,56 +733,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             unavailable: trendUnavailable,
             onCalculate: useQuote,
           ),
-          const SizedBox(height: 18),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'နောက်ဆုံး ထုတ်ပြထားသောနှုန်း',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              IconButton(
-                tooltip: 'နှုန်းအသစ် ရယူမယ်',
-                onPressed: loading ? null : _refresh,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-          if (loading) const LinearProgressIndicator(),
-          if (loadError != null) panel(Text(loadError!)),
-          if (data != null) ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Icon(
-                  data.origin == SheetOrigin.server
-                      ? Icons.cloud_done_outlined
-                      : Icons.offline_bolt_outlined,
-                  size: 16,
-                  color: schemeColor(context),
-                ),
-                Text(
-                  data.origin == SheetOrigin.server
-                      ? 'နောက်ဆုံးနှုန်း ရယူထားပါပြီ'
-                      : data.origin == SheetOrigin.cache
-                      ? 'သိမ်းထားသောနှုန်း · offline ဖြစ်နိုင်သည်'
-                      : 'နေ့စဉ်နှုန်း စောင့်နေပါတယ်',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            if (data.sheet.publishedAt != null)
-              Text(
-                'ထုတ်ပြချိန် ${when(data.sheet.publishedAt!)} · ဖုန်းအချိန်',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            if (data.sheet.notice.isNotEmpty) panel(Text(data.sheet.notice)),
-          ],
+          const SizedBox(height: 14),
           if (!loading &&
               quotes.isEmpty &&
               data != null &&
@@ -679,7 +763,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: FilledButton.icon(
-                onPressed: () => setState(() => tab = 1),
+                onPressed: () => selectTab(1),
                 icon: const Icon(Icons.calculate_outlined),
                 label: const Text('ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်မယ်'),
               ),
@@ -879,11 +963,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 decimal: true,
               ),
               onChanged: (_) => invalidate(),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => calculate(),
               decoration: InputDecoration(
                 labelText: targetMode
                     ? 'ရချင်သည့်ပမာဏ (${direction.to})'
                     : 'ပေးမယ့်စုစုပေါင်းငွေ (${direction.from})',
-                hintText: targetMode || direction == ExchangeDirection.mmkThb
+                hintText: (targetMode ? direction.to : direction.from) == 'ကျပ်'
                     ? 'ဥပမာ 100000'
                     : 'ဥပမာ 10000',
               ),
@@ -893,7 +979,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               spacing: 8,
               runSpacing: 6,
               children:
-                  (targetMode || direction == ExchangeDirection.mmkThb
+                  ((targetMode ? direction.to : direction.from) == 'ကျပ်'
                           ? [100000, 500000, 1000000]
                           : [1000, 5000, 10000])
                       .map(
@@ -1055,9 +1141,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => invalidate(line),
             decoration: InputDecoration(
-              labelText: line.perLakh ? 'ရမည့် ဘတ်ပမာဏ' : 'ရမည့် ကျပ်ပမာဏ',
+              labelText: line.perLakh
+                  ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်'
+                  : '၁ ဘတ်အတွက် ကျပ်',
               hintText: line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
-              helperText: 'ရေးပုံဥပမာသာ ဖြစ်သည်။ ရထားတဲ့နှုန်းအစစ်ကို ဖြည့်ပါ။',
+              helperText:
+                  'နှစ်ဘက်ဈေး မတူနိုင်ပါ။ ရွေးထားသောဦးတည်ချက်၏ နှုန်းကိုသာ ဖြည့်ပါ။',
               helperMaxLines: 2,
             ),
           ),
@@ -1209,7 +1298,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   void shareResult(Calculation result) {
     final q = result.quote;
     shareText(
-      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\nFee ${money(q.feeFor(result.budget))} ${q.direction.from} ပါဝင်သည်\n၁ ဘတ် = ${q.rateMicros / rateScale} ကျပ်\n${q.sourceChecked ? 'Source: ${q.sourceName} · ${when(q.observedAt)}' : 'ကိုယ်တိုင်ထည့်သောနှုန်းဖြင့် တွက်ထားခြင်း'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲမီ နှုန်းနှင့် Fee ကို ပြန်အတည်ပြုပါ။',
+      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'Source: ${q.sourceName} · ${when(q.observedAt)}' : 'ကိုယ်တိုင်ထည့်သောနှုန်းဖြင့် တွက်ထားခြင်း'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲမီ နှုန်းနှင့် Fee ကို ပြန်အတည်ပြုပါ။',
     );
   }
 
@@ -1408,12 +1497,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   Widget history() {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc().add(const Duration(hours: 7));
     final month = records.where(
       (r) =>
           r.completed &&
-          r.savedAt.year == now.year &&
-          r.savedAt.month == now.month &&
+          r.savedAt.toUtc().add(const Duration(hours: 7)).year == now.year &&
+          r.savedAt.toUtc().add(const Duration(hours: 7)).month == now.month &&
           r.quote.direction == ExchangeDirection.thbMmk,
     );
     final sent = month.fold<int>(0, (a, r) => a + r.budgetMinor);

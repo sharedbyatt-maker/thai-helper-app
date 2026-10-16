@@ -2,7 +2,7 @@
 export function publicHistory(rows, now=Date.now()) {
  const today=new Date(now+7*3600000).toISOString().slice(0,10);
  const first=new Date(Date.parse(today+'T00:00:00Z')-29*86400000).toISOString().slice(0,10);
- const daily=new Map();
+ const daily=new Map(), observations=new Map();
  // Caller orders revisions newest first: last published observation per source/day wins.
  for(const row of rows){
   const sheet=JSON.parse(row.payload);
@@ -13,9 +13,11 @@ export function publicHistory(rows, now=Date.now()) {
    if(day<first||day>today)continue;
    const identity=[q.id,q.direction,q.source_name,q.payout_method];
    const key=JSON.stringify([day,...identity]);
-   if(daily.has(key))continue;
-   daily.set(key,{day,quote_id:q.id,direction:q.direction,source_name:q.source_name,source_url:q.source_url,payout_method:q.payout_method,rate_micros:q.rate_micros});
+   const point={day,quote_id:q.id,direction:q.direction,source_name:q.source_name,source_url:q.source_url,payout_method:q.payout_method,rate_micros:q.rate_micros,observed_at:new Date(observed).toISOString(),revision:row.id};
+   if(!daily.has(key))daily.set(key,point);
+   const observationKey=JSON.stringify([...identity,point.observed_at]);
+   if(!observations.has(observationKey))observations.set(observationKey,point);
   }
  }
- return {schema_version:1,timezone:'Asia/Bangkok',from:first,to:today,points:[...daily.values()].sort((a,b)=>a.day.localeCompare(b.day))};
+ return {schema_version:1,timezone:'Asia/Bangkok',from:first,to:today,points:[...daily.values()].sort((a,b)=>a.day.localeCompare(b.day)),observations:[...observations.values()].sort((a,b)=>a.observed_at.localeCompare(b.observed_at)||a.revision-b.revision)};
 }
