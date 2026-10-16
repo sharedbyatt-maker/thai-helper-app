@@ -47,6 +47,23 @@ String money(int minor) {
 String rateText(int micros) =>
     (micros / rateScale).toStringAsFixed(6).replaceFirst(RegExp(r'\.?0+$'), '');
 
+double displayRateValue(int micros, ExchangeDirection direction) =>
+    direction == ExchangeDirection.mmkThb
+    ? 100000 * rateScale / micros
+    : micros / rateScale;
+
+String rateValueText(double value, ExchangeDirection direction) => value
+    .toStringAsFixed(direction == ExchangeDirection.mmkThb ? 2 : 6)
+    .replaceFirst(RegExp(r'\.?0+$'), '');
+
+String displayRateText(int micros, ExchangeDirection direction) =>
+    rateValueText(displayRateValue(micros, direction), direction);
+
+String quoteRateLabel(ExchangeQuote q) =>
+    q.direction == ExchangeDirection.mmkThb
+    ? 'ကျပ် ၁ သိန်း = ဘတ် ${displayRateText(q.rateMicros, q.direction)}'
+    : '၁ ဘတ် = ${rateText(q.rateMicros)} ကျပ်';
+
 ExchangeDirection parseDirection(Object? raw) {
   if (raw == 'thb_mmk') return ExchangeDirection.thbMmk;
   if (raw == 'mmk_thb') return ExchangeDirection.mmkThb;
@@ -145,7 +162,20 @@ class ExchangeQuote {
     final a = BigInt.from(usable);
     final rate = BigInt.from(rateMicros);
     final scale = BigInt.from(rateScale);
-    final result = direction == ExchangeDirection.thbMmk
+    // Recover a two-decimal THB-per-lakh quote only when it uniquely round-trips
+    // to the stored micros. This avoids losing a satang for 100000 MMK -> 726 THB.
+    final lakhMinor = (10000000000000 / rateMicros).round();
+    final exactLakh =
+        lakhMinor > 0 &&
+        (10000000000000 / lakhMinor).round() == rateMicros &&
+        (10000000000000 / (lakhMinor + 1)).round() != rateMicros &&
+        (lakhMinor == 1 ||
+            (10000000000000 / (lakhMinor - 1)).round() != rateMicros);
+    final result = exactLakh
+        ? direction == ExchangeDirection.thbMmk
+              ? a * BigInt.from(10000000) ~/ BigInt.from(lakhMinor)
+              : a * BigInt.from(lakhMinor) ~/ BigInt.from(10000000)
+        : direction == ExchangeDirection.thbMmk
         ? a * rate ~/ scale
         : a * scale ~/ rate;
     if (result > BigInt.from(maxMoneyMinor)) {
