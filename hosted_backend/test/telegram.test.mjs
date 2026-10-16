@@ -26,6 +26,8 @@ test('source samples parse directions and choices without tiers or selecting a r
  assert.deepEqual(parseRates(stk).candidates,[{rate:724,direction:'mmk_thb'},{rate:726,direction:'mmk_thb'},{rate:727,direction:'mmk_thb'},{rate:748,direction:'thb_mmk'}]);
  const k=parseRates(kumar);assert.equal(k.range,true);assert.deepEqual(k.candidates.map(q=>q.rate),[728,726,755]);
  assert.deepEqual(parseRates('၇၂၆').candidates,[{rate:726,direction:'mmk_thb'}]);
+ assert.deepEqual(parseRates('k to b 726').candidates,[{rate:726,direction:'mmk_thb'}]);
+ assert.deepEqual(parseRates('B-K 748').candidates,[{rate:748,direction:'thb_mmk'}]);
  assert.equal(parseRates('ဖုန်း 09123456789').candidates.length,0);
  assert.equal(parseRates('ကျပ်ပေး ဘတ်ယူ\n16.10.2026\nPhone 12345').candidates.length,0);
 });
@@ -48,91 +50,154 @@ test('webhook secret, expiring pairing and owner isolation',async()=>{
   await message(f,secret,4,'726',99);assert.equal((await call(f,'/api/v2/rates')).data.quotes.length,0);
  }finally{f.db.sqlite.close();}
 });
-test('single text publishes exact units, zeros fees, syncs clean draft, immutable history and retries once',async()=>{
+const button=(r,prefix)=>r.data.reply_markup?.inline_keyboard.flat().find(b=>b.callback_data?.startsWith(prefix))?.callback_data;
+async function confirm(f,secret,id,preview,actor=42){const action=button(preview,'publish:');assert.ok(action,'Expected an explicit confirmation preview');return message(f,secret,id,null,actor,action);}
+async function review(f,secret,id,question){return message(f,secret,id,null,42,button(question,'review:'));}
+async function onePreview(f,secret,id,text){const question=await message(f,secret,id,text);return review(f,secret,id+2000,question);}
+async function submit(f,secret,id,text){const preview=await onePreview(f,secret,id,text);return confirm(f,secret,id+1000,preview);}
+
+test('every single rate stays private until explicit paired-owner confirmation, with immutable units and retry safety',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);const r=await message(f,secret,10,'ကျပ်ပေး ဘတ်ယူ ၇၂၆');assert.match(r.data.text,/တင်ပြီး/);
-  let p=(await call(f,'/api/v2/rates')).data;assert.equal(p.revision,1);assert.equal(p.quotes[0].direction,'mmk_thb');assert.equal(p.quotes[0].rate_micros,Math.round(100000/726*1e6));assert.equal(p.quotes[0].fee_bps,0);assert.equal(p.quotes[0].flat_fee_minor,0);assert.equal(p.quotes[0].source_name,'Test Source');
-  assert.equal((await call(f,'/api/admin/state')).data.draft.quotes[0].rate_micros,p.quotes[0].rate_micros);
-  await message(f,secret,10,'ကျပ်ပေး ဘတ်ယူ 726');assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
-  await message(f,secret,11,'727');p=(await call(f,'/api/v2/rates')).data;assert.equal(p.revision,2);assert.equal(p.quotes.length,1);
-  assert.equal((await call(f,'/api/v2/history')).data.points.length,1);
+  const secret=await setup(f);await pair(f,secret);
+  const question=await message(f,secret,10,'ကျပ်ပေး ဘတ်ယူ ၇၂၆');assert.ok(button(question,'other:'));
+  const preview=await review(f,secret,2009,question);
+  assert.match(preview.data.text,/Public မတင်ရသေး/);assert.match(preview.data.text,/ကျပ် ၁ သိန်း = ဘတ် 726/);assert.match(preview.data.text,/ကျပ်ပေး → ဘတ်ယူ/);
+  assert.equal((await call(f,'/api/v2/rates')).data.revision,0);assert.equal((await call(f,'/api/admin/state')).data.draft_version,0);assert.equal((await call(f,'/api/v2/history')).data.points.length,0);
+  await confirm(f,secret,11,preview,99);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  const published=await confirm(f,secret,12,preview);assert.match(published.data.text,/တင်ပြီး/);assert.match(published.data.reply_markup.inline_keyboard[0][0].url,/github.io/);
+  const sheet=(await call(f,'/api/v2/rates')).data;assert.equal(sheet.revision,1);assert.equal(sheet.quotes.length,1);assert.equal(sheet.quotes[0].direction,'mmk_thb');assert.equal(sheet.quotes[0].rate_micros,Math.round(100000/726*1e6));assert.equal(sheet.quotes[0].fee_bps,0);assert.equal(sheet.quotes[0].flat_fee_minor,0);
+  assert.equal((await call(f,'/api/admin/state')).data.draft.quotes[0].rate_micros,sheet.quotes[0].rate_micros);
+  await confirm(f,secret,12,preview);await confirm(f,secret,13,preview);assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
  }finally{f.db.sqlite.close();}
 });
-test('multiple rates require exactly one owner choice, stale/reused callback cannot publish again',async()=>{
+test('choosing a rate only opens a preview; confirmation publishes exactly that direction',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);await message(f,secret,20,'/help');
-  const r=await message(f,secret,21,stk);const buttons=r.data.reply_markup.inline_keyboard.flat();assert.equal(buttons.length,4);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
-  await message(f,secret,22,null,99,buttons[1].callback_data);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
-  await message(f,secret,23,null,42,buttons[1].callback_data);const p=(await call(f,'/api/v2/rates')).data;assert.equal(p.revision,1);assert.equal(p.quotes[0].source_name,'Test Source');assert.equal(p.quotes[0].rate_micros,Math.round(100000/726*1e6));
-  await message(f,secret,24,null,42,buttons[2].callback_data);assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
+  const secret=await setup(f);await pair(f,secret);const choices=await message(f,secret,20,stk);
+  const rates=choices.data.reply_markup.inline_keyboard.flat().filter(b=>b.callback_data.startsWith('rate:'));assert.equal(rates.length,4);
+  const question=await message(f,secret,21,null,42,rates[1].callback_data);const preview=await review(f,secret,2021,question);
+  assert.ok(button(preview,'publish:'));assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  await confirm(f,secret,22,preview);const q=(await call(f,'/api/v2/rates')).data.quotes;assert.equal(q.length,1);assert.equal(q[0].direction,'mmk_thb');assert.equal(q[0].rate_micros,Math.round(100000/726*1e6));
+  await message(f,secret,23,null,42,rates[2].callback_data);assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
  }finally{f.db.sqlite.close();}
 });
-test('bot preserves unpublished admin draft and invalidates old admin version',async()=>{
+test('cancel from preview or choices never changes public rates and disables confirm',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);await call(f,'/api/admin/draft','PUT',{expected_version:0,sheet:{notice:'unsaved published work',quotes:[]}});
-  await message(f,secret,30,'726');const state=(await call(f,'/api/admin/state')).data;assert.equal(state.draft.notice,'unsaved published work');assert.equal(state.draft_version,2);assert.equal(state.published.quotes.length,1);
+  const secret=await setup(f);await pair(f,secret);const preview=await onePreview(f,secret,30,'726');
+  const r=await message(f,secret,31,null,42,button(preview,'cancel:'));assert.match(r.data.text,/မတင်တော့/);
+  await confirm(f,secret,32,preview);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  const choices=await message(f,secret,33,stk);await message(f,secret,34,null,42,button(choices,'cancel:'));
+  await message(f,secret,35,null,42,button(choices,'rate:'));assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+ }finally{f.db.sqlite.close();}
+});
+test('new text invalidates previous confirmation and choices before any publication',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);const old=await onePreview(f,secret,40,'726');const current=await onePreview(f,secret,41,'727');
+  await confirm(f,secret,42,old);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  await confirm(f,secret,43,current);assert.equal((await call(f,'/api/v2/rates')).data.quotes[0].rate_micros,Math.round(100000/727*1e6));
+  const choices=await message(f,secret,44,stk);await message(f,secret,45,'728');await message(f,secret,46,null,42,button(choices,'rate:'));
+  assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
+ }finally{f.db.sqlite.close();}
+});
+test('opposite quote is never inferred or overwritten; preview shows the actual change and retains its timestamp',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);await submit(f,secret,50,'ဘတ်ပေး ကျပ်ယူ 748');
+  const other=(await call(f,'/api/v2/rates')).data.quotes[0];const preview=await onePreview(f,secret,51,'ကျပ်ပေး ဘတ်ယူ 726');
+  assert.match(preview.data.text,/ယခင် 748/);await confirm(f,secret,52,preview);
+  const q=(await call(f,'/api/v2/rates')).data.quotes;assert.equal(q.length,2);assert.deepEqual(q.find(q=>q.direction==='thb_mmk'),other);
+  const changed=await onePreview(f,secret,53,'700');assert.match(changed.data.text,/ယခင်နှုန်း: ကျပ် ၁ သိန်း = ဘတ် 726/);assert.match(changed.data.text,/သတိပြုရန်/);
+ }finally{f.db.sqlite.close();}
+});
+test('confirmed publication preserves an unpublished admin draft and invalidates old admin versions',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);await call(f,'/api/admin/draft','PUT',{expected_version:0,sheet:{notice:'admin work',quotes:[]}});
+  await submit(f,secret,60,'726');const state=(await call(f,'/api/admin/state')).data;assert.equal(state.draft.notice,'admin work');assert.equal(state.draft_version,2);assert.equal(state.published.quotes.length,1);
   assert.equal((await call(f,'/api/admin/publish','POST',{expected_version:1})).status,409);
  }finally{f.db.sqlite.close();}
 });
-test('undo restores previous price without refreshing its observation time and cannot undo admin publication',async()=>{
+test('an intervening admin publication or settings change invalidates a confirmation',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);await message(f,secret,40,'726');const original=(await call(f,'/api/v2/rates')).data.quotes[0];await message(f,secret,41,'727');
-  const r=await message(f,secret,42,'/undo');assert.match(r.data.text,/ပြန်ဖျက်ပြီး/);const p=(await call(f,'/api/v2/rates')).data;assert.equal(p.revision,3);assert.equal(p.quotes[0].rate_micros,original.rate_micros);assert.equal(p.quotes[0].observed_at,original.observed_at);
-  await message(f,secret,43,'/undo');assert.equal((await call(f,'/api/v2/rates')).data.revision,3);
+  const secret=await setup(f);await pair(f,secret);await submit(f,secret,70,'726');const preview=await onePreview(f,secret,71,'727');
+  const state=(await call(f,'/api/admin/state')).data;const sheet={...state.draft,notice:'new admin publication'};
+  await call(f,'/api/admin/draft','PUT',{expected_version:state.draft_version,sheet});await call(f,'/api/admin/publish','POST',{expected_version:state.draft_version+1});
+  const blocked=await confirm(f,secret,72,preview);assert.match(blocked.data.text,/Public နှုန်းပြောင်း/);assert.equal((await call(f,'/api/v2/rates')).data.revision,2);
+  const next=await onePreview(f,secret,73,'728');await call(f,'/api/admin/telegram','POST',{source_name:'Changed',source_url:'',direction:'mmk_thb'});
+  await confirm(f,secret,74,next);assert.equal((await call(f,'/api/v2/rates')).data.revision,2);
  }finally{f.db.sqlite.close();}
 });
-test('photos, ambiguous text, old date and ranges do not silently publish; disconnect blocks webhook',async()=>{
+test('concurrent confirmations or concurrent choices cannot double publish or bypass preview',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);await message(f,secret,50,null);await message(f,secret,51,'hello');await message(f,secret,52,'2020-01-01\nကျပ်ပေး ဘတ်ယူ 726');
-  await message(f,secret,53,kumar);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  const secret=await setup(f);await pair(f,secret);const preview=await onePreview(f,secret,80,'726');
+  await Promise.all([confirm(f,secret,81,preview),confirm(f,secret,82,preview)]);assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
+  const choices=await message(f,secret,83,stk);const action=button(choices,'rate:');
+  const responses=await Promise.all([message(f,secret,84,null,42,action),message(f,secret,85,null,42,action)]);
+  assert.equal(responses.filter(r=>button(r,'other:')).length,1);assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
+ }finally{f.db.sqlite.close();}
+});
+test('expired confirmation and pairing are rejected; old legacy rate-choice buttons now require preview',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);const link=await call(f,'/api/admin/telegram/pair','POST',{});f.db.sqlite.exec('UPDATE telegram_settings SET pair_until=0');
+  await message(f,secret,90,'/start '+new URL(link.data.url).searchParams.get('start'));assert.equal((await call(f,'/api/admin/telegram')).data.paired,false);
+  await pair(f,secret);const preview=await onePreview(f,secret,91,'726');f.db.sqlite.exec('UPDATE telegram_pending SET expires=0');
+  await confirm(f,secret,92,preview);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  const choices=await message(f,secret,93,stk);const stored=f.db.sqlite.prepare('SELECT * FROM telegram_pending WHERE used=0 AND expires>0').get();const payload=JSON.parse(stored.payload);delete payload.stage;delete payload.config_generation;
+  f.db.sqlite.prepare('UPDATE telegram_pending SET payload=? WHERE id=?').run(JSON.stringify(payload),stored.id);
+  const legacy=await message(f,secret,94,null,42,button(choices,'rate:'));assert.ok(button(legacy,'other:'));assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+ }finally{f.db.sqlite.close();}
+});
+test('any channel uses optional generic label, preview includes it, and old named presets are ignored',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);f.db.sqlite.prepare('INSERT INTO telegram_session(id,source) VALUES(1,?)').run('Old preset');
+  const help=await message(f,secret,100,'/help');assert.ok(!help.data.text.includes('/stk'));assert.ok(!help.data.text.includes('/kumar'));assert.match(help.data.text,/Public တင်မယ်/);
+  const preview=await onePreview(f,secret,101,'726');assert.match(preview.data.text,/Test Source/);await confirm(f,secret,102,preview);
+  await call(f,'/api/admin/telegram','POST',{source_name:'',source_url:'',direction:'mmk_thb'});await submit(f,secret,103,'727');assert.equal((await call(f,'/api/v2/rates')).data.quotes[0].source_name,'နေ့စဉ်ရည်ညွှန်းနှုန်း');
+ }finally{f.db.sqlite.close();}
+});
+test('photos, old dates and ranges never bypass review; disconnect blocks publishing',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);await message(f,secret,110,null);await message(f,secret,111,'hello');await message(f,secret,112,'2020-01-01\nကျပ်ပေး ဘတ်ယူ 726');
+  const range=await message(f,secret,113,kumar);assert.ok(button(range,'rate:'));assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
   await call(f,'/api/admin/telegram/disconnect','POST',{});
   const r=await handle(new Request(origin+'/api/telegram/webhook',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':secret},body:'{}'}),f.db,null,'',f.runtime);assert.equal(r.status,403);
  }finally{f.db.sqlite.close();}
 });
-
-test('concurrent webhook updates preserve both revisions and concurrent choices publish only once',async()=>{
+test('undo restores a previously confirmed quote with its original observation time',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);
-  await Promise.all([message(f,secret,60,'726'),message(f,secret,61,'727')]);
-  assert.equal((await call(f,'/api/v2/rates')).data.revision,2);
-  const r=await message(f,secret,62,stk);const choices=r.data.reply_markup.inline_keyboard.flat();
-  await Promise.all([message(f,secret,63,null,42,choices[0].callback_data),message(f,secret,64,null,42,choices[1].callback_data)]);
-  assert.equal((await call(f,'/api/v2/rates')).data.revision,3);
- }finally{f.db.sqlite.close();}
-});
-test('expired pairing and pending choices cannot grant access or publish',async()=>{
- const f=fixture();try{
-  const secret=await setup(f);const pairLink=await call(f,'/api/admin/telegram/pair','POST',{});
-  f.db.sqlite.exec('UPDATE telegram_settings SET pair_until=0');
-  await message(f,secret,70,'/start '+new URL(pairLink.data.url).searchParams.get('start'));
-  assert.equal((await call(f,'/api/admin/telegram')).data.paired,false);
-  await pair(f,secret);const r=await message(f,secret,71,stk);
-  f.db.sqlite.exec('UPDATE telegram_pending SET expires=0');
-  await message(f,secret,72,null,42,r.data.reply_markup.inline_keyboard[0][0].callback_data);
-  assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  const secret=await setup(f);await pair(f,secret);await submit(f,secret,120,'726');const original=(await call(f,'/api/v2/rates')).data.quotes[0];await submit(f,secret,121,'727');
+  await message(f,secret,122,'/undo');const p=(await call(f,'/api/v2/rates')).data;assert.equal(p.revision,3);assert.deepEqual(p.quotes[0],original);
+  await message(f,secret,123,'/undo');assert.equal((await call(f,'/api/v2/rates')).data.revision,3);
  }finally{f.db.sqlite.close();}
 });
 
-test('any channel uses configured/default label, ignores retired presets, and publishes app link',async()=>{
+test('single direction asks whether to add the other side; each price stays independent and both publish only after review',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);
-  f.db.sqlite.prepare('INSERT INTO telegram_session(id,source) VALUES(1,?)').run('Old named preset');
-  const help=await message(f,secret,80,'/help');assert.ok(!help.data.text.includes('/stk'));assert.ok(!help.data.text.includes('/kumar'));
-  const result=await message(f,secret,81,'726');assert.match(result.data.reply_markup.inline_keyboard[0][0].url,/github.io/);
-  assert.equal((await call(f,'/api/v2/rates')).data.quotes[0].source_name,'Test Source');
-  const saved=await call(f,'/api/admin/telegram','POST',{source_name:'',source_url:'',direction:'mmk_thb'});assert.equal(saved.status,200);assert.equal(saved.data.paired,true);
-  await message(f,secret,82,'727');assert.equal((await call(f,'/api/v2/rates')).data.quotes[0].source_name,'နေ့စဉ်ရည်ညွှန်းနှုန်း');
+  const secret=await setup(f);await pair(f,secret);const question=await message(f,secret,130,'ကျပ်ပေး ဘတ်ယူ 726');
+  assert.ok(button(question,'other:'));assert.ok(button(question,'review:'));assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  const waiting=await message(f,secret,131,null,42,button(question,'other:'));assert.match(waiting.data.text,/ဘတ်ပေး → ကျပ်ယူ/);
+  await message(f,secret,132,'ကျပ်ပေး ဘတ်ယူ 727');assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+  const preview=await message(f,secret,133,'748');assert.ok(button(preview,'publish:'));assert.match(preview.data.text,/ဘတ် 726 ရ/);assert.match(preview.data.text,/ဘတ် 748 ပေး/);
+  assert.equal((await call(f,'/api/v2/rates')).data.revision,0);await confirm(f,secret,134,preview);
+  const quotes=(await call(f,'/api/v2/rates')).data.quotes;assert.equal(quotes.length,2);
+  assert.equal(quotes.find(q=>q.direction==='mmk_thb').rate_micros,Math.round(100000/726*1e6));
+  assert.equal(quotes.find(q=>q.direction==='thb_mmk').rate_micros,Math.round(100000/748*1e6));
  }finally{f.db.sqlite.close();}
 });
-test('new publication invalidates older rate-choice buttons and retains stale opposite direction',async()=>{
+test('two unambiguous pasted directions can be reviewed together without a redundant other-side question',async()=>{
  const f=fixture();try{
-  const secret=await setup(f);await pair(f,secret);const choices=await message(f,secret,90,stk);
-  await message(f,secret,91,'726');await message(f,secret,92,null,42,choices.data.reply_markup.inline_keyboard[0][0].callback_data);
-  assert.equal((await call(f,'/api/v2/rates')).data.revision,1);
-  const published=(await call(f,'/api/v2/rates')).data;
-  const stale={...published.quotes[0],id:'stale-other-side',direction:'thb_mmk',observed_at:new Date(Date.now()-2*86400000).toISOString(),valid_until:new Date(Date.now()-86400000).toISOString()};
-  f.db.sqlite.prepare('UPDATE revisions SET payload=? WHERE id=1').run(JSON.stringify({notice:'',quotes:[published.quotes[0],stale]}));
-  await message(f,secret,93,'727');const q=(await call(f,'/api/v2/rates')).data.quotes;
-  assert.equal(q.length,2);assert.equal(q.find(q=>q.direction==='thb_mmk').valid_until,stale.valid_until);
+  const secret=await setup(f);await pair(f,secret);const preview=await message(f,secret,140,'ကျပ်ပေး ဘတ်ယူ 726\nဘတ်ပေး ကျပ်ယူ 748');
+  assert.ok(button(preview,'publish:'));assert.equal((await call(f,'/api/v2/rates')).data.revision,0);await confirm(f,secret,141,preview);
+  const q=(await call(f,'/api/v2/rates')).data.quotes;assert.equal(q.length,2);assert.notEqual(q[0].rate_micros,q[1].rate_micros);
+ }finally{f.db.sqlite.close();}
+});
+test('other side found in the copied post can be chosen explicitly, or skipped while waiting for it',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);const choices=await message(f,secret,150,stk);
+  const rate=choices.data.reply_markup.inline_keyboard.flat().find(b=>b.text.includes('726'));
+  const question=await message(f,secret,151,null,42,rate.callback_data);
+  const waiting=await message(f,secret,152,null,42,button(question,'other:'));
+  assert.ok(button(waiting,'other_rate:'));const preview=await message(f,secret,153,null,42,button(waiting,'other_rate:'));
+  await confirm(f,secret,154,preview);assert.equal((await call(f,'/api/v2/rates')).data.quotes.length,2);
+  const newQuestion=await message(f,secret,155,'727');const wait=await message(f,secret,156,null,42,button(newQuestion,'other:'));
+  const skip=await review(f,secret,157,wait);await confirm(f,secret,158,skip);
+  const q=(await call(f,'/api/v2/rates')).data.quotes;assert.equal(q.find(q=>q.direction==='thb_mmk').rate_micros,Math.round(100000/748*1e6));
  }finally{f.db.sqlite.close();}
 });

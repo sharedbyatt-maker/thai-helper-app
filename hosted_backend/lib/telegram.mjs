@@ -16,13 +16,14 @@ export function parseRates(input, defaultDirection = 'mmk_thb') {
  let direction = null, found = [], range = false;
  for(const line of text.split(/\n/)) {
   const compact = line.replace(/[\s:：()（）\-–→]/g,'');
-  if(/ကျပ်ပေး.*ဘတ်ယူ/.test(compact)) direction='mmk_thb';
-  else if(/ဘတ်ပေး.*ကျပ်ယူ/.test(compact)) direction='thb_mmk';
+  const kyatFirst=/ကျပ်ပေး.*ဘတ်ယူ/.test(compact)||/^(?:k|mmk)(?:to|2)?(?:b|thb)(?=\d|$)/i.test(compact);
+  const bahtFirst=/ဘတ်ပေး.*ကျပ်ယူ/.test(compact)||/^(?:b|thb)(?:to|2)?(?:k|mmk)(?=\d|$)/i.test(compact);
+  if(kyatFirst)direction='mmk_thb';else if(bahtFirst)direction='thb_mmk';
   const explicit = /(?:ကျပ်|mmk)\s*(?:1\s*သိန်း|100000)\s*(?:=|ကို|အတွက်)\s*(\d+(?:\.\d{1,2})?)\s*(?:ဘတ်|thb)/i.exec(line);
   if(explicit) {found.push({rate:Number(explicit[1]),direction:direction||defaultDirection});continue;}
   if(!direction)continue;
   if(/phone|account|ဖုန်း|အကောင့်|vnd|usd/i.test(line))continue;
-  if(!/(?:ကျပ်ပေး|ဘတ်ပေး|သိန်း|အထက်)/.test(compact) && !/^\s*\d+(?:\.\d{1,2})?\s*$/.test(line))continue;
+  if(!kyatFirst&&!bahtFirst&&!/(?:သိန်း|အထက်)/.test(compact) && !/^\s*\d+(?:\.\d{1,2})?\s*$/.test(line))continue;
   // Only a trailing rate is accepted. Thresholds, dates, phones and bank account numbers are never guessed.
   if(/\d\s*[-–]\s*\d+(?:\.\d+)?\s*[)\s]*$/.test(line)){range=true;continue;}
   const match = /(\d+(?:\.\d{1,2})?)\s*(?:ဘတ်|THB)?\s*[)\s]*$/i.exec(line);
@@ -101,32 +102,80 @@ async function receipt(db,id,response) {
  await db.prepare('INSERT OR IGNORE INTO telegram_receipts(id,request_id,response,created_at) VALUES(?,?,?,?)').bind(id,random(),JSON.stringify(response),Date.now()).run();
  return response;
 }
-async function publish(db,row,c,updateId,chat,candidate,source,pendingId=null) {
+async function pendingReply(db,row,updateId,chat,payload,makeResponse,previousId=null) {
+ const pendingId=random(), requestId=random(), now=Date.now();
+ const response=makeResponse(pendingId);
+ const check=previousId?' AND EXISTS(SELECT 1 FROM telegram_pending WHERE id=? AND owner_id=? AND used=0 AND expires>?)':'';
+ const args=[updateId,requestId,JSON.stringify(response),now,row.generation,chat,...(previousId?[previousId,chat,now]:[])];
+ const result=await db.batch([
+  db.prepare('INSERT OR IGNORE INTO telegram_receipts(id,request_id,response,created_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM telegram_settings WHERE id=1 AND generation=? AND owner_id=?)'+check).bind(...args),
+  db.prepare('UPDATE telegram_pending SET used=1 WHERE owner_id=? AND EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=?)').bind(chat,updateId,requestId),
+  db.prepare('INSERT INTO telegram_pending(id,owner_id,payload,expires) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=?)').bind(pendingId,chat,JSON.stringify({...payload,config_generation:row.generation}),now+600000,updateId,requestId),
+ ]);
+ if(result[0].meta.changes)return response;
+ const cached=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(updateId).first();
+ return cached?JSON.parse(cached.response):reply(chat,'ဒီခလုတ်ကို သုံးပြီးပါပြီ သို့မဟုတ် အချက်အလက်ပြောင်းသွားပါပြီ။ စာအသစ်ပို့ပါ။');
+}
+async function cancelPending(db,updateId,chat,pendingId) {
+ const requestId=random(),response=reply(chat,'မတင်တော့ပါ။ App ပေါ်ရှိ နှုန်း မပြောင်းပါ။ ပြင်ချင်လျှင် နှုန်းစာအသစ်ပို့ပါ။');
+ const result=await db.batch([
+  db.prepare('INSERT OR IGNORE INTO telegram_receipts(id,request_id,response,created_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM telegram_pending WHERE id=? AND owner_id=? AND used=0 AND expires>?)').bind(updateId,requestId,JSON.stringify(response),Date.now(),pendingId,chat,Date.now()),
+  db.prepare('UPDATE telegram_pending SET used=1 WHERE id=? AND owner_id=? AND EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=?)').bind(pendingId,chat,updateId,requestId),
+ ]);
+ if(result[0].meta.changes)return response;
+ const cached=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(updateId).first();
+ return cached?JSON.parse(cached.response):reply(chat,'ဤခလုတ်ကို သုံးပြီးသွားပါပြီ။ /status ဖြင့် တင်ထားသောနှုန်းကို ကြည့်နိုင်သည်။');
+}
+const opposite = direction => direction==='mmk_thb'?'thb_mmk':'mmk_thb';
+const lakhRate = q => Number((100000000000/q.rate_micros).toFixed(2));
+const rateMeaning = q => q.direction==='mmk_thb'?`ကျပ် ၁ သိန်း ပေး → ဘတ် ${q.rate} ရ`:`ဘတ် ${q.rate} ပေး → ကျပ် ၁ သိန်း ရ`;
+async function askOther(db,row,updateId,chat,candidate,source,previousId=null,options=[]) {
+ const direction=opposite(candidate.direction);
+ const current=await db.prepare('SELECT payload FROM revisions ORDER BY id DESC LIMIT 1').first();
+ const existing=current?JSON.parse(current.payload).quotes.find(q=>q.direction===direction):null;
+ const text=`ဒီဘက်နှုန်း ရပါပြီ — ${rateMeaning(candidate)}\n\n${directionName(direction)} နှုန်းလည်း ထည့်ဦးမလား?\nနှစ်ဘက်နှုန်း မတူနိုင်သဖြင့် အလိုအလျောက် ပြန်မတွက်ပါ။\n${existing?`မထည့်သေးလျှင် ယခင် ${lakhRate(existing)} ဘတ်နှုန်းကို မူလစစ်ချိန်အတိုင်း ဆက်ထားမည်။`:'မထည့်သေးလျှင် ဒီဘက်နှုန်းကို အလွတ်ထားမည်။'}\n\nရွေးပြီးနောက် Public နမူနာကို စစ်ပေးရမည်။ အခု မတင်ရသေးပါ။`;
+ return pendingReply(db,row,updateId,chat,{stage:'ask_other',candidates:[candidate],source,options:options.filter(q=>q.direction===direction)},pendingId=>reply(chat,text,{reply_markup:{inline_keyboard:[[{text:'ဟုတ်တယ်၊ အခြားဘက်ပါ ထည့်မယ်',callback_data:'other:'+pendingId}],[{text:'မထည့်သေးဘူး၊ ဒီဘက်ပဲ ဆက်မယ်',callback_data:'review:'+pendingId}],[{text:'မတင်တော့ဘူး',callback_data:'cancel:'+pendingId}]]}}),previousId);
+}
+async function requestOther(db,row,updateId,chat,payload,previousId) {
+ const direction=opposite(payload.candidates[0].direction);
+ return pendingReply(db,row,updateId,chat,{...payload,stage:'await_other',expected_direction:direction},pendingId=>reply(chat,`${directionName(direction)} နှုန်းကို သီးခြားပို့ပါ။\nကျပ် ၁ သိန်းအတွက် ဘတ် ဘယ်လောက်လဲ?\nဥပမာ 748 လို့ ပို့နိုင်သည်။ ဥပမာကိန်းဂဏန်းသာ ဖြစ်သည်။\n\nထည့်ပြီးသား: ${rateMeaning(payload.candidates[0])}\nPublic မတင်ရသေးပါ။ /cancel ဖြင့် ရပ်နိုင်သည်။`,{reply_markup:{inline_keyboard:[...(payload.options||[]).map((q,i)=>[{text:`စာထဲပါ ${directionName(direction)} ${q.rate} ကို သုံးမယ်`,callback_data:`other_rate:${pendingId}:${i}`}]),[{text:'မထည့်သေးဘူး၊ ဒီဘက်ပဲ ဆက်မယ်',callback_data:'review:'+pendingId}],[{text:'မတင်တော့ဘူး',callback_data:'cancel:'+pendingId}]]}}),previousId);
+}
+async function previewRates(db,row,updateId,chat,candidates,source,previousId=null) {
+ const current=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
+ const quotes=current?JSON.parse(current.payload).quotes:[];
+ const summaries=candidates.map(candidate=>{
+  const previous=quotes.find(q=>q.direction===candidate.direction),oldRate=previous?lakhRate(previous):null;
+  const difference=oldRate===null?null:(candidate.rate-oldRate)/oldRate*100;
+  return `${directionName(candidate.direction)}\nကျပ် ၁ သိန်း = ဘတ် ${candidate.rate}\n${rateMeaning(candidate)}\n${oldRate===null?'ယခင်နှုန်း မရှိသေးပါ။':`ယခင်နှုန်း: ကျပ် ၁ သိန်း = ဘတ် ${oldRate}`}${difference!==null&&Math.abs(difference)>=3?`\nသတိပြုရန်: ယခင်နှုန်းနှင့် ${Math.abs(difference).toFixed(2)}% ကွာနေသည်။ ပြန်စစ်ပါ။`:''}`;
+ }).join('\n\n');
+ const other=candidates.length===1?quotes.find(q=>q.direction!==candidates[0].direction):null;
+ const retained=candidates.length===2?'နှစ်ဘက်လုံးကို ဖြည့်ထားသော သီးခြားနှုန်းများဖြင့် တင်မည်။':other?`မဖြည့်ထားသော ${directionName(other.direction)} — ယခင် ${lakhRate(other)} ဘတ်နှုန်းကို မူလစစ်ချိန်အတိုင်း ဆက်ထားမည်။`:'မဖြည့်ထားသော အခြားဘက်ကို အလွတ်ထားမည်။ ပြန်တွက်မထည့်ပါ။';
+ const text=`Public မတင်ရသေးပါ — စစ်ပေးပါ\n\n${summaries}\n\nပြမည့်အမည်: ${source}\n${retained}\n\nမှန်လျှင် အောက်က Public ခလုတ်ကို နှိပ်ပါ။\nတင်ချိန်ကို အတည်ပြုချိန်အဖြစ် မှတ်မည်။ ၁ ရက်ကျော်လျှင် ပြန်မစစ်ရသေးဟု ပြမည်။\nအတည်ပြုရန် ၁၀ မိနစ်အတွင်း။ စာအသစ်ပို့လျှင် ခလုတ်ဟောင်းကို သုံးမရတော့ပါ။`;
+ return pendingReply(db,row,updateId,chat,{stage:'confirm',candidates,source,base_revision:current?.id||0},pendingId=>reply(chat,text,{reply_markup:{inline_keyboard:[[{text:'မှန်တယ်၊ Public တင်မယ်',callback_data:'publish:'+pendingId}],[{text:'မတင်တော့ဘူး',callback_data:'cancel:'+pendingId}]]}}),previousId);
+}
+async function publish(db,row,c,updateId,chat,candidates,source,pendingId,expectedRevision) {
  for(let attempt=0;attempt<3;attempt++) {
   const previous=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
+  if((previous?.id||0)!==expectedRevision)return receipt(db,updateId,reply(chat,'Public နှုန်းပြောင်းသွားပါပြီ။ ဤနမူနာဟောင်းကို မတင်ထားပါ။ နှုန်းစာကို ပြန်ပို့ပြီး နမူနာအသစ်ကို စစ်ပါ။'));
   const old=previous?JSON.parse(previous.payload):{notice:'',quotes:[]};
   const now=new Date().toISOString();
-  const previousQuote=old.quotes.find(q=>q.direction===candidate.direction);
-  const q={id:previousQuote?.id||'daily-'+candidate.direction,label:directionName(candidate.direction),direction:candidate.direction,rate_micros:Math.round(100000/candidate.rate*1e6),flat_fee_minor:0,fee_bps:0,source_name:source,source_url:source===c.source_name?c.source_url:'',payout_method:'မဖော်ပြထားပါ',note:'Telegram မှ စစ်ပြီးတင်သော ရည်ညွှန်းနှုန်း။ အမှန်တကယ်လဲမည့်နှုန်းကို ငွေလဲသူထံ ပြန်စစ်ပါ။',observed_at:now,valid_until:new Date(Date.now()+86400000).toISOString(),source_checked:true};
-  const sheet=validate({...old,quotes:[...old.quotes.filter(x=>x.direction!==q.direction),q]});
-  const payload=JSON.stringify(sheet), requestId=random();
-  const response=reply(chat,`တင်ပြီးပါပြီ ✓\n${source}\n${directionName(q.direction)}\nကျပ် ၁ သိန်း = ဘတ် ${candidate.rate}\nတင်ချိန် ${new Date().toLocaleString('en-GB',{timeZone:'Asia/Bangkok'})} (ထိုင်း)\n၁ ရက်ကျော်လျှင် ပြန်မစစ်ရသေးသောနှုန်းဟု ပြပါမည်။ နှုန်းမှတ်တမ်း မပျောက်ပါ။\n/undo ဖြင့် နောက်ဆုံး Telegram တင်ချက်ကို ပြန်ဖျက်နိုင်သည်။`,{reply_markup:{inline_keyboard:[[{text:'User app ကြည့်မယ်',url:APP_URL}]]}});
-  const pendingCheck=pendingId?' AND EXISTS(SELECT 1 FROM telegram_pending WHERE id=? AND used=0 AND expires>?)':'';
-  const args=[updateId,requestId,JSON.stringify(response),Date.now(),previous?.id||0,row.generation,row.owner_id,...(pendingId?[pendingId,Date.now()]:[])];
-  // The receipt, revision and draft version change commit atomically. Duplicate webhook deliveries cannot republish.
-  const statements=[
-   db.prepare('INSERT OR IGNORE INTO telegram_receipts(id,request_id,response,created_at) SELECT ?,?,?,? WHERE COALESCE((SELECT MAX(id) FROM revisions),0)=? AND EXISTS(SELECT 1 FROM telegram_settings WHERE id=1 AND generation=? AND owner_id=?)'+pendingCheck).bind(...args),
+  const updates=candidates.map(candidate=>({id:old.quotes.find(q=>q.direction===candidate.direction)?.id||'daily-'+candidate.direction,label:directionName(candidate.direction),direction:candidate.direction,rate_micros:Math.round(100000/candidate.rate*1e6),flat_fee_minor:0,fee_bps:0,source_name:source,source_url:source===c.source_name?c.source_url:'',payout_method:'မဖော်ပြထားပါ',note:'Telegram မှ စစ်ပြီးတင်သော ရည်ညွှန်းနှုန်း။ အမှန်တကယ်လဲမည့်နှုန်းကို ငွေလဲသူထံ ပြန်စစ်ပါ။',observed_at:now,valid_until:new Date(Date.now()+86400000).toISOString(),source_checked:true}));
+  const sheet=validate({...old,quotes:[...old.quotes.filter(q=>!updates.some(u=>u.direction===q.direction)),...updates]});
+  const payload=JSON.stringify(sheet),requestId=random();
+  const response=reply(chat,`တင်ပြီးပါပြီ ✓\n${source}\n${candidates.map(rateMeaning).join('\n')}\nတင်ချိန် ${new Date().toLocaleString('en-GB',{timeZone:'Asia/Bangkok'})} (ထိုင်း)\n၁ ရက်ကျော်လျှင် ပြန်မစစ်ရသေးဟု ပြမည်။ မှတ်တမ်း မပျောက်ပါ။\n/undo ဖြင့် နောက်ဆုံး Telegram တင်ချက်ကို ပြန်ဖျက်နိုင်သည်။`,{reply_markup:{inline_keyboard:[[{text:'User app ကြည့်မယ်',url:APP_URL}]]}});
+  // The receipt, both explicitly provided prices, and draft version commit together.
+  const result=await db.batch([
+   db.prepare('INSERT OR IGNORE INTO telegram_receipts(id,request_id,response,created_at) SELECT ?,?,?,? WHERE COALESCE((SELECT MAX(id) FROM revisions),0)=? AND EXISTS(SELECT 1 FROM telegram_settings WHERE id=1 AND generation=? AND owner_id=?) AND EXISTS(SELECT 1 FROM telegram_pending WHERE id=? AND owner_id=? AND used=0 AND expires>?)').bind(updateId,requestId,JSON.stringify(response),Date.now(),previous?.id||0,row.generation,chat,pendingId,chat,Date.now()),
    db.prepare('INSERT INTO revisions(payload,published_at) SELECT ?,? WHERE EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=?)').bind(payload,now,updateId,requestId),
    db.prepare('UPDATE telegram_receipts SET revision=last_insert_rowid() WHERE id=? AND request_id=? AND changes()=1').bind(updateId,requestId),
    db.prepare('INSERT OR IGNORE INTO draft(id,payload,version) VALUES(1,?,0)').bind(previous?.payload||JSON.stringify({notice:'',quotes:[]})),
    db.prepare('UPDATE draft SET payload=CASE WHEN payload=? THEN ? ELSE payload END,version=version+1 WHERE id=1 AND EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=? AND revision IS NOT NULL)').bind(previous?.payload||JSON.stringify({notice:'',quotes:[]}),payload,updateId,requestId),
-  ];
-  statements.push(db.prepare('UPDATE telegram_pending SET used=1 WHERE owner_id=? AND EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=? AND revision IS NOT NULL)').bind(chat,updateId,requestId));
-  const result=await db.batch(statements);
+   db.prepare('UPDATE telegram_pending SET used=1 WHERE owner_id=? AND EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=? AND revision IS NOT NULL)').bind(chat,updateId,requestId),
+  ]);
   if(result[0].meta.changes)return response;
-  const existing=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(updateId).first();
-  if(existing)return JSON.parse(existing.response);
-  if(pendingId){const p=await db.prepare('SELECT used,expires FROM telegram_pending WHERE id=?').bind(pendingId).first();if(!p||p.used||p.expires<=Date.now())return receipt(db,updateId,reply(chat,'ဒီရွေးချယ်မှုကို သုံးပြီးပါပြီ သို့မဟုတ် အချိန်ကုန်ပါပြီ။ စာအသစ်ပို့ပါ။'));}
+  const cached=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(updateId).first();if(cached)return JSON.parse(cached.response);
+  const p=await db.prepare('SELECT used,expires FROM telegram_pending WHERE id=?').bind(pendingId).first();
+  if(!p||p.used||p.expires<=Date.now())return receipt(db,updateId,reply(chat,'ဒီခလုတ်ကို သုံးပြီးပါပြီ သို့မဟုတ် အချိန်ကုန်ပါပြီ။ စာအသစ်ပို့ပါ။'));
  }
  return receipt(db,updateId,reply(chat,'တခြားနေရာက နှုန်းပြင်နေပါသည်။ နှုန်းကို ပြန်ပို့ပါ။'));
 }
@@ -171,7 +220,7 @@ export async function webhook(req,db,raw,runtime={}) {
  // Keep transient records bounded; revision history remains immutable.
  await db.batch([db.prepare('DELETE FROM telegram_pending WHERE expires<?').bind(Date.now()-86400000),db.prepare('DELETE FROM telegram_receipts WHERE created_at<? AND revision IS NULL').bind(Date.now()-7*86400000)]);
  const say=async s=>Response.json(await receipt(db,id,reply(chat,s)));
- if(/^\/(help|start)(?:@\w+)?$/.test(text))return say(`အသုံးပြုပုံ\nChannel ရွေးစရာမလိုပါ။ ဘယ် channel ကစာမဆို Copy/Paste လုပ်နိုင်သည်။\n\nကျပ်ပေး ဘတ်ယူ 726\nသို့မဟုတ် 726 တစ်ခုတည်း ပို့ပါ။\nကျပ် ၁ သိန်းအတွက် ဘတ်နှုန်းဖြစ်သည်။\nနံပါတ်တစ်ခုတည်းဆို ${directionName(c.direction)} ကို သုံးမည်။\nနှုန်းများပါလျှင် တင်မည့်တစ်ခုကို ရွေးခိုင်းမည်။ ပုံဖတ်ခြင်း မပါသေးပါ။\n\n/status — လက်ရှိနှုန်း\n/undo — နောက်ဆုံး Telegram တင်ချက် ပြန်ဖျက်\n\nUser app: ${APP_URL}`);
+ if(/^\/(help|start)(?:@\w+)?$/.test(text))return say(`အသုံးပြုပုံ\nChannel ရွေးစရာမလိုပါ။ ဘယ် channel ကစာမဆို Copy/Paste လုပ်နိုင်သည်။\n\nကျပ်ပေး ဘတ်ယူ 726\nသို့မဟုတ် 726 တစ်ခုတည်း ပို့ပါ။\nကျပ် ၁ သိန်းအတွက် ဘတ်နှုန်းဖြစ်သည်။\nနံပါတ်တစ်ခုတည်းဆို ${directionName(c.direction)} ကို သုံးမည်။\nနှုန်းများပါလျှင် တစ်ခုရွေးခိုင်းမည်။ တစ်ဘက်ပို့လျှင် အခြားဘက်နှုန်း ထည့်ဦးမလား မေးမည်။ ထည့်မယ်ဆို သီးခြားနှုန်းကို ပို့ပါ။ မထည့်သေးလည်း ရသည်။ နမူနာကို စစ်ပြီး “မှန်တယ်၊ Public တင်မယ်” နှိပ်မှ App ပေါ်တင်မည်။ မတင်တော့ဘူးကို နှိပ်လျှင် နှုန်းမပြောင်းပါ။ ပုံဖတ်ခြင်း မပါသေးပါ။\n\n/status — လက်ရှိနှုန်း\n/cancel — နမူနာရပ်မယ်\n/undo — နောက်ဆုံး Telegram တင်ချက် ပြန်ဖျက်\n\nUser app: ${APP_URL}`);
  if(text==='/status') {
   const current=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
   if(!current)return say('နှုန်းမတင်ရသေးပါ။');
@@ -179,14 +228,38 @@ export async function webhook(req,db,raw,runtime={}) {
  }
  if(text==='/undo')return Response.json(await undo(db,row,c,id,chat));
  const source=c.source_name||DEFAULT_SOURCE;
+ if(text==='/cancel') {await db.prepare('UPDATE telegram_pending SET used=1 WHERE owner_id=?').bind(chat).run();return say('စောင့်ဆိုင်းနေသော နမူနာများကို ပိတ်ပြီးပါပြီ။ Public တင်ပြီးသားကို ပြန်ဖျက်ရန် /undo ကို သုံးပါ။');}
  if(u.callback_query) {
-  const match=/^rate:([a-f0-9]{48}):(\d{1,2})$/.exec(u.callback_query.data||'');
-  if(!match)return say('ရွေးချယ်မှု မမှန်ပါ။');
-  const pending=await db.prepare('SELECT * FROM telegram_pending WHERE id=? AND owner_id=? AND used=0 AND expires>?').bind(match[1],chat,Date.now()).first();
-  if(!pending)return say('ရွေးချယ်မှုကို သုံးပြီးပါပြီ သို့မဟုတ် အချိန်ကုန်ပါပြီ။ စာအသစ်ပို့ပါ။');
-  const payload=JSON.parse(pending.payload), candidate=payload.candidates[Number(match[2])];
-  if(!candidate)return say('ရွေးချယ်မှု မမှန်ပါ။');
-  return Response.json(await publish(db,row,c,id,chat,candidate,payload.source,pending.id));
+  const input=u.callback_query.data||'';
+  const choice=/^(rate|other_rate):([a-f0-9]{48}):(\d{1,2})$/.exec(input);
+  const action=/^(publish|cancel|other|review):([a-f0-9]{48})$/.exec(input);
+  if(!choice&&!action)return say('ရွေးချယ်မှု မမှန်ပါ။');
+  const pendingId=choice?choice[2]:action[2];
+  const pending=await db.prepare('SELECT * FROM telegram_pending WHERE id=? AND owner_id=? AND used=0 AND expires>?').bind(pendingId,chat,Date.now()).first();
+  if(!pending)return say('ဒီခလုတ်ကို သုံးပြီးပါပြီ၊ စာအသစ်ပို့ထားပါသည် သို့မဟုတ် အချိန်ကုန်ပါပြီ။ စာအသစ်ပို့ပါ။');
+  const payload=JSON.parse(pending.payload);
+  if(payload.config_generation!==undefined&&payload.config_generation!==row.generation)return say('Bot settings ပြောင်းသွားပါပြီ။ စာအသစ်ပို့ပါ။');
+  if(action?.[1]==='cancel')return Response.json(await cancelPending(db,id,chat,pendingId));
+  if(choice) {
+   if(choice[1]==='other_rate') {
+    if(!['await_other','choose_other'].includes(payload.stage))return say('ဒီခလုတ်ကို သုံးမရပါ။');
+    const candidate=payload.options?.[Number(choice[3])];if(!candidate||candidate.direction!==opposite(payload.candidates[0].direction))return say('ရွေးချယ်မှု မမှန်ပါ။');
+    return Response.json(await previewRates(db,row,id,chat,[...payload.candidates,candidate],payload.source,pendingId));
+   }
+   if(payload.stage&&payload.stage!=='choose')return say('ဒီခလုတ်ကို သုံးမရပါ။');
+   const candidate=payload.candidates?.[Number(choice[3])];if(!candidate)return say('ရွေးချယ်မှု မမှန်ပါ။');
+   return Response.json(await askOther(db,row,id,chat,candidate,payload.source||source,pendingId,payload.candidates));
+  }
+  if(action[1]==='other') {
+   if(payload.stage!=='ask_other')return say('ဒီခလုတ်ကို သုံးမရပါ။');
+   return Response.json(await requestOther(db,row,id,chat,payload,pendingId));
+  }
+  if(action[1]==='review') {
+   if(!['ask_other','await_other','choose_other'].includes(payload.stage))return say('ဒီခလုတ်ကို သုံးမရပါ။');
+   return Response.json(await previewRates(db,row,id,chat,payload.candidates,payload.source,pendingId));
+  }
+  if(payload.stage!=='confirm'||!Array.isArray(payload.candidates)||payload.candidates.length<1||payload.candidates.length>2||!Number.isSafeInteger(payload.base_revision)||payload.config_generation!==row.generation)return say('အတည်ပြုနမူနာ မမှန်ပါ။ နှုန်းစာအသစ်ပို့ပါ။');
+  return Response.json(await publish(db,row,c,id,chat,payload.candidates,payload.source,pendingId,payload.base_revision));
  }
  if(!text)return say('ပုံဖတ်ခြင်း မပါသေးပါ။ Viber စာသားကို Copy/Paste လုပ်ပါ သို့မဟုတ် ကျပ်ပေး ဘတ်ယူ 726 လို့ ပို့ပါ။');
  if(text.startsWith('/'))return say('Command မသိပါ။ /help ကို ပို့ပါ။');
@@ -194,13 +267,18 @@ export async function webhook(req,db,raw,runtime={}) {
  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok'});
  const dates=normalize(text).match(/\b\d{4}-\d{2}-\d{2}\b/g)||[];
  if(dates.some(d=>d!==today))return say('စာထဲကရက်စွဲသည် ယနေ့မဟုတ်ပါ။ ယနေ့နှုန်းကို ပြန်စစ်ပြီး နှုန်းတစ်ခုတည်း ပို့ပါ။');
- const parsed=parseRates(text,c.direction);
- if(!parsed.candidates.length)return say(parsed.error||'နှုန်းကို ရှင်းရှင်းမဖတ်နိုင်ပါ။ ကျပ်ပေး ဘတ်ယူ 726 လို့ နှုန်းတစ်ခုတည်း ပို့ပါ။');
- const safe=parsed.candidates.filter(q=>q.rate>=1&&q.rate<=100000);
- if(!safe.length)return say('နှုန်းပမာဏ မမှန်ပါ။ ပြန်စစ်ပါ။');
- if(safe.length===1&&!parsed.range)return Response.json(await publish(db,row,c,id,chat,safe[0],source));
- const pendingId=random();
- await db.prepare('INSERT INTO telegram_pending(id,owner_id,payload,expires) VALUES(?,?,?,?)').bind(pendingId,chat,JSON.stringify({candidates:safe,source}),Date.now()+600000).run();
- const response=reply(chat,`${source}\nတင်မည့်နှုန်းတစ်ခုကို ရွေးပါ။ (၁၀ မိနစ်အတွင်း)\nကျပ် ၁ သိန်းအတွက် ဘတ်နှုန်းဖြစ်သည်။${parsed.range?'\nနှုန်းအပိုင်းအခြားကို မရွေးထားပါ။ လိုလျှင် နှုန်းအတိအကျကို စာအသစ်ပို့ပါ။':''}`,{reply_markup:{inline_keyboard:safe.map((q,i)=>[{text:`${directionName(q.direction)} · ${q.rate}`,callback_data:`rate:${pendingId}:${i}`}])}});
- return Response.json(await receipt(db,id,response));
+ const active=await db.prepare('SELECT * FROM telegram_pending WHERE owner_id=? AND used=0 AND expires>? ORDER BY rowid DESC LIMIT 1').bind(chat,Date.now()).first();
+ const progress=active?JSON.parse(active.payload):null;
+ const awaiting=progress?.stage==='await_other'||progress?.stage==='choose_other';
+ if(awaiting&&progress.config_generation!==row.generation)return say('Bot settings ပြောင်းသွားပါပြီ။ /cancel ပို့ပြီး နှုန်းစာအသစ်ပို့ပါ။');
+ const parsed=parseRates(text,awaiting?progress.expected_direction:c.direction);
+ const safe=parsed.candidates.filter(q=>q.rate>=1&&q.rate<=100000&&(!awaiting||q.direction===progress.expected_direction));
+ if(!safe.length)return say(parsed.error||(awaiting?`${directionName(progress.expected_direction)} ဘက်နှုန်းကို ပို့ပေးပါ။ မထည့်သေးလျှင် အပေါ်က “ဒီဘက်ပဲ ဆက်မယ်” ကို နှိပ်ပါ။`:'နှုန်းကို ရှင်းရှင်းမဖတ်နိုင်ပါ။ ကျပ်ပေး ဘတ်ယူ 726 လို့ ပို့ပါ။'));
+ if(awaiting) {
+  if(safe.length===1&&!parsed.range)return Response.json(await previewRates(db,row,id,chat,[...progress.candidates,safe[0]],progress.source,active.id));
+  return Response.json(await pendingReply(db,row,id,chat,{...progress,stage:'choose_other',options:safe},pendingId=>reply(chat,`${directionName(progress.expected_direction)} ဘက်အတွက် နှုန်းတစ်ခုရွေးပါ။ ရွေးပြီးလျှင် နှစ်ဘက်လုံး နမူနာပြမည်။`,{reply_markup:{inline_keyboard:[...safe.map((q,i)=>[{text:rateMeaning(q),callback_data:`other_rate:${pendingId}:${i}`}]),[{text:'ဒီဘက်မထည့်သေးဘူး',callback_data:'review:'+pendingId}],[{text:'မတင်တော့ဘူး',callback_data:'cancel:'+pendingId}]]}}),active.id));
+ }
+ if(safe.length===2&&safe[0].direction!==safe[1].direction&&!parsed.range)return Response.json(await previewRates(db,row,id,chat,safe,source));
+ if(safe.length===1&&!parsed.range)return Response.json(await askOther(db,row,id,chat,safe[0],source));
+ return Response.json(await pendingReply(db,row,id,chat,{stage:'choose',candidates:safe,source},pendingId=>reply(chat,`${source}\nအရင်ထည့်မည့်နှုန်းတစ်ခုကို ရွေးပါ။ ပြီးလျှင် အခြားဘက်ပါ ထည့်ဦးမလား မေးမည်။\nPublic မတင်ရသေးပါ။ (၁၀ မိနစ်အတွင်း)${parsed.range?'\nနှုန်းအပိုင်းအခြားကို မရွေးထားပါ။ နှုန်းအတိအကျကို ပို့နိုင်သည်။':''}`,{reply_markup:{inline_keyboard:[...safe.map((q,i)=>[{text:`${directionName(q.direction)} · ${q.rate}`,callback_data:`rate:${pendingId}:${i}`}]),[{text:'မတင်တော့ဘူး',callback_data:'cancel:'+pendingId}]]}})));
 }
