@@ -122,3 +122,17 @@ flutter build web --release --no-web-resources-cdn
 ```
 
 CI runs backend checks plus Flutter analysis, tests and web build for pull requests. Publishing is a separate workflow after merge/manual dispatch.
+
+### Telegram မှ နှုန်းတင်ခြင်း (hosted backend)
+
+Admin → **စာပို့ပြီး နှုန်းတင်မယ်** → Settings:
+
+1. Telegram [@BotFather](https://t.me/BotFather) မှာ `/newbot` ဖြင့် ကိုယ်ပိုင် bot ဖန်တီးပါ။
+2. ရသော token ကို Admin ရဲ့ password အကွက်ထဲ ထည့်ပြီး source အမည်ဖြည့်ကာ **Bot ချိတ်မယ်** နှိပ်ပါ။ Token ကို GitHub သို့မဟုတ် chat ထဲ မတင်ပါနှင့်။
+3. **ငါ့ Telegram ချိတ်မယ်** နှိပ်၊ ပေါ်လာသော link ဖြင့် Telegram မှာ Start နှိပ်ပါ။ Link သက်တမ်း ၁၀ မိနစ်ဖြစ်ပြီး တစ်ခါသာသုံးနိုင်သည်။ ချိတ်ပြီးသော Telegram account တစ်ခုတည်းက နှုန်းတင်နိုင်သည်။
+
+Daily: `/stk`, `/kumar` သို့မဟုတ် `/default` ဖြင့် source ရွေးပြီး `ကျပ်ပေး ဘတ်ယူ 726` သို့မဟုတ် `726` ပို့ပါ။ **ကျပ် ၁ သိန်း = ဘတ် 726** ဖြစ်သည်။ နံပါတ်တစ်ခုတည်းပို့လျှင် Admin တွင် သတ်မှတ်ထားသော ဦးတည်ချက်ကို သုံးသည်။ Viber စာအပြည့်တွင် နှုန်းများပါလျှင် ၁၀ မိနစ်သက်တမ်းရှိ ခလုတ်များမှ တစ်ခုသာရွေးနိုင်သည်။ ငွေပမာဏအဆင့်များ၊ fee နှင့် OCR မပါပါ။ `/status` ဖြင့် နှုန်းကြည့်၊ `/undo` ဖြင့် နောက်ဆုံး Telegram တင်ချက်ကို ပြန်ဖျက်နိုင်သည်။
+
+နှုန်းကို ၂၄ နာရီ သက်တမ်းဖြင့် public rates နှင့် trend history သို့ တင်သည်။ ရှိပြီးသား ဦးတည်ချက်တူနှုန်းကို အစားထိုးပြီး သီးခြား ပြောင်းပြန်ဦးတည်ချက်ကို မခန့်မှန်းပါ။ Draft သည် published နှင့် တူနေမှ sync လုပ်ပြီး မတင်ရသေးသော Draft ကို ထိန်းထားသည်။ Telegram တင်ပြီးနောက် Admin ကို Reload လုပ်ပါ။
+
+Hosting secret `TELEGRAM_CONFIG_KEY` သည် random 32-byte hexadecimal key ဖြစ်ရမည်။ Native Sites environment secret အဖြစ်သာ သိမ်းပြီး deploy လုပ်ရသည်။ Bot token/webhook secret ကို AES-GCM ဖြင့် encrypt လုပ်ကာ D1 တွင် သိမ်းသည်။ Key ကို အလိုအလျောက် မပြောင်းပါနှင့်။ Token ကို UI/API က ပြန်မပေးပါ။ Webhook သည် Telegram secret header၊ paired sender၊ private chat နှင့် durable duplicate receipt ကို စစ်သည်။ အသစ်ထည့်ထားသော Drizzle migrations ကို deploy ဖြင့် apply လုပ်ရသည်။ Local Python backend တွင် Telegram integration မပါပါ။

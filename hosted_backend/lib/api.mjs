@@ -1,5 +1,6 @@
 import { Invalid, validate } from './validate.mjs';
 import { publicHistory } from './history.mjs';
+import { adminTelegram, webhook } from './telegram.mjs';
 class TooLarge extends Error {}
 async function bodyText(req, limit) {
  if(Number(req.headers.get('Content-Length'))>limit)throw new TooLarge();
@@ -11,7 +12,7 @@ async function bodyText(req, limit) {
 }
 const EMPTY={schema_version:2,revision:0,published_at:null,notice:'နှုန်းမတင်ရသေးပါ။ ကိုယ်ရထားသောဈေးနှင့် တွက်နိုင်သည်။',quotes:[]};
 const conflict={error:'Draft ပြောင်းထားပါသည်။ Reload လုပ်ပါ။'};
-export async function handle(req, db, user, bootstrapEmail) {
+export async function handle(req, db, user, bootstrapEmail, runtime={}) {
  const path=new URL(req.url).pathname;
  const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history'].includes(path);
  const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...(publicRoute?{'Access-Control-Allow-Origin':'*'}:{})}});
@@ -20,6 +21,7 @@ export async function handle(req, db, user, bootstrapEmail) {
   return row?{...JSON.parse(row.payload),schema_version:2,revision:row.id,published_at:row.published_at}:EMPTY;
  };
  try {
+  if(path==='/api/telegram/webhook'&&req.method==='POST')return await webhook(req,db,await bodyText(req,32768),runtime);
   if(path==='/api/v2/history'&&req.method==='GET'){
    const since=new Date(Date.now()-31*86400000).toISOString();
    const rows=await db.prepare('SELECT id,payload,published_at FROM revisions WHERE published_at>=? ORDER BY id DESC LIMIT 400').bind(since).all();
@@ -48,6 +50,11 @@ export async function handle(req, db, user, bootstrapEmail) {
    const row=await db.prepare('SELECT * FROM draft WHERE id=1').first();
    const history=await db.prepare('SELECT id,published_at FROM revisions ORDER BY id DESC LIMIT 50').all();
    return json({draft:JSON.parse(row.payload),draft_version:row.version,published:await publicSheet(),history:history.results,csrf_token:'same-origin'});
+  }
+  if(path.startsWith('/api/admin/telegram')){
+   let input={};if(req.method==='POST'){try{input=JSON.parse(await bodyText(req,8192));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON လိုပါသည်'},400);}}
+   if(!input||typeof input!=='object'||Array.isArray(input))return json({error:'JSON object လိုပါသည်'},400);
+   const result=await adminTelegram(req,db,path,input,runtime);return result?json(result):json({error:'Not found'},404);
   }
   if(!['PUT','POST'].includes(req.method))return json({error:'Not found'},404);
   const raw=await bodyText(req,131072);
