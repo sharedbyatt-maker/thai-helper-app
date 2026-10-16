@@ -171,9 +171,18 @@ void main() {
         150,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'ကျပ်ပေး → ဘတ်ယူ နှုန်းကြည့်မယ်'),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.widgetWithText(FilledButton, 'ကျပ်ပေး → ဘတ်ယူ နှုန်းကြည့်မယ်'),
       );
+      await tester.pumpAndSettle();
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
       await tester.pumpAndSettle();
       expect(find.text('ကျပ် ၁ သိန်း = ဘတ် 726'), findsOneWidget);
       expect(tester.takeException(), isNull);
