@@ -17,12 +17,25 @@ class RatesRepository {
   static const apiBase = String.fromEnvironment('RATES_API');
   static const cacheKey = 'published_exchange_sheet_v2';
   final http.Client client;
-  RatesRepository({http.Client? client}) : client = client ?? http.Client();
+  final Future<SharedPreferences> Function() preferences;
+  RatesRepository({
+    http.Client? client,
+    Future<SharedPreferences> Function()? preferences,
+  }) : client = client ?? http.Client(),
+       preferences = preferences ?? SharedPreferences.getInstance;
+  Future<SharedPreferences?> _preferences() async {
+    try {
+      return await preferences().timeout(const Duration(seconds: 1));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Uri get endpoint => apiBase.isEmpty
       ? Uri.base.resolve('/api/v2/rates')
       : Uri.parse('$apiBase/api/v2/rates');
   Future<LoadedSheet> load() async {
-    final prefs = await SharedPreferences.getInstance();
+    final pendingPreferences = _preferences();
     try {
       final response = await client
           .get(
@@ -41,13 +54,16 @@ class RatesRepository {
       final sheet = QuoteSheet.decode(response.body);
       // Valid server data remains usable if storage is full/blocked.
       try {
-        await prefs.setString(cacheKey, response.body);
+        await (await pendingPreferences)?.setString(cacheKey, response.body);
       } catch (_) {
         /* optional cache */
       }
       return LoadedSheet(sheet, SheetOrigin.server);
     } catch (_) {
-      final cache = prefs.getString(cacheKey);
+      String? cache;
+      try {
+        cache = (await pendingPreferences)?.getString(cacheKey);
+      } catch (_) {}
       if (cache != null) {
         try {
           return LoadedSheet(QuoteSheet.decode(cache), SheetOrigin.cache);
@@ -66,9 +82,14 @@ class RatesRepository {
 
   Future<RateHistory> loadHistory() async {
     const key = 'published_rate_history_v1';
-    final prefs = await SharedPreferences.getInstance();
+    final pendingPreferences = _preferences();
     try {
-      final uri = endpoint.replace(path: '/api/v2/history');
+      final uri = endpoint.replace(
+        path: '/api/v2/history',
+        queryParameters: {
+          'v': DateTime.now().millisecondsSinceEpoch.toString(),
+        },
+      );
       final r = await client
           .get(uri, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 8));
@@ -77,14 +98,18 @@ class RatesRepository {
       }
       final result = RateHistory.decode(r.body);
       try {
-        await prefs.setString(key, r.body);
+        await (await pendingPreferences)?.setString(key, r.body);
       } catch (_) {
         /* optional cache */
       }
       return result;
     } catch (_) {
-      final raw = prefs.getString(key);
-      if (raw != null) return RateHistory.decode(raw, cached: true);
+      try {
+        final raw = (await pendingPreferences)?.getString(key);
+        if (raw != null) return RateHistory.decode(raw, cached: true);
+      } catch (_) {
+        /* an invalid optional cache must not crash the dashboard */
+      }
       rethrow;
     }
   }

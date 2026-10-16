@@ -13,3 +13,12 @@ test('Bangkok dates, source and direction separation, latest daily publication, 
  assert.equal(result.timezone,'Asia/Bangkok');
  assert.deepEqual(publicHistory([],now).points,[]);
 });
+test('real intraday observations survive daily aggregation and carried unchanged quotes are deduplicated',()=>{
+ const first={...quote,observed_at:'2026-10-15T02:00:00Z'},second={...quote,observed_at:'2026-10-15T03:30:00Z',rate_micros:126000000};
+ const result=publicHistory([row(4,[second]),row(3,[second,{...first,direction:'mmk_thb'}]),row(2,[first]),row(1,[{...first,source_name:'Old label',observed_at:'2026-10-15T01:00:00Z'}])],now);
+ assert.equal(result.points.filter(p=>p.direction==='thb_mmk'&&p.source_name==='Source A').length,1);
+ const observed=result.observations.filter(p=>p.direction==='thb_mmk');assert.equal(observed.length,3);
+ assert.deepEqual(observed.map(p=>p.observed_at),['2026-10-15T01:00:00.000Z','2026-10-15T02:00:00.000Z','2026-10-15T03:30:00.000Z']);
+ assert.equal(observed.at(-1).revision,4);assert.equal(observed.at(-1).rate_micros,126000000);
+ assert.equal(publicHistory([],now).observations.length,0);
+});

@@ -1,7 +1,5 @@
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-
 import 'models.dart';
 import 'rate_history.dart';
 
@@ -24,63 +22,44 @@ class TrendCard extends StatefulWidget {
 
 class _TrendCardState extends State<TrendCard> {
   String? selected;
-  int days = 7;
+  int days = 1;
   int? hovered;
   String identity(ExchangeQuote q) => '${q.direction.key}:${q.id}';
+  static const pale = Color(0xffbbebe0);
+  String formatted(double n) => rateValueText(n, ExchangeDirection.mmkThb);
   @override
   Widget build(BuildContext context) {
     final q =
         widget.quotes.where((q) => identity(q) == selected).firstOrNull ??
         widget.quotes.where((q) => q.activeAt(DateTime.now())).firstOrNull ??
         widget.quotes.firstOrNull;
-    final points = q == null
-        ? <RatePoint>[]
-        : widget.history?.series(q, days) ?? <RatePoint>[];
-    final canChart = points.length >= 2;
-    final hasHistory =
-        q != null && (widget.history?.series(q, 30).length ?? 0) >= 2;
-    final direction = q?.direction ?? ExchangeDirection.thbMmk;
-    double value(RatePoint p) => displayRateValue(p.rateMicros, direction);
-    String formatted(double value) => rateValueText(value, direction);
-    final unit = direction == ExchangeDirection.mmkThb
-        ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်'
-        : '၁ ဘတ်အတွက် ကျပ်';
-    final low = points.isEmpty ? null : points.map(value).reduce(math.min);
-    final high = points.isEmpty ? null : points.map(value).reduce(math.max);
-    final change = canChart
-        ? (value(points.last) - value(points.first)) / value(points.first) * 100
-        : null;
+    final history = widget.history ?? const RateHistory([]);
+    final points = q == null ? <RatePoint>[] : history.referenceSeries(q, days);
+    final values = points.map((p) => referenceRateValue(p.rateMicros)).toList();
+    final low = values.isEmpty ? null : values.reduce(math.min);
+    final high = values.isEmpty ? null : values.reduce(math.max);
+    final change = values.length < 2
+        ? null
+        : (values.last - values.first) / values.first * 100;
     final active = q?.activeAt(DateTime.now()) ?? false;
     final focus = hovered != null && hovered! < points.length
         ? points[hovered!]
         : null;
-    const pale = Color(0xffbbebe0);
-    Widget tag(String text) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .13),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-      ),
-    );
     return Container(
       key: const ValueKey('rate_trend_card'),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xff074f47), Color(0xff008f7a)],
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xff08765f).withValues(alpha: .16),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
+            color: const Color(0xff08765f).withValues(alpha: .15),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -92,64 +71,53 @@ class _TrendCardState extends State<TrendCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 12,
-              runSpacing: 10,
+              spacing: 10,
+              runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.show_chart_rounded, color: pale, size: 20),
-                    SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'နောက်ဆုံး ငွေလဲနှုန်း',
-                        style: TextStyle(
-                          color: pale,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                const Icon(
+                  Icons.currency_exchange_rounded,
+                  color: pale,
+                  size: 19,
+                ),
+                const Text(
+                  'နောက်ဆုံး ငွေလဲနှုန်း',
+                  style: TextStyle(color: pale, fontWeight: FontWeight.w600),
                 ),
                 if (q != null)
-                  tag(
-                    active
-                        ? 'နောက်ဆုံး ထုတ်ပြထားသောနှုန်း'
-                        : 'ပြန်မစစ်ရသေးသောနှုန်း',
-                  ),
+                  tag(active ? 'စစ်ထားသောနှုန်း' : 'ပြန်မစစ်ရသေးသောနှုန်း'),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             Text(
               q == null ? 'ဒီဘက်နှုန်း မတင်ရသေးပါ' : quoteRateLabel(q),
               style: const TextStyle(
-                fontSize: 30,
+                fontSize: 29,
                 fontWeight: FontWeight.w700,
-                height: 1.65,
-                letterSpacing: -.4,
+                height: 1.6,
+                letterSpacing: -.3,
               ),
             ),
-            const SizedBox(height: 4),
-            if (q != null)
+            if (q != null) ...[
+              const SizedBox(height: 6),
               Text(
-                '${q.sourceName} · ${q.direction.label}',
+                q.direction.label,
                 style: const TextStyle(color: pale, fontSize: 13),
               ),
-            if (q != null && !active)
-              const Padding(
-                padding: EdgeInsets.only(top: 10),
-                child: Text(
-                  'နောက်ဆုံးသိမ်းထားသောနှုန်းကို ပြထားသည်။ အသစ်ပြန်မစစ်ရသေးသဖြင့် လက်ရှိနှုန်းအဖြစ် မတွက်ပေးပါ။',
-                  style: TextStyle(color: pale, height: 1.8),
+              const SizedBox(height: 6),
+              Text(
+                'နောက်ဆုံးစစ်ချိန် ${bangkokLabel(q.observedAt)}',
+                style: const TextStyle(color: pale, fontSize: 12),
+              ),
+              if (!active)
+                const Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: Text(
+                    'နောက်ဆုံးသိမ်းထားသောနှုန်း ဖြစ်သည်။ အသစ်ပြန်မစစ်ရသေးသဖြင့် လက်ရှိနှုန်းအဖြစ် မတွက်ပေးပါ။',
+                    style: TextStyle(color: pale, height: 1.8),
+                  ),
                 ),
-              ),
-            if (q == null)
-              const Text(
-                'နေ့စဉ် စစ်ဆေးထားသောနှုန်းများကို ဒီနေရာမှာ ကြည့်နိုင်ပါမယ်။',
-                style: TextStyle(color: pale, height: 1.8),
-              ),
+            ],
             if (widget.quotes.length > 1)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -170,24 +138,17 @@ class _TrendCardState extends State<TrendCard> {
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: .08),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
                         color: Colors.white.withValues(alpha: .2),
                       ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
                     ),
                   ),
                   items: widget.quotes
                       .map(
                         (e) => DropdownMenuItem(
                           value: identity(e),
-                          child: Text(
-                            '${e.label} · ${e.payoutMethod}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          child: Text(e.label, overflow: TextOverflow.ellipsis),
                         ),
                       )
                       .toList(),
@@ -197,129 +158,171 @@ class _TrendCardState extends State<TrendCard> {
                   }),
                 ),
               ),
-            if (hasHistory) ...[
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  for (final n in [7, 30])
-                    Semantics(
-                      selected: days == n,
-                      child: TextButton(
-                        onPressed: () => setState(() {
-                          days = n;
-                          hovered = null;
-                        }),
-                        style: TextButton.styleFrom(
-                          foregroundColor: days == n
-                              ? const Color(0xff075d4d)
-                              : Colors.white,
-                          backgroundColor: days == n
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: .10),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 9,
-                          ),
-                          minimumSize: const Size(64, 42),
+            const SizedBox(height: 22),
+            const Text(
+              'ဈေးအတက်အကျ မှတ်တမ်း',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final n in [1, 7, 30])
+                  Semantics(
+                    selected: days == n,
+                    child: TextButton(
+                      onPressed: () => setState(() {
+                        days = n;
+                        hovered = null;
+                      }),
+                      style: TextButton.styleFrom(
+                        foregroundColor: days == n
+                            ? const Color(0xff075d4d)
+                            : Colors.white,
+                        backgroundColor: days == n
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: .10),
+                        minimumSize: const Size(60, 40),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
                         ),
-                        child: Text('$n ရက်'),
                       ),
+                      child: Text(n == 1 ? 'ယနေ့' : '$n ရက်'),
                     ),
-                  if (change != null)
-                    tag(
-                      '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}% · မှတ်တမ်းကာလ',
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (canChart) ...[
-              Text(
-                focus == null
-                    ? 'မှတ်တမ်းကို ထိပြီး ကြည့်နိုင်ပါတယ်'
-                    : '${dateLabel(focus.day)} · ${formatted(value(focus))} · $unit',
-                style: const TextStyle(color: pale, fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              LayoutBuilder(
-                builder: (context, c) => Semantics(
-                  label:
-                      '$days ရက်အတွင်း ${points.length} ရက်၏ နှုန်းမှတ်တမ်း။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)} · $unit။',
-                  child: MouseRegion(
-                    onHover: (event) =>
+                  ),
+                if (change != null)
+                  tag(
+                    '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}% · မှတ်တမ်းကာလ',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              focus != null
+                  ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ် · ${focus.sourceName}'
+                  : points.length == 1
+                  ? 'မှတ်တမ်း ၁ ခုရှိပါသေးသည်။ အမှတ်ကို ထိကြည့်နိုင်သည်။'
+                  : points.isEmpty
+                  ? (widget.loading
+                        ? 'နှုန်းမှတ်တမ်း ရယူနေပါတယ်'
+                        : 'ဒီကာလအတွင်း မှတ်တမ်း မရှိသေးပါ။')
+                  : 'မှတ်တမ်းကို ထိပြီး ကြည့်နိုင်ပါတယ်',
+              style: const TextStyle(color: pale, fontSize: 12, height: 1.8),
+            ),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, c) => Semantics(
+                label: points.isEmpty
+                    ? 'နှုန်းမှတ်တမ်း မရှိသေးပါ'
+                    : '${points.length} ခု၏ နှုန်းမှတ်တမ်း။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
+                child: MouseRegion(
+                  onHover: (event) =>
+                      selectPoint(event.localPosition.dx, c.maxWidth, points),
+                  onExit: (_) => setState(() => hovered = null),
+                  child: GestureDetector(
+                    onTapDown: (event) =>
                         selectPoint(event.localPosition.dx, c.maxWidth, points),
-                    onExit: (_) => setState(() => hovered = null),
-                    child: GestureDetector(
-                      onTapDown: (details) => selectPoint(
-                        details.localPosition.dx,
-                        c.maxWidth,
-                        points,
-                      ),
-                      onHorizontalDragUpdate: (details) => selectPoint(
-                        details.localPosition.dx,
-                        c.maxWidth,
-                        points,
-                      ),
-                      child: SizedBox(
-                        height: 146,
-                        width: double.infinity,
-                        child: CustomPaint(
-                          painter: RateTrendPainter(
-                            points,
-                            hovered,
-                            direction: direction,
+                    onHorizontalDragUpdate: (event) =>
+                        selectPoint(event.localPosition.dx, c.maxWidth, points),
+                    child: SizedBox(
+                      height: 158,
+                      width: double.infinity,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: CustomPaint(
+                              key: const ValueKey('reference_rate_graph'),
+                              painter: RateTrendPainter(
+                                points,
+                                hovered,
+                                direction:
+                                    q?.direction ?? ExchangeDirection.thbMmk,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (points.length == 1)
+                            Align(
+                              alignment: const Alignment(0, -.62),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: .12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${formatted(values.first)} ဘတ်',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (points.isEmpty)
+                            Center(
+                              child: Text(
+                                widget.loading
+                                    ? 'ရယူနေပါတယ်…'
+                                    : 'မှတ်တမ်းအသစ်တင်လျှင် ဒီနေရာမှာ ပြမယ်။',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: pale,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
+            ),
+            if (points.isNotEmpty) ...[
+              const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    dateLabel(points.first.day),
+                    pointLabel(points.first),
                     style: const TextStyle(color: pale, fontSize: 11),
                   ),
-                  Text(
-                    dateLabel(points.last.day),
-                    style: const TextStyle(color: pale, fontSize: 11),
-                  ),
+                  if (points.length > 1)
+                    Text(
+                      pointLabel(points.last),
+                      style: const TextStyle(color: pale, fontSize: 11),
+                    ),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               Wrap(
-                spacing: 24,
+                spacing: 22,
                 runSpacing: 10,
                 children: [
                   metric('အနိမ့်', formatted(low!)),
                   metric('အမြင့်', formatted(high!)),
-                  metric('မှတ်တမ်းရှိသည့်ရက်', '${points.length} ရက်'),
+                  metric(
+                    days == 1 ? 'တင်ထားသောမှတ်တမ်း' : 'မှတ်တမ်းရှိသည့်ရက်',
+                    '${points.length} ${days == 1 ? 'ခု' : 'ရက်'}',
+                  ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Text(
-                '${widget.history?.cached == true ? 'သိမ်းထားသောမှတ်တမ်း · ' : ''}$unit · သီးသန့်နုတ်ငွေ မပါ · မှတ်တမ်းရှိသည့်ရက်များသာ · ထိုင်းအချိန်',
-                style: const TextStyle(fontSize: 11, color: pale, height: 1.8),
-              ),
-            ] else if (q != null || widget.loading)
-              Padding(
-                padding: const EdgeInsets.only(top: 14),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              '${history.cached ? 'သိမ်းထားသောမှတ်တမ်း · ' : ''}ကျပ် ၁ သိန်းအတွက် ဘတ် · အတည်ပြုတင်ခဲ့သောနှုန်းများ · ထိုင်းအချိန်',
+              style: const TextStyle(color: pale, fontSize: 11, height: 1.8),
+            ),
+            if (widget.unavailable)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  widget.loading
-                      ? 'မှတ်တမ်း ရယူနေပါတယ်'
-                      : widget.unavailable
-                      ? 'ယခင်ရက် မှတ်တမ်းကို ရယူမရသေးပါ။'
-                      : 'ယခင်ရက် နှုန်းမှတ်တမ်း ရလာလျှင် graph ပြပေးပါမယ်။',
-                  style: const TextStyle(
-                    color: pale,
-                    fontSize: 12,
-                    height: 1.8,
-                  ),
+                  'ယခင်မှတ်တမ်း ဆက်သွယ်မရပါ။ နောက်ဆုံးရထားသောနှုန်းကို ပြထားသည်။',
+                  style: TextStyle(color: pale, fontSize: 12),
                 ),
               ),
             if (q != null && active)
@@ -341,13 +344,21 @@ class _TrendCardState extends State<TrendCard> {
     );
   }
 
+  Widget tag(String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .13),
+      borderRadius: BorderRadius.circular(24),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(color: Colors.white, fontSize: 11),
+    ),
+  );
   Widget metric(String label, String value) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        label,
-        style: const TextStyle(color: Color(0xffbbebe0), fontSize: 11),
-      ),
+      Text(label, style: const TextStyle(color: pale, fontSize: 11)),
       const SizedBox(height: 3),
       Text(
         value,
@@ -359,13 +370,27 @@ class _TrendCardState extends State<TrendCard> {
       ),
     ],
   );
+  String pointLabel(RatePoint p) => days == 1 && p.observedAt != null
+      ? timeLabel(p.timestamp)
+      : dateLabel(p.day);
   void selectPoint(double dx, double width, List<RatePoint> points) {
-    final span = points.last.day.difference(points.first.day).inDays;
-    final day = span * (dx / width).clamp(0.0, 1.0);
+    if (points.isEmpty || width <= 0) return;
+    final span = points.last.timestamp
+        .difference(points.first.timestamp)
+        .inMilliseconds;
+    final at = span * ((dx - 8) / math.max(width - 16, 1)).clamp(0.0, 1.0);
     var best = 0;
     for (var i = 1; i < points.length; i++) {
-      if ((points[i].day.difference(points.first.day).inDays - day).abs() <
-          (points[best].day.difference(points.first.day).inDays - day).abs()) {
+      if ((points[i].timestamp
+                      .difference(points.first.timestamp)
+                      .inMilliseconds -
+                  at)
+              .abs() <
+          (points[best].timestamp
+                      .difference(points.first.timestamp)
+                      .inMilliseconds -
+                  at)
+              .abs()) {
         best = i;
       }
     }
@@ -374,6 +399,15 @@ class _TrendCardState extends State<TrendCard> {
 }
 
 String dateLabel(DateTime d) => '${d.day}/${d.month}';
+String timeLabel(DateTime raw) {
+  final d = raw.toUtc().add(const Duration(hours: 7));
+  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
+String bangkokLabel(DateTime raw, {bool includeTime = true}) {
+  final d = raw.toUtc().add(const Duration(hours: 7));
+  return '${dateLabel(d)}${includeTime ? ' ${timeLabel(raw)}' : ''} (ထိုင်း)';
+}
 
 class RateTrendPainter extends CustomPainter {
   final List<RatePoint> points;
@@ -386,64 +420,71 @@ class RateTrendPainter extends CustomPainter {
   });
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-    double value(RatePoint p) => displayRateValue(p.rateMicros, direction);
-    final low = points.map(value).reduce(math.min),
-        high = points.map(value).reduce(math.max);
-    final range = math.max(high - low, math.max(high * .002, .000001));
-    final mid = (high + low) / 2;
-    final span = points.last.day.difference(points.first.day).inDays;
-    final positions = points
-        .map(
-          (p) => Offset(
-            8 +
-                (size.width - 16) *
-                    p.day.difference(points.first.day).inDays /
-                    math.max(span, 1),
-            size.height * .5 - (value(p) - mid) / range * size.height * .68,
-          ),
-        )
-        .toList();
+    if (size.width <= 0 || size.height <= 0) return;
     final grid = Paint()
       ..color = Colors.white.withValues(alpha: .12)
       ..strokeWidth = 1;
-    for (final fraction in [.15, .5, .85]) {
+    for (final y in [.15, .5, .85]) {
       for (double x = 0; x < size.width; x += 9) {
         canvas.drawLine(
-          Offset(x, size.height * fraction),
-          Offset(math.min(x + 4, size.width), size.height * fraction),
+          Offset(x, size.height * y),
+          Offset(math.min(x + 4, size.width), size.height * y),
           grid,
         );
       }
     }
-    final line = Path()..moveTo(positions.first.dx, positions.first.dy);
-    for (final p in positions.skip(1)) {
-      line.lineTo(p.dx, p.dy);
+    if (points.isEmpty) return;
+    final values = points.map((p) => referenceRateValue(p.rateMicros)).toList();
+    final low = values.reduce(math.min), high = values.reduce(math.max);
+    final range = math.max(high - low, math.max(high * .002, .000001)),
+        mid = (high + low) / 2;
+    final span = points.last.timestamp
+        .difference(points.first.timestamp)
+        .inMilliseconds;
+    final positions = [
+      for (var i = 0; i < points.length; i++)
+        Offset(
+          points.length == 1 || span == 0
+              ? size.width / 2
+              : 8 +
+                    (size.width - 16) *
+                        points[i].timestamp
+                            .difference(points.first.timestamp)
+                            .inMilliseconds /
+                        span,
+          size.height * .5 - (values[i] - mid) / range * size.height * .68,
+        ),
+    ];
+    if (points.length > 1) {
+      final line = Path()..moveTo(positions.first.dx, positions.first.dy);
+      for (final p in positions.skip(1)) {
+        line.lineTo(p.dx, p.dy);
+      }
+      final fill = Path.from(line)
+        ..lineTo(positions.last.dx, size.height)
+        ..lineTo(positions.first.dx, size.height)
+        ..close();
+      canvas.drawPath(
+        fill,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white.withValues(alpha: .25),
+              Colors.white.withValues(alpha: 0),
+            ],
+          ).createShader(Offset.zero & size),
+      );
+      canvas.drawPath(
+        line,
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = 2.8
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke,
+      );
     }
-    final fill = Path.from(line)
-      ..lineTo(positions.last.dx, size.height)
-      ..lineTo(positions.first.dx, size.height)
-      ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withValues(alpha: .28),
-            Colors.white.withValues(alpha: 0),
-          ],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      line,
-      Paint()
-        ..color = Colors.white
-        ..strokeWidth = 2.8
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke,
-    );
     final p =
         positions[(selected ?? positions.length - 1).clamp(
           0,
@@ -456,9 +497,16 @@ class RateTrendPainter extends CustomPainter {
         grid..color = Colors.white.withValues(alpha: .4),
       );
     }
+    for (final position in positions) {
+      canvas.drawCircle(
+        position,
+        2.3,
+        Paint()..color = Colors.white.withValues(alpha: .65),
+      );
+    }
     canvas.drawCircle(
       p,
-      8,
+      9,
       Paint()..color = Colors.white.withValues(alpha: .17),
     );
     canvas.drawCircle(p, 4.5, Paint()..color = Colors.white);

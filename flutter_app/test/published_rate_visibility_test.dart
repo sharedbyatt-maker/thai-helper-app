@@ -98,6 +98,10 @@ void main() {
         find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'),
       );
       expect(selected.selected, true);
+      await tester.ensureVisible(find.text('7 ရက်'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('7 ရက်'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('+ 0.14%'), findsOneWidget);
       final paint = tester.widget<CustomPaint>(
         find.byWidgetPredicate(
@@ -149,6 +153,11 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
       expect(
         tester
             .widget<ChoiceChip>(
@@ -157,9 +166,23 @@ void main() {
             .selected,
         true,
       );
+      await tester.scrollUntilVisible(
+        find.widgetWithText(FilledButton, 'ကျပ်ပေး → ဘတ်ယူ နှုန်းကြည့်မယ်'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'ကျပ်ပေး → ဘတ်ယူ နှုန်းကြည့်မယ်'),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
         find.widgetWithText(FilledButton, 'ကျပ်ပေး → ဘတ်ယူ နှုန်းကြည့်မယ်'),
       );
+      await tester.pumpAndSettle();
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
       await tester.pumpAndSettle();
       expect(find.text('ကျပ် ၁ သိန်း = ဘတ် 726'), findsOneWidget);
       expect(tester.takeException(), isNull);

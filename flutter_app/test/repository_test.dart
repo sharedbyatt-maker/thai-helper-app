@@ -54,4 +54,44 @@ void main() {
     );
     repo.close();
   });
+  test(
+    'Blocked browser storage does not prevent live rates or chart history',
+    () async {
+      final repo = RatesRepository(
+        preferences: () async => throw StateError('blocked storage'),
+        client: MockClient(
+          (r) async => http.Response(
+            r.url.path.endsWith('/history')
+                ? jsonEncode({
+                    'schema_version': 1,
+                    'timezone': 'Asia/Bangkok',
+                    'points': [],
+                    'observations': [],
+                  })
+                : raw,
+            200,
+          ),
+        ),
+      );
+      expect((await repo.load()).origin, SheetOrigin.server);
+      expect((await repo.loadHistory()).points, isEmpty);
+      repo.close();
+    },
+  );
+  test(
+    'Corrupt cached chart data is rejected without replacing cached rates',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        RatesRepository.cacheKey: raw,
+        'published_rate_history_v1': 'broken',
+      });
+      final repo = RatesRepository(
+        client: MockClient((_) async => http.Response('unavailable', 503)),
+      );
+      await expectLater(repo.loadHistory(), throwsA(isA<FormatException>()));
+      expect((await repo.load()).sheet.revision, 4);
+      repo.close();
+    },
+  );
 }
+// Cache/storage access is optional; online reads must still work in restricted browsers.

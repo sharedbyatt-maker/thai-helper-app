@@ -59,10 +59,13 @@ String rateValueText(double value, ExchangeDirection direction) => value
 String displayRateText(int micros, ExchangeDirection direction) =>
     rateValueText(displayRateValue(micros, direction), direction);
 
+double referenceRateValue(int micros) => 100000000000 / micros;
+String referenceRateText(int micros) =>
+    rateValueText(referenceRateValue(micros), ExchangeDirection.mmkThb);
 String quoteRateLabel(ExchangeQuote q) =>
     q.direction == ExchangeDirection.mmkThb
-    ? 'ကျပ် ၁ သိန်း = ဘတ် ${displayRateText(q.rateMicros, q.direction)}'
-    : '၁ ဘတ် = ${rateText(q.rateMicros)} ကျပ်';
+    ? 'ကျပ် ၁ သိန်း = ဘတ် ${referenceRateText(q.rateMicros)}'
+    : 'ဘတ် ${referenceRateText(q.rateMicros)} = ကျပ် ၁ သိန်း';
 
 ExchangeDirection parseDirection(Object? raw) {
   if (raw == 'thb_mmk') return ExchangeDirection.thbMmk;
