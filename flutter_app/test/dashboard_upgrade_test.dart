@@ -11,11 +11,18 @@ import 'package:thai_helper/exchange/trend_card.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   Future<void> reveal(WidgetTester t, Finder f) async {
-    await t.scrollUntilVisible(
-      f,
-      180,
-      scrollable: find.byType(Scrollable).first,
-    );
+    if (f.evaluate().isEmpty) {
+      t
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await t.pumpAndSettle();
+      await t.scrollUntilVisible(
+        f,
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
     await t.ensureVisible(f);
     await t.pumpAndSettle();
   }

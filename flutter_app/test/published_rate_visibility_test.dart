@@ -153,6 +153,11 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
       expect(
         tester
             .widget<ChoiceChip>(
@@ -160,6 +165,11 @@ void main() {
             )
             .selected,
         true,
+      );
+      await tester.scrollUntilVisible(
+        find.widgetWithText(FilledButton, 'ကျပ်ပေး → ဘတ်ယူ နှုန်းကြည့်မယ်'),
+        150,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(
         find.widgetWithText(FilledButton, 'ကျပ်ပေး → ဘတ်ယူ နှုန်းကြည့်မယ်'),
