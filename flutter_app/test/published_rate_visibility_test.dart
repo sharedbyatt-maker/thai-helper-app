@@ -109,6 +109,7 @@ void main() {
         ExchangeDirection.mmkThb,
       );
       await tester.ensureVisible(find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('amount')), '100000');
