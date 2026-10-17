@@ -241,7 +241,7 @@ export async function webhook(req,db,raw,runtime={}) {
  }
  const subscriberCached=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(id).first();
  if(subscriberCached)return Response.json(JSON.parse(subscriberCached.response));
- const subscription=await subscriberCommand(db,row,chat,text,u.callback_query?.data);
+ const subscription=await subscriberCommand(db,row,chat,text,u.callback_query?.data,id);
  if(subscription){if(u.callback_query){try{await telegram(c.token,'answerCallbackQuery',{callback_query_id:u.callback_query.id},runtime.fetcher||fetch);}catch{}}return Response.json(await receipt(db,id,subscription));}
  if(row.owner_id!==chat)return Response.json({ok:true});
  if(u.callback_query){try{await telegram(c.token,'answerCallbackQuery',{callback_query_id:u.callback_query.id},runtime.fetcher||fetch);}catch{}}

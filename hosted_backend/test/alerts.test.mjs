@@ -81,3 +81,50 @@ test('Frequent public reads share a cooldown while confirmed publication and own
  scheduleAlerts(db,runtime,true);scheduleAlerts(db,runtime);scheduleAlerts(db,runtime);scheduleAlerts(db,runtime,true);
  await Promise.all(tasks);assert.equal(reads,2);assert.equal(tasks.length,2);
 });
+test('Retries drop superseded prices but preserve an alert when only the opposite side changed',async()=>{
+ const db=new D1();try{
+  publish(db,[quote('thb_mmk',748)]);await subscriberCommand(db,bot,'1','/start watch_thb_mmk_74000');
+  publish(db,[quote('thb_mmk',740)]);await queueAlerts(db,bot.username,now);
+  publish(db,[quote('thb_mmk',745)]);await queueAlerts(db,bot.username,now);
+  const messages=[];const send=async(_,opts)=>{messages.push(JSON.parse(opts.body));return {json:async()=>({ok:true})};};
+  await deliverAlerts(db,'token',bot.username,send,now);assert.equal(messages.length,0);assert.equal(db.sqlite.prepare('SELECT active FROM alert_subscribers').get().active,1);
+  publish(db,[quote('thb_mmk',738)]);await queueAlerts(db,bot.username,now);
+  publish(db,[quote('thb_mmk',738),quote('mmk_thb',725)]);await queueAlerts(db,bot.username,now);
+  await deliverAlerts(db,'token',bot.username,send,now);assert.equal(messages.length,1);assert.match(messages[0].text,/738/);
+ }finally{db.sqlite.close();}
+});
+test('News coalesces undelivered updates to the latest selected-side price',async()=>{
+ const db=new D1();try{
+  await subscriberCommand(db,bot,'1','/start news_mmk_thb');
+  publish(db,[quote('mmk_thb',730)]);await queueAlerts(db,bot.username,now);
+  publish(db,[quote('mmk_thb',735)]);await queueAlerts(db,bot.username,now);
+  const messages=[];await deliverAlerts(db,'token',bot.username,async(_,opts)=>{messages.push(JSON.parse(opts.body));return {json:async()=>({ok:true})};},now);
+  assert.equal(messages.length,1);assert.match(messages[0].text,/735/);assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS count FROM alert_outbox WHERE status=2').get().count,1);
+ }finally{db.sqlite.close();}
+});
+test('The fifth rate-limit response terminates the item and respects Telegram retry_after',async()=>{
+ const db=new D1();try{
+  await subscriberCommand(db,bot,'1','/start news_mmk_thb');publish(db,[quote('mmk_thb',730)]);await queueAlerts(db,bot.username,now);
+  await deliverAlerts(db,'token',bot.username,async()=>({json:async()=>({ok:false,error_code:429,parameters:{retry_after:7200}})}),now);
+  assert.equal(db.sqlite.prepare('SELECT next_attempt FROM alert_outbox').get().next_attempt,now+7200000);
+  db.sqlite.prepare('UPDATE alert_outbox SET attempts=4,next_attempt=0').run();
+  await deliverAlerts(db,'token',bot.username,async()=>({json:async()=>({ok:false,error_code:429})}),now);
+  assert.deepEqual({...db.sqlite.prepare('SELECT status,attempts FROM alert_outbox').get()},{status:2,attempts:5});
+ }finally{db.sqlite.close();}
+});
+test('Future-dated observations wait until the actual check time before evaluating subscribers',async()=>{
+ const db=new D1();try{
+  await subscriberCommand(db,bot,'1','/start news_mmk_thb');publish(db,[quote('mmk_thb',730,now+120000)]);
+  await queueAlerts(db,bot.username,now);assert.equal(count(db),0);assert.equal(db.sqlite.prepare('SELECT evaluated_revision FROM alert_subscribers').get().evaluated_revision,0);
+  await queueAlerts(db,bot.username,now+120000);assert.equal(count(db),1);
+ }finally{db.sqlite.close();}
+});
+test('A duplicate subscription or stop receipt cannot mutate the subscription twice',async()=>{
+ const db=new D1();try{
+  const response=await subscriberCommand(db,bot,'1','/start news_mmk_thb',null,'test:1');
+  const repeated=await subscriberCommand(db,bot,'1','/start watch_thb_mmk_74000',null,'test:1');
+  assert.deepEqual(repeated,response);assert.equal(db.sqlite.prepare('SELECT version FROM alert_subscribers').get().version,1);assert.equal(db.sqlite.prepare('SELECT direction FROM alert_subscribers').get().direction,'mmk_thb');
+  await subscriberCommand(db,bot,'1','/stop',null,'test:2');await subscriberCommand(db,bot,'1','/stop',null,'test:2');
+  assert.equal(db.sqlite.prepare('SELECT version FROM alert_subscribers').get().version,2);
+ }finally{db.sqlite.close();}
+});

@@ -16,6 +16,42 @@ import 'trend_card.dart' show bangkokLabel;
 
 const publicAppUrl = 'https://sharedbyatt-maker.github.io/thai-helper-app/';
 
+// Calendar choices refer to Thailand, regardless of the device's timezone.
+DateTime bangkokCalendarDay([DateTime? instant]) {
+  final local = (instant ?? DateTime.now()).toUtc().add(
+    const Duration(hours: 7),
+  );
+  return DateTime(local.year, local.month, local.day);
+}
+
+DateTime? parsePlannedDay(String? raw) {
+  if (raw == null || !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw)) return null;
+  final day = DateTime.tryParse(raw);
+  if (day == null || day.toIso8601String().substring(0, 10) != raw) return null;
+  return day;
+}
+
+String? plannedDayMessage(String? raw, {DateTime? now}) {
+  final date = parsePlannedDay(raw);
+  if (date == null) return null;
+  final today = bangkokCalendarDay(now);
+  final days = DateTime.utc(
+    date.year,
+    date.month,
+    date.day,
+  ).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
+  if (days < 0) {
+    return 'မှတ်ထားတဲ့ရက် ကျော်သွားပြီ။ မလဲရသေးရင် ရက်အသစ် ပြန်ရွေးထားနိုင်တယ်။';
+  }
+  if (days == 0) {
+    return 'ဒီနေ့ ငွေလဲဖို့ မှတ်ထားတယ်။ မလဲခင် နောက်ဆုံးဈေး ပြန်စစ်ပေးပါ။';
+  }
+  if (days == 1) {
+    return 'မနက်ဖြန် ငွေလဲဖို့ မှတ်ထားတယ်။ မလဲခင် နောက်ဆုံးဈေး ပြန်စစ်ပေးပါ။';
+  }
+  return null;
+}
+
 RatePoint? priorDailyPoint(
   ExchangeQuote quote,
   RateHistory? history, {
@@ -113,22 +149,24 @@ class _DailyToolsState extends State<DailyTools> {
     try {
       final p = await SharedPreferences.getInstance();
       if (!mounted || widget.direction != direction) return;
+      final savedAmount = p.getInt('watch_amount_${direction.key}');
       final n =
-          p.getInt('watch_amount_${direction.key}') ??
-          (direction == ExchangeDirection.thbMmk ? 1000000 : 10000000);
+          savedAmount != null && savedAmount > 0 && savedAmount <= maxMoneyMinor
+          ? savedAmount
+          : (direction == ExchangeDirection.thbMmk ? 1000000 : 10000000);
       final count = p.getInt('app_open_count') ?? 0;
       setState(() {
         amountMinor = n;
         amount.text = money(n).replaceAll(',', '');
         final savedDay = p.getString('planned_day_${direction.key}');
-        plannedDay = DateTime.tryParse(savedDay ?? '') == null
-            ? null
-            : savedDay;
+        plannedDay = parsePlannedDay(savedDay) == null ? null : savedDay;
         opens = count;
         ready = true;
       });
     } catch (_) {
-      if (mounted) setState(() => ready = true);
+      if (mounted && widget.direction == direction) {
+        setState(() => ready = true);
+      }
     }
   }
 
@@ -166,25 +204,31 @@ class _DailyToolsState extends State<DailyTools> {
   }
 
   Future<void> plan() async {
-    final now = DateTime.now();
+    final side = widget.direction;
+    final now = bangkokCalendarDay();
+    final last = now.add(const Duration(days: 366));
+    final saved = parsePlannedDay(plannedDay);
     final selected = await showDatePicker(
       context: context,
-      initialDate: DateTime.tryParse(plannedDay ?? '')?.isBefore(now) == false
-          ? DateTime.parse(plannedDay!)
+      initialDate: saved != null && !saved.isBefore(now) && !saved.isAfter(last)
+          ? saved
           : now,
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: now.add(const Duration(days: 366)),
+      firstDate: now,
+      lastDate: last,
       helpText: 'ငွေလဲဖို့ စဉ်းစားထားတဲ့ရက်',
     );
     if (selected == null || !mounted) return;
     final value =
         '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}';
     try {
-      await (await SharedPreferences.getInstance()).setString(
-        'planned_day_${widget.direction.key}',
+      final ok = await (await SharedPreferences.getInstance()).setString(
+        'planned_day_${side.key}',
         value,
       );
-      if (mounted) setState(() => plannedDay = value);
+      if (!ok) throw const FormatException('Save failed');
+      if (mounted && widget.direction == side) {
+        setState(() => plannedDay = value);
+      }
     } catch (_) {
       message('ဖုန်းထဲ သိမ်းမရသေးဘူး။ ပြန်စမ်းပေးပါ။');
     }
@@ -198,6 +242,11 @@ class _DailyToolsState extends State<DailyTools> {
 
   @override
   Widget build(BuildContext context) {
+    final planned = parsePlannedDay(plannedDay);
+    final inputError =
+        ready && amount.text.trim().isNotEmpty && amountMinor == 0
+        ? 'ဂဏန်းနဲ့ ဖြည့်ပေးပါ။ ဒသမဆို ၂ နေရာအထိ ရပါတယ်။'
+        : null;
     final q = widget.quote, colors = Theme.of(context).colorScheme;
     final active = q?.activeAt(DateTime.now()) ?? false;
     final previous = q == null ? null : priorDailyPoint(q, widget.history);
@@ -208,10 +257,23 @@ class _DailyToolsState extends State<DailyTools> {
             ...q.toJson(),
             'rate_micros': previous.rateMicros,
           });
-    final received = active && amountMinor > 0 ? q!.payout(amountMinor) : null;
-    final difference = received == null || priorQuote == null || hasFees
-        ? null
-        : received - priorQuote.payout(amountMinor);
+    int? received, difference;
+    String? amountError;
+    if (active && amountMinor > 0) {
+      try {
+        received = q!.payout(amountMinor);
+      } on FormatException {
+        amountError =
+            'ဒီပမာဏက များလွန်းနေတယ်။ နည်းနည်းလျှော့ပြီး ပြန်တွက်ပေးပါ။';
+      }
+      if (received != null && priorQuote != null && !hasFees) {
+        try {
+          difference = received - priorQuote.payout(amountMinor);
+        } on FormatException {
+          // The current payout is still useful when an older quote overflows.
+        }
+      }
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -250,6 +312,8 @@ class _DailyToolsState extends State<DailyTools> {
                   onChanged: setAmount,
                   decoration: InputDecoration(
                     labelText: 'ပေးမယ့်ငွေ (${widget.direction.from})',
+                    errorText: inputError,
+                    errorMaxLines: 3,
                     hintText: widget.direction == ExchangeDirection.thbMmk
                         ? 'ဥပမာ 10000'
                         : 'ဥပမာ 100000',
@@ -287,11 +351,12 @@ class _DailyToolsState extends State<DailyTools> {
                     ),
                 ] else
                   Text(
-                    q == null
-                        ? 'ဒီဘက်ဈေး တင်လာရင် တွက်ပြပေးမယ်။'
-                        : !active
-                        ? 'ဒီဈေးကို ပြန်မစစ်ရသေးလို့ ရငွေ မတွက်ပြသေးဘူး။'
-                        : 'ပေးမယ့်ပမာဏကို ဖြည့်ပေးပါ။',
+                    amountError ??
+                        (q == null
+                            ? 'ဒီဘက်ဈေး တင်လာရင် တွက်ပြပေးမယ်။'
+                            : !active
+                            ? 'ဒီဈေးကို ပြန်မစစ်ရသေးလို့ ရငွေ မတွက်ပြသေးဘူး။'
+                            : 'ပေးမယ့်ပမာဏကို ဖြည့်ပေးပါ။'),
                   ),
                 if (active && previous != null)
                   Padding(
@@ -335,7 +400,7 @@ class _DailyToolsState extends State<DailyTools> {
                           ? null
                           : () => showRateShare(context, widget.quotes),
                       icon: const Icon(Icons.ios_share, size: 19),
-                      label: const Text('ဒီနေ့ဈေး မျှဝေမယ်'),
+                      label: const Text('ဈေးနှုန်း မျှဝေမယ်'),
                     ),
                     TextButton.icon(
                       onPressed: plan,
@@ -343,16 +408,21 @@ class _DailyToolsState extends State<DailyTools> {
                       label: Text(
                         plannedDay == null
                             ? 'လဲဖို့ရက် မှတ်ထားမယ်'
-                            : 'စဉ်းစားထားတဲ့ရက် · $plannedDay',
+                            : 'စဉ်းစားထားတဲ့ရက် · ${planned!.day}/${planned.month}/${planned.year}',
                       ),
                     ),
                     if (plannedDay != null)
                       TextButton(
                         onPressed: () async {
+                          final side = widget.direction;
                           try {
-                            await (await SharedPreferences.getInstance())
-                                .remove('planned_day_${widget.direction.key}');
-                            if (mounted) setState(() => plannedDay = null);
+                            final ok =
+                                await (await SharedPreferences.getInstance())
+                                    .remove('planned_day_${side.key}');
+                            if (!ok) throw const FormatException('Save failed');
+                            if (mounted && widget.direction == side) {
+                              setState(() => plannedDay = null);
+                            }
                           } catch (_) {
                             message('ဖျက်မရသေးဘူး။ ပြန်စမ်းပေးပါ။');
                           }
@@ -361,20 +431,11 @@ class _DailyToolsState extends State<DailyTools> {
                       ),
                   ],
                 ),
-                if (plannedDay != null &&
-                    DateTime.parse(plannedDay!)
-                            .difference(
-                              DateTime(
-                                DateTime.now().year,
-                                DateTime.now().month,
-                                DateTime.now().day,
-                              ),
-                            )
-                            .inDays <=
-                        1)
-                  const Text(
-                    'စဉ်းစားထားတဲ့ရက် နီးလာပြီ။ ငွေမလဲခင် နောက်ဆုံးဈေး ပြန်စစ်ပေးပါ။',
-                    style: TextStyle(fontSize: 12),
+                if (plannedDayMessage(plannedDay) != null)
+                  Text(
+                    plannedDayMessage(plannedDay)!,
+                    key: const ValueKey('planned_day_message'),
+                    style: const TextStyle(fontSize: 12, height: 1.8),
                   ),
               ],
             ),
@@ -485,7 +546,10 @@ Future<void> showRateAlerts(
                 ? null
                 : () async {
                     final threshold = parseMoney(target.text);
-                    if (!news && (threshold == null || threshold > 10000000)) {
+                    if (!news &&
+                        (threshold == null ||
+                            threshold < 100 ||
+                            threshold > 10000000)) {
                       update(() => error = 'ဘတ်ပမာဏကို ပြန်စစ်ပေးပါ။');
                       return;
                     }
@@ -521,6 +585,7 @@ Future<void> showRateAlerts(
                           'https://t.me/${data['username']}?start=$command',
                         ),
                         mode: LaunchMode.externalApplication,
+                        webOnlyWindowName: '_self',
                       );
                       if (!opened) {
                         throw const FormatException(

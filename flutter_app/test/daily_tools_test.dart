@@ -97,7 +97,20 @@ void main() {
       final exported = RecordStore().export([r]);
       final first = previewRecordImport(exported, []);
       expect(first.added, 1);
-      expect(first.records.single.completedAt, DateTime(2026, 9, 30));
+      expect(
+        first.records.single.completedAt!.isAtSameMomentAs(
+          DateTime(2026, 9, 30),
+        ),
+        isTrue,
+      );
+      expect(
+        (jsonDecode(exported)['records'] as List).single['completed_at'],
+        endsWith('Z'),
+      );
+      expect(
+        (jsonDecode(exported)['records'] as List).single['saved_at'],
+        endsWith('Z'),
+      );
       final repeated = previewRecordImport(exported, [r]);
       expect(repeated.added, 0);
       expect(repeated.skipped, 1);
@@ -118,6 +131,73 @@ void main() {
         throwsFormatException,
       );
       expect(() => previewRecordImport('not JSON', [r]), throwsFormatException);
+    },
+  );
+  test(
+    'Planned dates are strict calendar dates and use Bangkok day boundaries',
+    () {
+      expect(parsePlannedDay('2026-02-30'), isNull);
+      expect(parsePlannedDay('2026-10-17T00:00:00Z'), isNull);
+      final now = DateTime.parse('2026-10-17T17:01:00Z');
+      expect(bangkokCalendarDay(now), DateTime(2026, 10, 18));
+      expect(
+        plannedDayMessage('2026-10-17', now: now),
+        contains('ကျော်သွားပြီ'),
+      );
+      expect(plannedDayMessage('2026-10-18', now: now), startsWith('ဒီနေ့'));
+      expect(plannedDayMessage('2026-10-19', now: now), startsWith('မနက်ဖြန်'));
+      expect(plannedDayMessage('2026-10-20', now: now), isNull);
+    },
+  );
+  testWidgets(
+    'Oversized current or previous payouts never crash the personal amount card',
+    (t) async {
+      final now = DateTime.now().toUtc();
+      final q = quote(ExchangeDirection.thbMmk, 100000000, now);
+      final old = quote(
+        ExchangeDirection.thbMmk,
+        1000000000,
+        now.subtract(const Duration(days: 1)),
+      );
+      SharedPreferences.setMockInitialValues({
+        'watch_amount_thb_mmk': maxMoneyMinor + 1,
+        'planned_day_thb_mmk': '2026-02-30',
+      });
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DailyTools(
+                quote: q,
+                quotes: [q],
+                history: RateHistory([point(old, old.observedAt)]),
+                direction: q.direction,
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(
+        t
+            .widget<TextField>(find.byKey(const ValueKey('watch_amount')))
+            .controller!
+            .text,
+        '10000',
+      );
+      await t.enterText(
+        find.byKey(const ValueKey('watch_amount')),
+        '1000000000',
+      );
+      await t.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('ဒီပမာဏက များလွန်းနေတယ်'), findsOneWidget);
+      expect(t.takeException(), isNull);
+      await t.enterText(find.byKey(const ValueKey('watch_amount')), '10000000');
+      await t.pump(const Duration(milliseconds: 400));
+      expect(find.byKey(const ValueKey('watch_payout')), findsOneWidget);
+      expect(find.byKey(const ValueKey('watch_difference')), findsNothing);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
     },
   );
   testWidgets(

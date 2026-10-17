@@ -77,3 +77,11 @@ test('Telegram setup keeps token out of displayed state and provides an expiring
   await until(()=>$('tg-setup').inert===false);$('tg-disconnect').click();await until(()=>$('tg-status').textContent.includes('ရပ်ထား'));
  }finally{dom.window.close();}
 });
+test('An explicit same-minute recheck refreshes the exact timestamp, keeps 24 hours, and previews in Thai time',async()=>{
+ const old=new Date(Date.now()-1000).toISOString();const q={id:'daily-thb',label:'daily',direction:'thb_mmk',rate_micros:125000000,flat_fee_minor:0,fee_bps:0,source_name:'Reference',source_url:'',payout_method:'Bank',note:'',observed_at:old,valid_until:new Date(Date.parse(old)+86400000).toISOString(),source_checked:true};
+ const {dom,state,$}=setup([q]);try{
+  await until(()=>$('workspace').hidden===false);$('editors').firstElementChild.querySelector('[data-action="today"]').click();
+  $('preview-button').click();await until(()=>$('publish').disabled===false);
+  const fresh=state.draft.quotes[0];assert.ok(Date.parse(fresh.observed_at)>Date.parse(old));assert.equal(Date.parse(fresh.valid_until)-Date.parse(fresh.observed_at),86400000);assert.match($('preview').textContent,/ထိုင်း/);
+ }finally{dom.window.close();}
+});

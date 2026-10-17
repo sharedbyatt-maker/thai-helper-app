@@ -228,7 +228,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
   bool targetMode = false,
       loading = true,
       recordsReady = false,
-      writingRecord = false;
+      writingRecord = false,
+      importingRecords = false;
   String? calcError, loadError, recordError;
   int tab = 0, requestId = 0;
   Timer? timer;
@@ -1576,7 +1577,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ],
         if (recordsReady && records.isEmpty)
           OutlinedButton.icon(
-            onPressed: writingRecord ? null : importRecords,
+            onPressed: (writingRecord || importingRecords)
+                ? null
+                : importRecords,
             icon: const Icon(Icons.file_open_outlined),
             label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
           ),
@@ -1622,7 +1625,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 label: const Text('မှတ်တမ်းဖိုင် သိမ်းမယ်'),
               ),
               OutlinedButton.icon(
-                onPressed: writingRecord ? null : importRecords,
+                onPressed: (writingRecord || importingRecords)
+                    ? null
+                    : importRecords,
                 icon: const Icon(Icons.file_open_outlined),
                 label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
               ),
@@ -1827,7 +1832,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   Future<void> importRecords() async {
-    if (writingRecord) return;
+    if (writingRecord || importingRecords) return;
+    setState(() => importingRecords = true);
     try {
       final raw = await pickBackup();
       if (raw == null || !mounted) return;
@@ -1864,15 +1870,18 @@ class _ExchangeHomeState extends State<ExchangeHome>
               : 'မှတ်တမ်းဖိုင် ဖတ်မရသေးဘူး။ ဘတ်ဈေး app က ထုတ်ထားတဲ့ဖိုင်ကို ရွေးပေးပါ။',
         );
       }
+    } finally {
+      if (mounted) setState(() => importingRecords = false);
     }
   }
 
   Future<void> setCompletedDate(PersonalRecord r) async {
-    final now = DateTime.now();
-    final current = (r.completedAt ?? r.savedAt).toLocal();
+    final now = bangkokCalendarDay();
+    final current = bangkokCalendarDay(r.completedAt ?? r.savedAt);
+    final initial = current.isBefore(DateTime(2000)) ? DateTime(2000) : current;
     final chosen = await showDatePicker(
       context: context,
-      initialDate: current.isAfter(now) ? now : current,
+      initialDate: initial.isAfter(now) ? now : initial,
       firstDate: DateTime(2000),
       lastDate: now,
       helpText: 'တကယ်ငွေလဲပြီးတဲ့ရက်',
@@ -1880,7 +1889,18 @@ class _ExchangeHomeState extends State<ExchangeHome>
     if (chosen != null && mounted) {
       await writeRecords(
         records
-            .map((x) => x.id == r.id ? x.withCompleted(true, at: chosen) : x)
+            .map(
+              (x) => x.id == r.id
+                  ? x.withCompleted(
+                      true,
+                      at: DateTime.utc(
+                        chosen.year,
+                        chosen.month,
+                        chosen.day,
+                      ).subtract(const Duration(hours: 7)),
+                    )
+                  : x,
+            )
             .toList(),
       );
     }

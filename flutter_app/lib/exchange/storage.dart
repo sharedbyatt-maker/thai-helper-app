@@ -72,9 +72,10 @@ class PersonalRecord {
     'quote': quote.toJson(),
     'budget_minor': budgetMinor,
     'received_minor': receivedMinor,
-    'saved_at': savedAt.toIso8601String(),
+    'saved_at': savedAt.toUtc().toIso8601String(),
     'completed': completed,
-    if (completedAt != null) 'completed_at': completedAt!.toIso8601String(),
+    if (completedAt != null)
+      'completed_at': completedAt!.toUtc().toIso8601String(),
   };
 }
 
@@ -112,7 +113,7 @@ class RecordStore {
   String export(List<PersonalRecord> records) =>
       const JsonEncoder.withIndent('  ').convert({
         'schema_version': 1,
-        'exported_at': DateTime.now().toIso8601String(),
+        'exported_at': DateTime.now().toUtc().toIso8601String(),
         'records': records.map((r) => r.toJson()).toList(),
       });
 }
