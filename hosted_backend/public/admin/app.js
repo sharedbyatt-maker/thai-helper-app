@@ -28,7 +28,7 @@ function editor(q) {
  const side=q.direction||'thb_mmk', card=element('section',undefined,'quote-editor');card.dataset.id=q.id;
  const original={...q};let observedDirty=false,expiresDirty=false,stampedAt,stampedUntil;let checkedRate=q.rate_micros||0, fee=q.flat_fee_minor||0, bps=q.fee_bps||0;
  const row=element('div',undefined,'row');row.append(element('h2',directionName(side)));
- const today=element('button','ဒီဈေးကို အခု ပြန်စစ်ပြီးပြီ');today.type='button';today.dataset.action='today';row.append(today);card.append(row);
+ const today=element('button','ဒီဈေးကို အခု ပြန်စစ်ပြီးပြီ');today.type='button';today.dataset.action='today';row.append(today);const remove=element('button','မူကြမ်းကနေ ဖယ်မယ်','danger quiet');remove.type='button';remove.dataset.action='remove';remove.addEventListener('click',()=>{if(!confirm('ဒီဘက်ဈေးကို မူကြမ်းကနေ ဖယ်မလား? User app ပေါ်ကဈေးကို ပြောင်းဖို့ နမူနာစစ်ပြီး အတည်ပြုတင်ရဦးမယ်။'))return;card.remove();changed();message('မူကြမ်းကနေ ဖယ်ထားပြီ။ မတင်ရသေးလို့ User app ပေါ်ကဈေး မပြောင်းသေးဘူး။');});row.append(remove);card.append(row);
  card.append(element('p',side==='thb_mmk'?'ကျပ် ၁ သိန်း ရဖို့ ဘတ် ဘယ်လောက်ပေးရလဲ?':'ကျပ် ၁ သိန်း ပေးရင် ဘတ် ဘယ်လောက်ရလဲ?','muted'));
  const grid=element('div',undefined,'grid');card.append(grid);
  const rate=field(grid,'ကျပ် ၁ သိန်းအတွက် ဘတ်','rate',checkedRate?Number((100000000000/checkedRate).toFixed(2)):'','text',null,side==='thb_mmk'?'ဥပမာ 748':'ဥပမာ 724','မင်းစစ်ထားတဲ့ ဒီဘက်ဈေးကိုပဲ ဖြည့်ပါ။ အခြားဘက်ဈေးကို ပြန်မတွက်ပါဘူး။');rate.inputMode='decimal';
@@ -66,10 +66,40 @@ function render() {
   $('notice').value=state.draft.notice;$('editors').replaceChildren();state.draft.quotes.forEach(editor);
   $('published-version').textContent='Version '+state.published.revision;
   $('published-time').textContent=state.published.published_at?thaiTime(state.published.published_at):'မထုတ်ပြရသေးပါ';
-  $('draft-count').textContent=state.draft.quotes.length+' နှုန်း';$('history').replaceChildren();
-  for(const rev of state.history){const row=element('div',undefined,'history-row');row.append(element('span',`Version ${rev.id} · ${thaiTime(rev.published_at)}`));const button=element('button','Draft အဖြစ် ပြန်ယူ');button.addEventListener('click',()=>action(async()=>{if(!confirm('လက်ရှိ Draft ကို ဤ version ဖြင့် အစားထိုးမလား?'))return;await api('restore','POST',{revision:rev.id,expected_version:state.draft_version});await load();message('Draft ပြန်ယူပြီးပါပြီ။ နှုန်းနှင့် အချိန်ကို ပြန်စစ်ပါ။');}));row.append(button);$('history').append(row);}
+  $('draft-count').textContent=state.draft.quotes.length+' နှုန်း';renderPublished();renderHistory();
   dirty=false;previewed=false;$('dirty').textContent='မူကြမ်း သိမ်းထားပြီး';$('publish').disabled=true;$('preview').hidden=true;
 }
+function rateSummary(q) {const rate=Number((100000000000/q.rate_micros).toFixed(2));return q.direction==='thb_mmk'?`ဘတ် ${rate} → ကျပ် ၁ သိန်း`:`ကျပ် ၁ သိန်း → ${rate} ဘတ်`;}
+function revisionSummary(rev){return (rev.quotes||[]).map(q=>`${directionName(q.direction)} · ${rateSummary(q)} · ဈေးစစ်ချိန် ${thaiTime(q.observed_at)}`).join('\n')||'နှုန်းအလွတ်';}
+function renderPublished(){
+ $('published-rates').replaceChildren();
+ for(const q of state.published.quotes){const card=element('div',undefined,'live-rate');card.append(element('small',directionName(q.direction)),element('strong',rateSummary(q)),element('small','ဈေးစစ်ချိန် '+thaiTime(q.observed_at)));const stale=Date.parse(q.valid_until)<=Date.now();card.append(element('span',stale?'အဟောင်းဈေး · ပြန်စစ်ဖို့လိုပြီ':'စစ်ထားတဲ့ဈေး','rate-status'+(stale?' expired':'')));$('published-rates').append(card);}
+ if(!state.published.quotes.length)$('published-rates').append(element('p','ဈေး မတင်ရသေးဘူး။ အောက်မှာ နှုန်းဖြည့်ပြီး တင်နိုင်တယ်။','muted'));
+ $('delete-latest').disabled=!state.published.quotes.length;
+}
+async function restoreRevision(rev){
+ if(!confirm(`တင်ချက် #${rev.id} ကို မူကြမ်းအဖြစ် ပြန်ယူမလား?\n${revisionSummary(rev)}\n\nလက်ရှိမူကြမ်းကို အစားထိုးမယ်။ User app ပေါ် ချက်ချင်း မတင်ပါဘူး။`))return;
+ await api('restore','POST',{revision:rev.id,expected_version:state.draft_version});await load();$('edit-panel').scrollIntoView?.({behavior:'smooth',block:'start'});message('မူကြမ်းထဲ ပြန်ယူပြီးပြီ။ နှုန်းနဲ့ စစ်ချိန်ကို ပြန်စစ်ပြီးမှ တင်ပေးပါ။');
+}
+async function deleteRevision(rev){
+ const current=rev.id===state.published.revision;
+ if(!confirm(`တင်ချက် #${rev.id} ကို ဖျက်မလား?\n${revisionSummary(rev)}\n\n${current?'လက်ရှိဈေးကို ဖယ်ပြီး အရင်တင်ချက်ဈေးကို မူလစစ်ချိန်အတိုင်း ဆက်ပြမယ်။':'ဒီတင်ချက်ကို စာရင်းကနေ ဖယ်မယ်။ နောက်တင်ချက်တွေက ဈေး မပြောင်းပါဘူး။'} ဖျက်ထားတဲ့စာရင်းမှာ ပြန်ယူနိုင်တယ်။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
+ await api('delete-revision','POST',{revision:rev.id,expected_revision:state.published.revision,expected_version:state.draft_version});await load();message('တင်ချက်ကို ဖယ်ပြီးပြီ။ အောက်က “ဖျက်ထားတဲ့တင်ချက်တွေ” မှာ မူကြမ်းအဖြစ် ပြန်ယူနိုင်တယ်။');
+}
+function renderHistory(){
+ $('history').replaceChildren();$('trash').replaceChildren();
+ for(const rev of state.history){
+  const card=element('article',undefined,'publication');const heading=element('div',undefined,'row');heading.append(element('strong',`တင်ချက် #${rev.id}${rev.id===state.published.revision?' · လက်ရှိပြနေတယ်':''}`),element('small',thaiTime(rev.published_at)));card.append(heading);
+  for(const q of rev.quotes||[])card.append(element('p',rateSummary(q)),element('small','ဈေးစစ်ချိန် '+thaiTime(q.observed_at)));
+  if(!rev.quotes?.length)card.append(element('p','နှုန်းအလွတ်','muted'));
+  const actions=element('div',undefined,'publication-actions');const restore=element('button','မူကြမ်းအဖြစ် ပြန်ယူ');restore.dataset.restore=rev.id;restore.addEventListener('click',()=>action(()=>restoreRevision(rev)));const remove=element('button','ဒီတင်ချက် ဖျက်မယ်','danger');remove.dataset.delete=rev.id;remove.addEventListener('click',()=>action(()=>deleteRevision(rev)));actions.append(restore,remove);card.append(actions);$('history').append(card);
+ }
+ if(!state.history.length)$('history').append(element('p','တင်ထားတဲ့စာရင်း မရှိသေးဘူး။','muted'));
+ for(const rev of state.trash||[]){const card=element('article',undefined,'publication archived');card.append(element('strong',`ဖျက်ထားတဲ့တင်ချက် #${rev.id}`),element('p',revisionSummary(rev)),element('small','ဖျက်ချိန် '+thaiTime(rev.deleted_at)));const restore=element('button','မူကြမ်းအဖြစ် ပြန်ယူ');restore.dataset.trashRestore=rev.id;restore.addEventListener('click',()=>action(()=>restoreRevision(rev)));card.append(restore);$('trash').append(card);}
+ $('trash-count').textContent=(state.trash||[]).length+' ခု';
+ if(!state.trash?.length)$('trash').append(element('p','ဖျက်ထားတဲ့တင်ချက် မရှိသေးဘူး။','muted'));
+}
+$('delete-latest').addEventListener('click',()=>action(()=>deleteRevision({...state.published,id:state.published.revision})));
 async function load(){state=await api('state');render();}
 async function save(){const sheet=readSheet();const result=await api('draft','PUT',{sheet,expected_version:state.draft_version});state.draft_version=result.draft_version;state.draft=sheet;dirty=false;$('dirty').textContent='မူကြမ်း သိမ်းထားပြီး';$('draft-count').textContent=sheet.quotes.length+' နှုန်း';return sheet;}
 $('notice').addEventListener('input',changed);
