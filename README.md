@@ -10,7 +10,7 @@ The hosted backend uses ChatGPT Sites with a durable Cloudflare D1 database. No 
 
 Sign into the dashboard with the ChatGPT account that owns this Site. The initial owner is checked against the trusted Sites access record, then its Site-specific identity is pinned in the database. Other signed-in accounts cannot edit rates. No new password, API key, or activation code is needed.
 
-Enter separate THB→MMK and MMK→THB quotes, include source/fee/expiry, check the source, then **Save Draft → Preview → Publish**. Drafts stay private. The app refreshes about once a minute. No invented live rates are supplied: the owner must publish the first real daily sheet.
+Enter separate THB→MMK and MMK→THB prices in baht per 100,000 MMK, confirm that you checked each updated price, then **Save Draft → Preview → Publish**. Drafts stay private. The app refreshes about once a minute. No invented live rates are supplied: the owner must publish the first real daily sheet.
 
 `hosted_backend/` retains the deployed backend source, migrations, tests and Sites build integration. Its native Site source repository is synchronized separately by the Sites workflow. Personal transaction records remain browser-local, not in the shared backend.
 
@@ -20,7 +20,7 @@ The GitHub Pages workflow uses this hosted API by default. Set the optional repo
 
 The public calculator starts with amount and rate only. Comparison and target-payout options are collapsed. The public app has no source-details drawer or editable deduction inputs. Legacy nonzero published deductions remain a read-only notice and stay included in results; editing a rate clears legacy deductions so manual prices never silently retain them. The calculator uses a compact centered layout, large numeric entry and highlighted results. The rate board preserves a real chart marker or an explicit empty chart frame when history is limited.
 
-The hosted admin form has direction shortcuts, faded input examples, a live equivalent-rate explanation, required source confirmation, and a button to refresh observation/expiry times for daily editing. Existing quote IDs are reused by direction shortcuts. New opposite-direction rows copy source details but never infer a rate. Names, payout method, timestamps, notices and separate deductions are optional details; blank deduction values save as zero. Example numbers are never saved as actual rates.
+The hosted admin form has one independent per-lakh input for each direction, faded examples, an equivalent-rate explanation, a check confirmation and a daily recheck shortcut. Source/provider and fee inputs are removed; internal generic provenance remains for compatibility. Existing quote IDs survive daily edits and re-adding a direction. Time fields are optional details. Unchanged legacy deductions are preserved transparently; typing a new price clears them. Example numbers are never saved as actual prices.
 
 ## User interface and rate trend
 
@@ -28,14 +28,14 @@ The public board opens with the 7-day chart, with Today / 7-day / 30-day choices
 
 ## Features
 
-Currency-only tools for Myanmar users: owner-published directional quotes, personal quote comparison, pasted chat rates, and device-local exchange records. Thai language features and simulated provider rankings are not part of the active app.
+Currency-only tools for Myanmar users: owner-published directional quotes, personal quote comparison, timestamped price sharing, opt-in Telegram price alerts, and device-local exchange records with backup import/export. Thai language features and simulated provider rankings are not part of the active app.
 
 ## What the owner does each day
 
 1. Open `/admin` and sign in.
 2. Add or edit **ဘတ်ပေး → ကျပ်ယူ** and **ကျပ်ပေး → ဘတ်ယူ** separately. Neither direction is inferred from the other.
-3. Enter a rate as MMK per THB or THB per 100,000 MMK, plus the fee in the paying currency, source, payout method, observed time and expiry (up to seven days).
-4. Check the source confirmation, save Draft, then Preview.
+3. Enter baht per 100,000 MMK. Updating the price sets the observation time to now and freshness to 24 hours. Expand time details only when you need to record a different check time.
+4. Confirm the updated price was checked, save Draft, then Preview. The daily recheck shortcut can confirm an unchanged price without typing it again.
 5. Publish. Public clients refresh automatically once per minute and can pull to refresh. Unpublished drafts remain private.
 6. To correct a mistake, restore an earlier version to Draft, review its rate/expiry, then publish a new version. Restoring alone does not change public data.
 
