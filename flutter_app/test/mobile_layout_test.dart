@@ -114,8 +114,12 @@ void main() {
             for (final box in paragraph.getBoxesForSelection(
               TextSelection(baseOffset: 0, extentOffset: length),
             )) {
-              expect(box.right, lessThanOrEqualTo(paragraph.size.width + .5));
-              expect(box.bottom, lessThanOrEqualTo(paragraph.size.height + .5));
+              final origin = paragraph.localToGlobal(Offset.zero);
+              final bounds = t.getRect(card);
+              expect(origin.dx + box.left, greaterThanOrEqualTo(bounds.left));
+              expect(origin.dx + box.right, lessThanOrEqualTo(bounds.right));
+              expect(origin.dy + box.top, greaterThanOrEqualTo(bounds.top));
+              expect(origin.dy + box.bottom, lessThanOrEqualTo(bounds.bottom));
             }
           }
         }

@@ -604,6 +604,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
                       Text(
                         d.label,
                         softWrap: true,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
                         style: TextStyle(
                           fontSize: compact ? 12 : 14,
                           height: 1.5,
@@ -616,6 +620,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
                       Text(
                         price,
                         softWrap: true,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
                         style: TextStyle(
                           fontSize: compact ? 14 : 16,
                           fontWeight: FontWeight.w700,
