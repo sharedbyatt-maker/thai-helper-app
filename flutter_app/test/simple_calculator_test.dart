@@ -161,14 +161,14 @@ void main() {
           .jumpTo(0);
       await tester.pumpAndSettle();
       await reveal(tester, find.byKey(const ValueKey('rate_0')));
-      await tester.enterText(find.byKey(const ValueKey('rate_0')), '800');
+      await tester.enterText(find.byKey(const ValueKey('rate_0')), '810');
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('published_deduction_0')), findsNothing);
       await reveal(tester, find.byKey(const ValueKey('calculate')));
       await tester.tap(find.byKey(const ValueKey('calculate')));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('ရငွေ 125,000 ကျပ်'));
-      expect(find.text('ရငွေ 125,000 ကျပ်'), findsOneWidget);
+      await reveal(tester, find.text('ရငွေ 123,456.79 ကျပ်'));
+      expect(find.text('ရငွေ 123,456.79 ကျပ်'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await close(tester);
     },
