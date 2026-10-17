@@ -217,6 +217,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   RateHistory? rateHistory;
   bool trendLoading = true, trendUnavailable = false;
   ExchangeDirection direction = ExchangeDirection.thbMmk;
+  ExchangeDirection? recordsDirection;
   bool directionChosen = false;
   bool targetMode = false,
       loading = true,
@@ -1089,11 +1090,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
       ),
       const SizedBox(height: 10),
-      TextButton.icon(
-        onPressed: pasteQuote,
-        icon: const Icon(Icons.content_paste),
-        label: const Text('ကူးထားတဲ့စာကနေ ဈေးထည့်မယ်'),
-      ),
       if (calcError != null)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1366,130 +1362,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
     );
   }
 
-  Future<void> pasteQuote() async {
-    final pasted = TextEditingController();
-    ParsedRate? parsed;
-    String? error;
-    var selected = lines.indexWhere((line) => line.rate.text.trim().isEmpty);
-    if (selected < 0) selected = lines.length < 3 ? lines.length : 0;
-    final accepted = await showDialog<ParsedRate>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, update) => AlertDialog(
-          title: const Text('ကူးထားတဲ့စာကနေ ဈေးဖတ်မယ်'),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('ရွေးထားတဲ့ဘက်: ${direction.label}'),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    key: const ValueKey('paste_target'),
-                    initialValue: selected,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'ဘယ်ဈေးထဲ ထည့်မလဲ?',
-                    ),
-                    items: [
-                      for (var i = 0; i < lines.length; i++)
-                        DropdownMenuItem(
-                          value: i,
-                          child: Text(
-                            'ဈေး ${i + 1} ကို အစားထိုးမယ်',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      if (lines.length < 3)
-                        DropdownMenuItem(
-                          value: lines.length,
-                          child: const Text('ဈေးအသစ်အဖြစ် ထပ်ထည့်မယ်'),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) update(() => selected = value);
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'ဥပမာ: “၁ ဘတ် = ၁၂၅ ကျပ်” သို့မဟုတ် “၁ သိန်း = ၈၀၀ ဘတ်”\nဒါက ရေးပုံနမူနာပါ။ လက်ရှိဈေး မဟုတ်ပါဘူး။',
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const ValueKey('pasted_quote'),
-                    controller: pasted,
-                    maxLines: 5,
-                    maxLength: 4000,
-                    decoration: const InputDecoration(
-                      labelText: 'ကူးထားတဲ့စာကို ဒီမှာထည့်ပါ',
-                    ),
-                    onChanged: (_) => update(() {
-                      parsed = null;
-                      error = null;
-                    }),
-                  ),
-                  OutlinedButton(
-                    onPressed: () => update(() {
-                      parsed = parseChatRate(pasted.text);
-                      error = parsed == null
-                          ? 'ဈေးတစ်ခုတည်း ရှင်းရှင်းမတွေ့သေးဘူး။ ဈေးပါတဲ့စာတစ်ကြောင်းပဲ ထည့်ပါ။ ကိုယ်တိုင်ရိုက်ထည့်လည်း ရပါတယ်။'
-                          : null;
-                    }),
-                    child: const Text('နှုန်းဖတ်မယ်'),
-                  ),
-                  if (error != null)
-                    Text(
-                      error!,
-                      style: TextStyle(color: Theme.of(ctx).colorScheme.error),
-                    ),
-                  if (parsed != null) ...[
-                    const SizedBox(height: 12),
-                    Text(parsed!.interpretation),
-                    const Text(
-                      'ဘတ်ပေးဈေးလား၊ ကျပ်ပေးဈေးလား ပြန်စစ်ပြီးမှ ဒီဈေးကို သုံးပေးပါ။',
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('ပိတ်မယ်'),
-            ),
-            FilledButton(
-              onPressed: parsed == null
-                  ? null
-                  : () => Navigator.pop(ctx, parsed),
-              child: const Text('စစ်ပြီး ဒီနှုန်းသုံးမယ်'),
-            ),
-          ],
-        ),
-      ),
-    );
-    // Dialog fields may still be animating out; dispose after the route transition.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    pasted.dispose();
-    if (!mounted || accepted == null) return;
-    setState(() {
-      if (selected == lines.length) {
-        lines.add(CalcLine(label: 'ဈေး ${lines.length + 1}'));
-      }
-      final line = lines[selected];
-      line.original = null;
-      line.perLakh = false;
-      line.rate.text = '${accepted.rateMicros / rateScale}';
-      line.fee.text = '0';
-      line.percent.text = '0';
-      results = [];
-      calcError = null;
-    });
-    toast('ဈေးထည့်ပြီးပြီ။ ပေးမယ့်ငွေကို စစ်ပြီး တွက်လိုက်ပါ။');
-  }
-
   Future<void> saveResult(Calculation result) async {
     if (writingRecord || !recordsReady) return;
     final note = TextEditingController();
@@ -1561,27 +1433,33 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   Widget history() {
+    final colors = Theme.of(context).colorScheme;
     final now = DateTime.now().toUtc().add(const Duration(hours: 7));
-    final month = records.where(
-      (r) =>
-          r.completed &&
-          r.savedAt.toUtc().add(const Duration(hours: 7)).year == now.year &&
-          r.savedAt.toUtc().add(const Duration(hours: 7)).month == now.month &&
-          r.quote.direction == ExchangeDirection.thbMmk,
-    );
-    final sent = month.fold<int>(0, (a, r) => a + r.budgetMinor);
-    final received = month.fold<int>(0, (a, r) => a + r.receivedMinor);
+    final month = records.where((r) {
+      final saved = r.savedAt.toUtc().add(const Duration(hours: 7));
+      return r.completed && saved.year == now.year && saved.month == now.month;
+    }).toList();
+    final visible =
+        records
+            .where(
+              (r) =>
+                  recordsDirection == null ||
+                  r.quote.direction == recordsDirection,
+            )
+            .toList()
+          ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+    final thbCount = month
+        .where((r) => r.quote.direction == ExchangeDirection.thbMmk)
+        .length;
+    final mmkCount = month.length - thbCount;
     return ListView(
       key: const PageStorageKey('records'),
       padding: const EdgeInsets.all(14),
       children: [
-        Text(
+        pageHeading(
           'ကိုယ့်ငွေလဲမှတ်တမ်း',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ “ငွေလဲပြီးပြီ” ဆိုတာ ကိုယ်တိုင်မှတ်ထားတာပါ။ ငွေရောက်မရောက်ကို app က စစ်ပေးတာ မဟုတ်ပါဘူး။',
+          'တွက်ထားတာနဲ့ လဲပြီးတာကို ဒီမှာ မှတ်ထားလို့ရတယ်။ ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားတာပါ။',
+          Icons.receipt_long_outlined,
         ),
         if (recordError != null)
           panel(
@@ -1595,58 +1473,252 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ],
             ),
           ),
-        panel(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'ဒီလ · ဘတ်ပေး → ကျပ်ယူ · လဲပြီးပြီလို့ မှတ်ထားတာ ${month.length} ကြိမ်',
+        if (!recordsReady && recordError == null)
+          const Center(child: CircularProgressIndicator()),
+        if (recordsReady && records.isNotEmpty) ...[
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: ExpansionTile(
+              key: const PageStorageKey('monthly_records_summary'),
+              leading: Icon(
+                Icons.calendar_month_outlined,
+                color: colors.primary,
               ),
-              Text('စုစုပေါင်းပေးငွေ ${money(sent)} ဘတ်'),
-              Text('စုစုပေါင်းရငွေ ${money(received)} ကျပ်'),
-              const Text('မှတ်တမ်းသိမ်းတဲ့လအလိုက် ပေါင်းပြထားပါတယ်။'),
+              title: const Text(
+                'ဒီလ ငွေလဲပြီးသမျှ',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                'ဘတ်ပေး $thbCount ကြိမ် · ကျပ်ပေး $mmkCount ကြိမ်',
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                for (final side in ExchangeDirection.values)
+                  monthlyRecordSummary(side, month),
+                const SizedBox(height: 8),
+                const Text(
+                  'လဲပြီးပြီလို့ ကိုယ်တိုင်မှတ်ထားတာတွေကို သိမ်းတဲ့လအလိုက် ပေါင်းပြထားပါတယ်။',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final side in <ExchangeDirection?>[
+                null,
+                ...ExchangeDirection.values,
+              ])
+                ChoiceChip(
+                  key: ValueKey('records_filter_${side?.key ?? 'all'}'),
+                  label: Text(side?.label ?? 'အားလုံး'),
+                  selected: recordsDirection == side,
+                  onSelected: (_) => setState(() => recordsDirection = side),
+                ),
             ],
           ),
-        ),
-        Wrap(
-          spacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: records.isEmpty
-                  ? null
-                  : () => shareText(store.export(records)),
-              icon: const Icon(Icons.ios_share),
-              label: const Text('မှတ်တမ်းကို ဖိုင်ထုတ် / မျှဝေမယ်'),
-            ),
-            TextButton(
-              onPressed: records.isEmpty || writingRecord ? null : clearRecords,
-              child: const Text('အားလုံးရှင်းမယ်'),
-            ),
-          ],
-        ),
-        if (recordsReady && records.isEmpty)
+          const SizedBox(height: 10),
+          Text(
+            'မှတ်တမ်း ${visible.length} ခု',
+            style: TextStyle(color: colors.onSurfaceVariant),
+          ),
+        ],
+        if (recordsReady && visible.isEmpty)
           panel(
-            const Text(
-              'မှတ်တမ်း မရှိသေးဘူး။ ငွေတွက်ပြီးရင် ရလဒ်အောက်က “မှတ်တမ်းသိမ်း” ကို နှိပ်လိုက်ပါ။',
+            Column(
+              children: [
+                Icon(
+                  Icons.bookmark_border_rounded,
+                  size: 40,
+                  color: colors.primary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  records.isEmpty
+                      ? 'မှတ်တမ်း မရှိသေးဘူး'
+                      : 'ဒီဘက်အတွက် မှတ်တမ်း မရှိသေးဘူး',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'ငွေတွက်ပြီးရင် ရလဒ်အောက်က “မှတ်တမ်းသိမ်း” ကို နှိပ်လိုက်ပါ။',
+                  textAlign: TextAlign.center,
+                ),
+                TextButton.icon(
+                  onPressed: () => selectTab(1),
+                  icon: const Icon(Icons.calculate_outlined),
+                  label: const Text('ငွေတွက်မယ်'),
+                ),
+              ],
             ),
           ),
-        ...records.map(
-          (r) => panel(
-            Column(
+        for (final r in visible) personalRecordCard(r),
+        if (recordsReady && records.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => shareText(store.export(records)),
+                icon: const Icon(Icons.ios_share),
+                label: const Text('မှတ်တမ်းအားလုံး ဖိုင်ထုတ် / မျှဝေမယ်'),
+              ),
+              TextButton(
+                onPressed: writingRecord ? null : clearRecords,
+                child: const Text('အားလုံးရှင်းမယ်'),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 18),
+      ],
+    );
+  }
+
+  Widget monthlyRecordSummary(
+    ExchangeDirection side,
+    List<PersonalRecord> month,
+  ) {
+    final items = month.where((r) => r.quote.direction == side);
+    final sent = items.fold<int>(0, (a, r) => a + r.budgetMinor);
+    final received = items.fold<int>(0, (a, r) => a + r.receivedMinor);
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      key: ValueKey('monthly_summary_${side.key}'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            side.label,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: colors.primary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text('စုစုပေါင်းပေးငွေ ${money(sent)} ${side.from}'),
+          const SizedBox(height: 4),
+          Text(
+            'စုစုပေါင်းရငွေ ${money(received)} ${side.to}',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget personalRecordCard(PersonalRecord r) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      key: ValueKey('personal_record_${r.id}'),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(r.name, style: Theme.of(context).textTheme.titleMedium),
-                Text('${r.quote.direction.label} · ${when(r.savedAt)}'),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        r.quote.direction.label,
+                        style: TextStyle(
+                          color: colors.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      when(r.savedAt),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
                 Text(
                   '${money(r.budgetMinor)} ${r.quote.direction.from} → ${money(r.receivedMinor)} ${r.quote.direction.to}',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  key: ValueKey('record_amount_${r.id}'),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    height: 1.8,
+                  ),
                 ),
-                Text(quoteRateLabel(r.quote)),
+                const SizedBox(height: 6),
+                Text(
+                  quoteRateLabel(r.quote),
+                  style: TextStyle(color: colors.onSurfaceVariant),
+                ),
                 if (r.quote.feeFor(r.budgetMinor) > 0)
                   Text(
                     'နုတ်ပြီးသားငွေ ${money(r.quote.feeFor(r.budgetMinor))} ${r.quote.direction.from}',
                   ),
-                if (r.note.isNotEmpty) Text(r.note),
+                if (r.note.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(r.note),
+                ],
+              ],
+            ),
+          ),
+          CheckboxListTile(
+            key: ValueKey('record_completed_${r.id}'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(
+              r.completed ? 'ငွေလဲပြီးပြီ' : 'တွက်ထားတာပဲ ရှိသေးတယ်',
+              style: const TextStyle(fontSize: 14),
+            ),
+            subtitle: r.completed
+                ? const Text(
+                    'ကိုယ်တိုင် မှတ်ထားတာပါ',
+                    style: TextStyle(fontSize: 12),
+                  )
+                : null,
+            value: r.completed,
+            onChanged: writingRecord
+                ? null
+                : (v) => writeRecords(
+                    records
+                        .map(
+                          (x) => x.id == r.id ? x.withCompleted(v ?? false) : x,
+                        )
+                        .toList(),
+                  ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Wrap(
+              spacing: 8,
+              children: [
                 TextButton.icon(
                   onPressed:
                       r.quote.sourceChecked && !r.quote.activeAt(DateTime.now())
@@ -1657,40 +1729,20 @@ class _ExchangeHomeState extends State<ExchangeHome>
                             'ဒါက အရင်သိမ်းထားတဲ့ဈေးပါ။ အခုဈေးနဲ့ တူမတူ ပြန်စစ်ပေးပါ။',
                           );
                         },
-                  icon: const Icon(Icons.calculate_outlined),
+                  icon: const Icon(Icons.calculate_outlined, size: 18),
                   label: const Text('ဒီဈေးနဲ့ ပြန်တွက်မယ်'),
                 ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    r.completed
-                        ? 'ငွေလဲပြီးပြီလို့ မှတ်ထားမယ်'
-                        : 'တွက်ထားတာပဲ ရှိသေးတယ်',
-                  ),
-                  value: r.completed,
-                  onChanged: writingRecord
-                      ? null
-                      : (v) => writeRecords(
-                          records
-                              .map(
-                                (x) => x.id == r.id
-                                    ? x.withCompleted(v ?? false)
-                                    : x,
-                              )
-                              .toList(),
-                        ),
-                ),
                 TextButton.icon(
+                  key: ValueKey('record_delete_${r.id}'),
                   onPressed: writingRecord ? null : () => deleteRecord(r),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('ဒီမှတ်တမ်းကို ဖျက်မယ်'),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('ဖျက်မယ်'),
                 ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 18),
-      ],
+        ],
+      ),
     );
   }
 

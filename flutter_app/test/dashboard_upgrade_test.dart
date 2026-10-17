@@ -192,7 +192,11 @@ void main() {
         await t.tap(find.byKey(const ValueKey('direction_mmk_thb')));
         await t.pumpAndSettle();
         expect(find.text('ကျပ် ၁ သိန်း = 750 ဘတ်'), findsOneWidget);
-        expect(find.byKey(const ValueKey('per_baht_equivalent')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('per_baht_equivalent')),
+          findsOneWidget,
+        );
+        expect(find.text('၁ ဘတ် ≈ 133.33 ကျပ်'), findsOneWidget);
         await reveal(t, find.text('ဒီနေ့'));
         await t.tap(find.text('ဒီနေ့'));
         await t.pumpAndSettle();
