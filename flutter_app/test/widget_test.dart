@@ -132,7 +132,7 @@ void main() {
       await start(tester);
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
-      final paste = find.text('Chat စာသားမှ နှုန်းထည့်');
+      final paste = find.text('ကူးထားတဲ့စာကနေ ဈေးထည့်မယ်');
       await reveal(tester, paste, 250);
       await tester.tap(paste);
       await tester.pumpAndSettle();

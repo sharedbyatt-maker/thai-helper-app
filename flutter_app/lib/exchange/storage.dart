@@ -83,7 +83,7 @@ class RecordStore {
   Future<void> save(List<PersonalRecord> records) async {
     if (records.length > limit) {
       throw const FormatException(
-        'မှတ်တမ်း ၅၀၀ ပြည့်နေပါသည်။ အဟောင်းကို export/save လုပ်ပြီး ရှင်းပါ။',
+        'မှတ်တမ်း ၅၀၀ ပြည့်နေပြီ။ အဟောင်းတွေကို ဖိုင်ထုတ်သိမ်းပြီးမှ ရှင်းပေးပါ။',
       );
     }
     final p = await SharedPreferences.getInstance();

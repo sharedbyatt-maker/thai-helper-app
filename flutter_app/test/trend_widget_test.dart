@@ -109,7 +109,10 @@ void main() {
         await tester.ensureVisible(plot);
         await tester.tap(plot);
         await tester.pumpAndSettle();
-        expect(find.text('မှတ်တမ်းကို ထိပြီး ကြည့်နိုင်ပါတယ်'), findsNothing);
+        expect(
+          find.text('အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်'),
+          findsNothing,
+        );
         expect(tester.takeException(), isNull);
         if (const bool.fromEnvironment('RENDER_UI')) {
           tester

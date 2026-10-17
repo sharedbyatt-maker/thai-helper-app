@@ -167,12 +167,12 @@ class CalcLine {
         bps == null ||
         bps >= 10000) {
       throw FormatException(
-        'ဈေး ${index + 1}: နှုန်းနှင့် နုတ်ငွေကို ပြန်စစ်ပါ',
+        'ဈေး ${index + 1}: ဈေးနဲ့ သီးသန့်နုတ်ငွေကို ပြန်စစ်ပေးပါ',
       );
     }
     final scaled = (perLakh ? 100000 / value : value) * rateScale;
     if (!scaled.isFinite || scaled < 1 || scaled > 1000000000000) {
-      throw const FormatException('နှုန်းပမာဏ မမှန်ပါ');
+      throw const FormatException('ထည့်ထားတဲ့ဈေးကို ပြန်စစ်ပေးပါ');
     }
     final now = DateTime.now();
     return original ??
@@ -185,7 +185,7 @@ class CalcLine {
           rateMicros: scaled.round(),
           flatFeeMinor: flat,
           feeBps: bps,
-          sourceName: 'ကိုယ်တိုင်ထည့်သောဈေး',
+          sourceName: 'ကိုယ်ထည့်ထားတဲ့ဈေး',
           observedAt: now,
           validUntil: now.add(const Duration(days: 1)),
         );
@@ -311,8 +311,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           }
           if (changedQuote) {
             results = [];
-            calcError =
-                'နှုန်းအသစ် ရောက်လာပါသည်။ ပေးငွေကို ထိန်းထားပြီး ပြန်တွက်နိုင်ပါသည်။';
+            calcError = 'ဈေးအသစ် ရောက်လာပြီ။ ထည့်ထားတဲ့ပမာဏနဲ့ ပြန်တွက်ပေးပါ။';
           }
         }
         // Opening the app should show a published direction, even when only
@@ -360,7 +359,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       if (!mounted || id != requestId) return;
       setState(() {
         loading = false;
-        loadError = 'နှုန်းကို ရယူမရပါ။ ကိုယ့်ဈေးဖြင့်တွက်နိုင်ပါသည်။';
+        loadError = 'ဈေးအသစ် ယူမရသေးဘူး။ ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်လို့ရပါတယ်။';
       });
     }
   }
@@ -378,7 +377,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
     } catch (_) {
       if (mounted) {
         setState(
-          () => recordError = 'မှတ်တမ်း ဖတ်မရပါ။ မူလဒေတာကို မပြောင်းထားပါ။',
+          () => recordError =
+              'မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ သိမ်းထားတဲ့စာရင်းကို မပြောင်းထားပါဘူး။',
         );
       }
     }
@@ -417,7 +417,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       final value = parseMoney(amount.text);
       if (value == null) {
         throw const FormatException(
-          'ပမာဏသည် 0 ထက်ကြီးပြီး ဒသမ ၂ နေရာအထိသာ ဖြစ်ရပါမည်။',
+          '0 ထက်ကြီးတဲ့ ပမာဏထည့်ပေးပါ။ ဒသမဆို ၂ နေရာအထိ ရပါတယ်။',
         );
       }
       final now = DateTime.now();
@@ -426,18 +426,20 @@ class _ExchangeHomeState extends State<ExchangeHome>
         final q = lines[i].quote(direction, i);
         if (q.sourceChecked && !q.activeAt(now)) {
           throw const FormatException(
-            'ရွေးထားသောနှုန်း သက်တမ်းကုန်ပြီ။ နှုန်းအသစ် ရယူပါ။',
+            'ဒီဈေးကို ပြန်စစ်ဖို့လိုပြီ။ အပေါ်က refresh ကိုနှိပ်ပြီး ဈေးအသစ်ယူပေးပါ။',
           );
         }
         final budget = targetMode ? q.requiredBudget(value) : value;
         if (budget == null) {
           throw const FormatException(
-            'လိုအပ်သောပမာဏသည် တွက်နိုင်သည့်အတိုင်းအတာထက် ကြီးနေပါသည်။',
+            'ဒီပမာဏက တွက်ပေးနိုင်တဲ့ အကန့်အသတ်ထက် များနေပါတယ်။',
           );
         }
         final received = q.payout(budget);
         if (received <= 0) {
-          throw const FormatException('သီးသန့်နုတ်ငွေထက် ပေးငွေ နည်းနေပါသည်။');
+          throw const FormatException(
+            'ပေးမယ့်ငွေက သီးသန့်နုတ်ငွေထက် နည်းနေပါတယ်။',
+          );
         }
         calculated.add(Calculation(q, budget, received));
       }
@@ -508,7 +510,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   Text(
                     q == null
                         ? 'မတင်ရသေးပါ'
-                        : '${referenceRateText(q.rateMicros)} ဘတ် / ၁ သိန်း',
+                        : quoteRateLabel(q).replaceFirst(' = ', ' → '),
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -567,10 +569,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
             children: [
               Text(
                 data.origin == SheetOrigin.server
-                    ? 'အွန်လိုင်းမှ နှုန်းရယူထားပါပြီ'
+                    ? 'နောက်ဆုံးတင်ထားတဲ့ဈေးကို ပြထားပါတယ်'
                     : data.origin == SheetOrigin.cache
-                    ? 'လိုင်းမရသေးပါ · သိမ်းထားသောနှုန်းကို ပြထားသည်'
-                    : 'နေ့စဉ်နှုန်း စောင့်နေပါတယ်',
+                    ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်'
+                    : 'ဈေးအသစ် မရသေးပါဘူး',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -578,7 +580,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
               if (lastFetched != null)
                 Text(
-                  'ချိတ်ဆက်စစ်ချိန် ${when(lastFetched!)} · ထိုင်းအချိန်',
+                  'နောက်ဆုံးချိတ်ဆက်ချိန် ${when(lastFetched!)} · ထိုင်းအချိန်',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
             ],
@@ -621,7 +623,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
         actions: [
           IconButton(
-            tooltip: 'နှုန်းအသစ် ရယူမယ်',
+            tooltip: 'ဈေးအသစ် ယူမယ်',
             onPressed: loading ? null : _refresh,
             icon: loading
                 ? const SizedBox(
@@ -637,7 +639,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             icon: const Icon(Icons.contrast),
           ),
           IconButton(
-            tooltip: 'ရှင်းလင်းချက်',
+            tooltip: 'အသုံးပြုနည်း',
             icon: const Icon(Icons.info_outline),
             onPressed: () => showDialog<void>(
               context: context,
@@ -645,7 +647,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 title: const Text('အသုံးပြုနည်း'),
                 content: const SingleChildScrollView(
                   child: Text(
-                    'ဘတ်ပေး / ကျပ်ပေး ဈေးကို သီးခြားရွေးပါ။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။ သီးသန့်နုတ်ငွေရှိမှ အပိုရွေးချယ်မှုထဲမှာ ထည့်ပါ။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းများကို ဤဖုန်း/browser ထဲတွင်သာ သိမ်းပါသည်။ Browser data ဖျက်လျှင် ပျောက်နိုင်သဖြင့် export လုပ်ထားပါ။',
+                    'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။ သီးသန့်နုတ်ငွေရှိမှ အပိုရွေးချယ်မှုထဲမှာ ထည့်ပါ။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။',
                   ),
                 ),
                 actions: [
@@ -713,14 +715,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'နေ့စဉ် ဘတ်–ကျပ်ဈေး',
+                  'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'ယနေ့နှုန်းကို ကြည့်ပြီး လဲမလဲ ဆုံးဖြတ်ပါ။',
+                  'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     height: 1.8,
@@ -789,9 +791,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 ),
                 childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                 title: Text(
-                  quotes.length == 1
-                      ? 'နှုန်းရင်းမြစ်နှင့် အချိန်အသေးစိတ်'
-                      : q.label,
+                  quotes.length == 1 ? 'ဒီဈေးကို ဘယ်ကရလဲ?' : q.label,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -803,18 +803,18 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 children: [
                   if (!active)
                     const Text(
-                      'နောက်ဆုံးသိမ်းထားသောနှုန်းဖြစ်သည်။ လက်ရှိနှုန်းအဖြစ် သုံးရန် ပြန်စစ်ဖို့လိုပါသည်။',
+                      'ဒါက အရင်တင်ထားတဲ့ဈေးပါ။ အခုဈေးဟုတ်မဟုတ် ပြန်စစ်ဖို့လိုပါတယ်။',
                     ),
-                  Text('နှုန်းရင်းမြစ်: ${q.sourceName}'),
+                  Text('ဈေးရတဲ့နေရာ: ${q.sourceName}'),
                   if (q.payoutMethod.isNotEmpty &&
                       q.payoutMethod != 'မဖော်ပြထားပါ')
                     Text('လက်ခံနည်း: ${q.payoutMethod}'),
                   if (q.flatFeeMinor > 0 || q.feeBps > 0)
                     Text(
-                      'သီးသန့်နုတ်ငွေ ${money(q.flatFeeMinor)} ${q.direction.from} + ${q.feeBps / 100}% ပါရှိသည်။',
+                      'သီးသန့်နုတ်ငွေ ${money(q.flatFeeMinor)} ${q.direction.from} + ${q.feeBps / 100}% ပါပါတယ်။',
                     ),
-                  Text('စစ်ထားချိန် ${when(q.observedAt)}'),
-                  Text('ပြန်စစ်ရန် သတ်မှတ်ချိန် ${when(q.validUntil)}'),
+                  Text('ဈေးတင်ချိန် ${when(q.observedAt)}'),
+                  Text('ပြန်စစ်ရမယ့်အချိန် ${when(q.validUntil)}'),
                   if (q.note.isNotEmpty) Text(q.note),
                   const SizedBox(height: 10),
                   Wrap(
@@ -829,7 +829,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                         TextButton.icon(
                           onPressed: () => openSource(q.sourceUrl),
                           icon: const Icon(Icons.open_in_new, size: 16),
-                          label: const Text('Source ကြည့်မယ်'),
+                          label: const Text('မူရင်းစာမျက်နှာ ကြည့်မယ်'),
                         ),
                     ],
                   ),
@@ -840,7 +840,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           const Padding(
             padding: EdgeInsets.all(10),
             child: Text(
-              'ငွေလဲမည့်အချိန်တွင် ငွေလဲသူနှင့် နှုန်းကို ပြန်အတည်ပြုပါ။',
+              'ငွေမလဲခင် ကိုယ်လဲမယ့်သူဆီမှာ နောက်ဆုံးဈေးကို ပြန်မေးပေးပါ။',
             ),
           ),
           if (data?.origin == SheetOrigin.server)
@@ -977,7 +977,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               onSubmitted: (_) => calculate(),
               decoration: InputDecoration(
                 labelText: targetMode
-                    ? 'ရချင်သည့်ပမာဏ (${direction.to})'
+                    ? 'ရချင်တဲ့ပမာဏ (${direction.to})'
                     : 'ပေးမယ့်စုစုပေါင်းငွေ (${direction.from})',
                 hintText: (targetMode ? direction.to : direction.from) == 'ကျပ်'
                     ? 'ဥပမာ 100000'
@@ -1031,7 +1031,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       OutlinedButton.icon(
         onPressed: pasteQuote,
         icon: const Icon(Icons.content_paste),
-        label: const Text('Chat စာသားမှ နှုန်းထည့်'),
+        label: const Text('ကူးထားတဲ့စာကနေ ဈေးထည့်မယ်'),
       ),
       if (calcError != null)
         Padding(
@@ -1045,8 +1045,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
         panel(
           Text(
             targetMode
-                ? 'အနည်းဆုံးနှင့် အများဆုံး ကွာခြားချက် ${money(results.last.budget - results.first.budget)} ${direction.from}'
-                : 'အများဆုံးနှင့် အနည်းဆုံး ကွာခြားချက် ${money(results.first.received - results.last.received)} ${direction.to}',
+                ? 'အနည်းဆုံးနဲ့ အများဆုံး ကွာခြားချက် ${money(results.last.budget - results.first.budget)} ${direction.from}'
+                : 'အများဆုံးနဲ့ အနည်းဆုံး ကွာခြားချက် ${money(results.first.received - results.last.received)} ${direction.to}',
           ),
         ),
       for (var i = 0; i < results.length; i++) resultCard(results[i], i),
@@ -1054,7 +1054,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       ExpansionTile(
         key: const PageStorageKey('calculator_options'),
         title: const Text(
-          'နှုန်းနှိုင်းယှဉ်ခြင်း / ပြန်တွက်ခြင်း',
+          'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်',
           style: TextStyle(fontSize: 14),
         ),
         tilePadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1072,7 +1072,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   })
                 : null,
             icon: const Icon(Icons.add),
-            label: const Text('နှိုင်းရန် နှုန်းတစ်ခု ထပ်ထည့်'),
+            label: const Text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'),
           ),
           TextButton(
             onPressed: () => setTargetMode(!targetMode),
@@ -1102,13 +1102,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 child: Text(
                   lines.length == 1
                       ? '၂။ ရထားတဲ့ ငွေလဲနှုန်း'
-                      : 'နှိုင်းမည့်နှုန်း ${index + 1}',
+                      : 'နှိုင်းမယ့်ဈေး ${index + 1}',
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
               if (lines.length > 1)
                 IconButton(
-                  tooltip: 'ဤဈေးဖယ်မယ်',
+                  tooltip: 'ဒီဈေးကို ဖယ်မယ်',
                   onPressed: () => setState(() {
                     lines.removeAt(index).dispose();
                     results = [];
@@ -1156,15 +1156,15 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   : '၁ ဘတ်အတွက် ကျပ်',
               hintText: line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
               helperText:
-                  'နှစ်ဘက်ဈေး မတူနိုင်ပါ။ ရွေးထားသောဦးတည်ချက်၏ နှုန်းကိုသာ ဖြည့်ပါ။',
-              helperMaxLines: 2,
+                  'ဘတ်ပေးဈေးနဲ့ ကျပ်ပေးဈေး မတူပါဘူး။ အပေါ်မှာ ရွေးထားတဲ့ဘက်ရဲ့ ဈေးကို ထည့်ပေးပါ။',
+              helperMaxLines: 3,
             ),
           ),
           if (line.original != null)
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Text(
-                'နှုန်းရင်းမြစ်: ${line.original!.sourceName}',
+                'ဈေးရတဲ့နေရာ: ${line.original!.sourceName}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -1176,8 +1176,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
             childrenPadding: const EdgeInsets.only(bottom: 12),
             title: Text(
               hasDeduction
-                  ? 'သီးသန့်နုတ်မည့်ငွေ ပါရှိသည်'
-                  : 'သီးသန့်နုတ်ငွေ ရှိမှ ဖြည့်ရန်',
+                  ? 'သီးသန့်နုတ်ငွေ ပါပါတယ်'
+                  : 'သီးသန့်နုတ်ငွေ ရှိမှ ဖြည့်ပါ',
               style: TextStyle(
                 fontSize: 13,
                 color: hasDeduction
@@ -1187,7 +1187,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             ),
             children: [
               const Text(
-                'နှုန်းအတိုင်း တိုက်ရိုက်လဲလျှင် မဖြည့်ပါနှင့်။ ငွေလဲသူက သီးသန့် ထပ်နုတ်မည်ဟု ပြောထားမှသာ ဖြည့်ပါ။',
+                'ပြထားတဲ့ဈေးအတိုင်း လဲရင် မဖြည့်လည်းရပါတယ်။ ငွေလဲသူက ထပ်နုတ်မယ်လို့ ပြောထားမှ ဖြည့်ပေးပါ။',
               ),
               const SizedBox(height: 12),
               TextField(
@@ -1198,10 +1198,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 ),
                 onChanged: (_) => invalidate(line),
                 decoration: InputDecoration(
-                  labelText: 'သီးသန့်နုတ်မည့်ငွေ (${direction.from})',
+                  labelText: 'သီးသန့်နုတ်မယ့်ငွေ (${direction.from})',
                   hintText: 'ဥပမာ 20',
-                  helperText: 'ပေးမယ့်ငွေထဲမှ နုတ်သည်။ မနုတ်လျှင် 0 ထားပါ။',
-                  helperMaxLines: 2,
+                  helperText: 'ပေးမယ့်ငွေထဲက နုတ်ပေးမယ်။ မနုတ်ရင် 0 ထားပါ။',
+                  helperMaxLines: 3,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1215,8 +1215,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 decoration: const InputDecoration(
                   labelText: 'ရာခိုင်နှုန်းနဲ့ နုတ်မှသာ (%)',
                   hintText: 'ဥပမာ 1',
-                  helperText: '၁% နုတ်လျှင် 1။ မနုတ်လျှင် 0 ထားပါ။',
-                  helperMaxLines: 2,
+                  helperText: '၁% နုတ်ရင် 1 ထည့်ပါ။ မနုတ်ရင် 0 ထားပါ။',
+                  helperMaxLines: 3,
                 ),
               ),
             ],
@@ -1226,7 +1226,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               key: PageStorageKey('quote_name_${identityHashCode(line)}'),
               tilePadding: EdgeInsets.zero,
               title: const Text(
-                'နှုန်းကို အမည်ပေးမှတ်ရန် (ရှိမှ)',
+                'ဒီဈေးကို နာမည်ပေးထားချင်လား?',
                 style: TextStyle(fontSize: 13),
               ),
               children: [
@@ -1235,8 +1235,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   maxLength: 100,
                   onChanged: (_) => invalidate(line),
                   decoration: const InputDecoration(
-                    labelText: 'မှတ်ထားမည့်အမည်',
-                    hintText: 'ဥပမာ အသိတစ်ယောက်ပေးသောဈေး',
+                    labelText: 'မှတ်ထားမယ့်နာမည်',
+                    hintText: 'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး',
                   ),
                 ),
               ],
@@ -1253,11 +1253,15 @@ class _ExchangeHomeState extends State<ExchangeHome>
         Text(
           results.length > 1
               ? '${index + 1}. ${result.quote.label}'
-              : 'တွက်ချက်ရလဒ်',
+              : 'တွက်ထားတဲ့ရလဒ်',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         if (results.length > 1 && index == 0)
-          const Text('ထည့်ထားသောဈေးများထဲမှ တွက်ချက်ရလဒ် အသာဆုံး'),
+          Text(
+            targetMode
+                ? 'ဒီဈေးနဲ့ဆို ပေးရမယ့်ငွေ အနည်းဆုံးပါ'
+                : 'ဒီဈေးနဲ့ဆို ရမယ့်ငွေ အများဆုံးပါ',
+          ),
         const SizedBox(height: 12),
         Text('ပေးငွေ ${money(result.budget)} ${result.quote.direction.from}'),
         Text(
@@ -1266,7 +1270,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
         if (result.quote.feeFor(result.budget) > 0)
           Text(
-            'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသောရငွေ ဖြစ်သည်။',
+            'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသားပါ။',
           ),
         const SizedBox(height: 12),
         Wrap(
@@ -1301,14 +1305,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
       );
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: text));
-      toast('Share မရ၍ စာသား copy လုပ်ထားပါသည်');
+      toast('မျှဝေလို့မရသေးလို့ စာသားကို ကူးပေးထားပါတယ်');
     }
   }
 
   void shareResult(Calculation result) {
     final q = result.quote;
     shareText(
-      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'Source: ${q.sourceName} · ${when(q.observedAt)}' : 'ကိုယ်တိုင်ထည့်သောနှုန်းဖြင့် တွက်ထားခြင်း'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲမီ နှုန်းနှင့် Fee ကို ပြန်အတည်ပြုပါ။',
+      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'Source: ${q.sourceName} · ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးနဲ့ သီးသန့်နုတ်ငွေ ရှိမရှိ ပြန်မေးပါ။',
     );
   }
 
@@ -1322,7 +1326,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, update) => AlertDialog(
-          title: const Text('Chat စာသားမှ နှုန်းဖတ်မယ်'),
+          title: const Text('ကူးထားတဲ့စာကနေ ဈေးဖတ်မယ်'),
           content: SizedBox(
             width: 500,
             child: SingleChildScrollView(
@@ -1330,7 +1334,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ရွေးထားသည့်ဦးတည်ချက်: ${direction.label}'),
+                  Text('ရွေးထားတဲ့ဘက်: ${direction.label}'),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(
                     key: const ValueKey('paste_target'),
@@ -1360,7 +1364,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'ဥပမာ: “၁ ဘတ် = ၁၂၅ ကျပ်” သို့မဟုတ် “၁ သိန်း = ၈၀၀ ဘတ်”\nဤကိန်းဂဏန်းများသည် ရေးပုံဥပမာသာ ဖြစ်သည်။',
+                    'ဥပမာ: “၁ ဘတ် = ၁၂၅ ကျပ်” သို့မဟုတ် “၁ သိန်း = ၈၀၀ ဘတ်”\nဒါက ရေးပုံနမူနာပါ။ လက်ရှိဈေး မဟုတ်ပါဘူး။',
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -1369,7 +1373,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                     maxLines: 5,
                     maxLength: 4000,
                     decoration: const InputDecoration(
-                      labelText: 'Copy လုပ်ထားသောစာကို paste လုပ်ပါ',
+                      labelText: 'ကူးထားတဲ့စာကို ဒီမှာထည့်ပါ',
                     ),
                     onChanged: (_) => update(() {
                       parsed = null;
@@ -1380,7 +1384,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                     onPressed: () => update(() {
                       parsed = parseChatRate(pasted.text);
                       error = parsed == null
-                          ? 'နှုန်းတစ်ခုတည်း ရှင်းရှင်းမတွေ့ပါ။ နှုန်းစာသားတစ်ကြောင်းသာ ထည့်ပါ သို့မဟုတ် ကိုယ်တိုင်ရိုက်ပါ။'
+                          ? 'ဈေးတစ်ခုတည်း ရှင်းရှင်းမတွေ့သေးဘူး။ ဈေးပါတဲ့စာတစ်ကြောင်းပဲ ထည့်ပါ။ ကိုယ်တိုင်ရိုက်ထည့်လည်း ရပါတယ်။'
                           : null;
                     }),
                     child: const Text('နှုန်းဖတ်မယ်'),
@@ -1394,7 +1398,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                     const SizedBox(height: 12),
                     Text(parsed!.interpretation),
                     const Text(
-                      'ဦးတည်ချက်နှင့် Fee ကို ကိုယ်တိုင်စစ်ပါ။ စာသားမှ Fee ကို အလိုအလျောက် မယူပါ။',
+                      'ဘတ်ပေးဈေးလား၊ ကျပ်ပေးဈေးလား ပြန်စစ်ပေးပါ။ သီးသန့်နုတ်ငွေရှိရင် ကိုယ်တိုင်ထည့်ဖို့ လိုပါတယ်။',
                     ),
                   ],
                 ],
@@ -1433,7 +1437,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       results = [];
       calcError = null;
     });
-    toast('နှုန်းထည့်ပြီးပါပြီ။ ပေးငွေနှင့် Fee ကို စစ်ပြီး တွက်ပါ။');
+    toast('ဈေးထည့်ပြီးပြီ။ ပေးမယ့်ငွေကို စစ်ပြီး တွက်လိုက်ပါ။');
   }
 
   Future<void> saveResult(Calculation result) async {
@@ -1442,19 +1446,19 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('တွက်ထားသောမှတ်တမ်း သိမ်းမယ်'),
+        title: const Text('တွက်ထားတာကို သိမ်းမယ်'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'ဤသည် တွက်ချက်ထားသောမှတ်တမ်း ဖြစ်သည်။ ငွေတကယ်လဲပြီးလျှင် မှတ်တမ်းထဲတွင် ကိုယ်တိုင်အမှန်ခြစ်ပါ။',
+              'အခုတွက်ထားတာကို သိမ်းပေးမယ်။ တကယ်ငွေလဲပြီးရင် မှတ်တမ်းထဲမှာ အမှန်ခြစ်ထားလို့ရပါတယ်။',
             ),
             const SizedBox(height: 12),
             TextField(
               controller: note,
               maxLength: 250,
               decoration: const InputDecoration(
-                labelText: 'မှတ်ချက် (ရှိလျှင်)',
+                labelText: 'မှတ်ချက် (ရေးချင်မှ)',
               ),
             ),
           ],
@@ -1499,7 +1503,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
     } catch (_) {
       toast(
-        'မှတ်တမ်း သိမ်းမရပါ။ မှတ်တမ်း ၅၀၀ ပြည့်ခြင်း / storage ကို စစ်ပါ။ မူလမှတ်တမ်းများ မပြောင်းပါ။',
+        'မှတ်တမ်း သိမ်းမရသေးဘူး။ စာရင်း ၅၀၀ ပြည့်နေလား၊ ဖုန်းမှာ နေရာရှိသေးလား စစ်ပေးပါ။ အရင်စာရင်းတွေကို မပြောင်းထားပါဘူး။',
       );
     } finally {
       if (mounted) setState(() => writingRecord = false);
@@ -1527,7 +1531,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
         const SizedBox(height: 8),
         const Text(
-          'ဤဖုန်း / browser ထဲမှာသာ သိမ်းထားသည်။ ကိုယ်တိုင်ပြီးစီးကြောင်း မှတ်ထားသောစာရင်းသာဖြစ်ပြီး ငွေရောက်ကြောင်း App က အတည်မပြုပါ။',
+          'ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ “ငွေလဲပြီးပြီ” ဆိုတာ ကိုယ်တိုင်မှတ်ထားတာပါ။ ငွေရောက်မရောက်ကို app က စစ်ပေးတာ မဟုတ်ပါဘူး။',
         ),
         if (recordError != null)
           panel(
@@ -1546,11 +1550,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ယခုလ · ဘတ်ပေး → ကျပ်ယူ · ပြီးစီးကြောင်းမှတ်ထားသော ${month.length} ကြိမ်',
+                'ဒီလ · ဘတ်ပေး → ကျပ်ယူ · လဲပြီးပြီလို့ မှတ်ထားတာ ${month.length} ကြိမ်',
               ),
               Text('စုစုပေါင်းပေးငွေ ${money(sent)} ဘတ်'),
               Text('စုစုပေါင်းရငွေ ${money(received)} ကျပ်'),
-              const Text('တွက်မှတ်တမ်းသိမ်းသောလအလိုက် တွက်ထားသည်။'),
+              const Text('မှတ်တမ်းသိမ်းတဲ့လအလိုက် ပေါင်းပြထားပါတယ်။'),
             ],
           ),
         ),
@@ -1562,7 +1566,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ? null
                   : () => shareText(store.export(records)),
               icon: const Icon(Icons.ios_share),
-              label: const Text('မှတ်တမ်း Export / Share'),
+              label: const Text('မှတ်တမ်းကို ဖိုင်ထုတ် / မျှဝေမယ်'),
             ),
             TextButton(
               onPressed: records.isEmpty || writingRecord ? null : clearRecords,
@@ -1573,7 +1577,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         if (recordsReady && records.isEmpty)
           panel(
             const Text(
-              'မှတ်တမ်းမရှိသေးပါ။ ငွေတွက်ပြီး ရလဒ်မှ “မှတ်တမ်းသိမ်း” နှိပ်နိုင်ပါသည်။',
+              'မှတ်တမ်း မရှိသေးဘူး။ ငွေတွက်ပြီးရင် ရလဒ်အောက်က “မှတ်တမ်းသိမ်း” ကို နှိပ်လိုက်ပါ။',
             ),
           ),
         ...records.map(
@@ -1598,7 +1602,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                       : () {
                           useQuote(r.quote);
                           toast(
-                            'ယခင်သိမ်းထားသောဈေးဖြစ်သည်။ လက်ရှိဈေးကို ပြန်စစ်ပါ။',
+                            'ဒါက အရင်သိမ်းထားတဲ့ဈေးပါ။ အခုဈေးနဲ့ တူမတူ ပြန်စစ်ပေးပါ။',
                           );
                         },
                   icon: const Icon(Icons.calculate_outlined),
@@ -1608,8 +1612,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   contentPadding: EdgeInsets.zero,
                   title: Text(
                     r.completed
-                        ? 'ကိုယ်တိုင်ပြီးစီးကြောင်း မှတ်ထားသည်'
-                        : 'တွက်ထားဆဲ',
+                        ? 'ငွေလဲပြီးပြီလို့ မှတ်ထားမယ်'
+                        : 'တွက်ထားတာပဲ ရှိသေးတယ်',
                   ),
                   value: r.completed,
                   onChanged: writingRecord
@@ -1627,7 +1631,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 TextButton.icon(
                   onPressed: writingRecord ? null : () => deleteRecord(r),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('ဤမှတ်တမ်း ဖျက်မယ်'),
+                  label: const Text('ဒီမှတ်တမ်းကို ဖျက်မယ်'),
                 ),
               ],
             ),
@@ -1642,7 +1646,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('ဖျက်ရန် အတည်ပြုပါ'),
+          title: const Text('တကယ်ဖျက်မလား?'),
           content: Text(text),
           actions: [
             TextButton(
@@ -1665,7 +1669,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
 
   Future<void> clearRecords() async {
     if (await confirmDelete(
-          'Export လုပ်ထားပါသလား? ဤဖုန်းထဲက မှတ်တမ်းအားလုံး ဖျက်မလား?',
+          'ဖိုင်ထုတ်သိမ်းပြီးပြီလား? ဒီဖုန်းထဲက မှတ်တမ်းအားလုံး ဖျက်တော့မလား?',
         ) &&
         mounted) {
       await writeRecords([]);

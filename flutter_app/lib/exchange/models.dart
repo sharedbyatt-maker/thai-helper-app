@@ -64,8 +64,11 @@ String referenceRateText(int micros) =>
     rateValueText(referenceRateValue(micros), ExchangeDirection.mmkThb);
 String quoteRateLabel(ExchangeQuote q) =>
     q.direction == ExchangeDirection.mmkThb
-    ? 'ကျပ် ၁ သိန်း = ဘတ် ${referenceRateText(q.rateMicros)}'
+    ? 'ကျပ် ၁ သိန်း = ${referenceRateText(q.rateMicros)} ဘတ်'
     : 'ဘတ် ${referenceRateText(q.rateMicros)} = ကျပ် ၁ သိန်း';
+
+String quotePerBahtLabel(ExchangeQuote q) =>
+    '၁ ဘတ် ≈ ${rateValueText(q.rateMicros / rateScale, ExchangeDirection.mmkThb)} ကျပ်';
 
 ExchangeDirection parseDirection(Object? raw) {
   if (raw == 'thb_mmk') return ExchangeDirection.thbMmk;
@@ -182,7 +185,7 @@ class ExchangeQuote {
         ? a * rate ~/ scale
         : a * scale ~/ rate;
     if (result > BigInt.from(maxMoneyMinor)) {
-      throw const FormatException('ရလဒ်ပမာဏ ကြီးလွန်းပါသည်');
+      throw const FormatException('တွက်ထားတဲ့ပမာဏက အကန့်အသတ်ထက် များနေပါတယ်');
     }
     return result.toInt();
   }

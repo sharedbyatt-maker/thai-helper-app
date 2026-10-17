@@ -81,16 +81,16 @@ class _TrendCardState extends State<TrendCard> {
                   size: 19,
                 ),
                 const Text(
-                  'နောက်ဆုံး ငွေလဲနှုန်း',
+                  'နောက်ဆုံးတင်ထားတဲ့ဈေး',
                   style: TextStyle(color: pale, fontWeight: FontWeight.w600),
                 ),
                 if (q != null)
-                  tag(active ? 'စစ်ထားသောနှုန်း' : 'ပြန်မစစ်ရသေးသောနှုန်း'),
+                  tag(active ? 'နောက်ဆုံးစစ်ထားတဲ့ဈေး' : 'ပြန်စစ်ဖို့လိုနေပြီ'),
               ],
             ),
             const SizedBox(height: 16),
             Text(
-              q == null ? 'ဒီဘက်နှုန်း မတင်ရသေးပါ' : quoteRateLabel(q),
+              q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : quoteRateLabel(q),
               style: const TextStyle(
                 fontSize: 29,
                 fontWeight: FontWeight.w700,
@@ -99,6 +99,18 @@ class _TrendCardState extends State<TrendCard> {
               ),
             ),
             if (q != null) ...[
+              if (q.direction == ExchangeDirection.thbMmk) ...[
+                const SizedBox(height: 8),
+                Text(
+                  quotePerBahtLabel(q),
+                  key: const ValueKey('per_baht_equivalent'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 6),
               Text(
                 q.direction.label,
@@ -113,7 +125,7 @@ class _TrendCardState extends State<TrendCard> {
                 const Padding(
                   padding: EdgeInsets.only(top: 10),
                   child: Text(
-                    'နောက်ဆုံးသိမ်းထားသောနှုန်း ဖြစ်သည်။ အသစ်ပြန်မစစ်ရသေးသဖြင့် လက်ရှိနှုန်းအဖြစ် မတွက်ပေးပါ။',
+                    'ဒါက အရင်တင်ထားတဲ့ဈေးပါ။ အသစ်ပြန်မစစ်ရသေးလို့ ဒီဈေးနဲ့ မတွက်ပေးသေးပါဘူး။',
                     style: TextStyle(color: pale, height: 1.8),
                   ),
                 ),
@@ -133,7 +145,7 @@ class _TrendCardState extends State<TrendCard> {
                   ),
                   iconEnabledColor: pale,
                   decoration: InputDecoration(
-                    labelText: 'ကြည့်မည့်နှုန်း',
+                    labelText: 'ကြည့်ချင်တဲ့ဈေး',
                     labelStyle: const TextStyle(color: pale),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: .08),
@@ -160,7 +172,7 @@ class _TrendCardState extends State<TrendCard> {
               ),
             const SizedBox(height: 22),
             const Text(
-              'ဈေးအတက်အကျ မှတ်တမ်း',
+              'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             const SizedBox(height: 10),
@@ -189,7 +201,7 @@ class _TrendCardState extends State<TrendCard> {
                           vertical: 8,
                         ),
                       ),
-                      child: Text(n == 1 ? 'ယနေ့' : '$n ရက်'),
+                      child: Text(n == 1 ? 'ဒီနေ့' : '$n ရက်'),
                     ),
                   ),
                 if (change != null)
@@ -203,20 +215,20 @@ class _TrendCardState extends State<TrendCard> {
               focus != null
                   ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ် · ${focus.sourceName}'
                   : points.length == 1
-                  ? 'မှတ်တမ်း ၁ ခုရှိပါသေးသည်။ အမှတ်ကို ထိကြည့်နိုင်သည်။'
+                  ? 'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။ အမှတ်လေးကို ထိကြည့်ပါ။'
                   : points.isEmpty
                   ? (widget.loading
-                        ? 'နှုန်းမှတ်တမ်း ရယူနေပါတယ်'
-                        : 'ဒီကာလအတွင်း မှတ်တမ်း မရှိသေးပါ။')
-                  : 'မှတ်တမ်းကို ထိပြီး ကြည့်နိုင်ပါတယ်',
+                        ? 'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်'
+                        : 'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။')
+                  : 'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်',
               style: const TextStyle(color: pale, fontSize: 12, height: 1.8),
             ),
             const SizedBox(height: 8),
             LayoutBuilder(
               builder: (context, c) => Semantics(
                 label: points.isEmpty
-                    ? 'နှုန်းမှတ်တမ်း မရှိသေးပါ'
-                    : '${points.length} ခု၏ နှုန်းမှတ်တမ်း။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
+                    ? 'ဈေးမှတ်တမ်း မရှိသေးဘူး'
+                    : 'ဈေး ${points.length} ကြိမ်တင်ထားပါတယ်။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
                 child: MouseRegion(
                   onHover: (event) =>
                       selectPoint(event.localPosition.dx, c.maxWidth, points),
@@ -267,7 +279,7 @@ class _TrendCardState extends State<TrendCard> {
                               child: Text(
                                 widget.loading
                                     ? 'ရယူနေပါတယ်…'
-                                    : 'မှတ်တမ်းအသစ်တင်လျှင် ဒီနေရာမှာ ပြမယ်။',
+                                    : 'ဈေးအသစ်တင်ရင် ဒီနေရာမှာ ပြပေးမယ်။',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: pale,
@@ -306,7 +318,7 @@ class _TrendCardState extends State<TrendCard> {
                   metric('အနိမ့်', formatted(low!)),
                   metric('အမြင့်', formatted(high!)),
                   metric(
-                    days == 1 ? 'တင်ထားသောမှတ်တမ်း' : 'မှတ်တမ်းရှိသည့်ရက်',
+                    days == 1 ? 'ဈေးတင်ထားတာ' : 'ဈေးတင်ထားတဲ့ရက်',
                     '${points.length} ${days == 1 ? 'ခု' : 'ရက်'}',
                   ),
                 ],
@@ -314,14 +326,14 @@ class _TrendCardState extends State<TrendCard> {
             ],
             const SizedBox(height: 12),
             Text(
-              '${history.cached ? 'သိမ်းထားသောမှတ်တမ်း · ' : ''}ကျပ် ၁ သိန်းအတွက် ဘတ် · အတည်ပြုတင်ခဲ့သောနှုန်းများ · ထိုင်းအချိန်',
+              '${history.cached ? 'သိမ်းထားတဲ့မှတ်တမ်း · ' : ''}${q?.direction == ExchangeDirection.thbMmk ? 'ကျပ် ၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်' : 'ကျပ် ၁ သိန်းပေးရင် ရမယ့်ဘတ်'} · ထိုင်းအချိန်',
               style: const TextStyle(color: pale, fontSize: 11, height: 1.8),
             ),
             if (widget.unavailable)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'ယခင်မှတ်တမ်း ဆက်သွယ်မရပါ။ နောက်ဆုံးရထားသောနှုန်းကို ပြထားသည်။',
+                  'အရင်ဈေးတွေ ယူမရသေးဘူး။ နောက်ဆုံးရထားတဲ့ဈေးကိုတော့ ပြထားပါတယ်။',
                   style: TextStyle(color: pale, fontSize: 12),
                 ),
               ),
