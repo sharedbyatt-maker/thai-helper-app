@@ -175,8 +175,13 @@ void main() {
           1,
         );
         expect(find.text('ဘတ် 800 = ကျပ် ၁ သိန်း'), findsOneWidget);
+        expect(find.text('၁ ဘတ် ≈ 125 ကျပ်'), findsOneWidget);
+        expect(find.text('ကျပ် ၁ သိန်း → 750 ဘတ်'), findsOneWidget);
+        expect(find.text('ဘတ် 800 → ကျပ် ၁ သိန်း'), findsOneWidget);
         await t.tap(find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'));
         await t.pumpAndSettle();
+        expect(find.text('ကျပ် ၁ သိန်း = 750 ဘတ်'), findsOneWidget);
+        expect(find.byKey(const ValueKey('per_baht_equivalent')), findsNothing);
         expect(
           (t.widget<CustomPaint>(graph).painter! as RateTrendPainter)
               .points
@@ -202,7 +207,7 @@ void main() {
         (t.widget<CustomPaint>(graph).painter! as RateTrendPainter).points,
         isEmpty,
       );
-      expect(find.text('ဒီဘက်နှုန်း မတင်ရသေးပါ'), findsOneWidget);
+      expect(find.text('ဒီဘက်ဈေး မတင်ရသေးဘူး'), findsOneWidget);
       expect(t.takeException(), isNull);
       await close(t);
     },
@@ -225,15 +230,15 @@ void main() {
       await reveal(t, find.byKey(const ValueKey('amount')));
       await t.enterText(find.byKey(const ValueKey('amount')), '1000');
       await reveal(t, find.byKey(const PageStorageKey('calculator_options')));
-      await t.tap(find.text('နှုန်းနှိုင်းယှဉ်ခြင်း / ပြန်တွက်ခြင်း'));
+      await t.tap(find.text('ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်'));
       await t.pumpAndSettle();
-      await reveal(t, find.text('နှိုင်းရန် နှုန်းတစ်ခု ထပ်ထည့်'));
-      await t.tap(find.text('နှိုင်းရန် နှုန်းတစ်ခု ထပ်ထည့်'));
+      await reveal(t, find.text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'));
+      await t.tap(find.text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'));
       await t.pumpAndSettle();
       await reveal(t, find.byKey(const ValueKey('rate_1')));
       await t.enterText(find.byKey(const ValueKey('rate_1')), '130');
       revision = 2;
-      await t.tap(find.byTooltip('နှုန်းအသစ် ရယူမယ်'));
+      await t.tap(find.byTooltip('ဈေးအသစ် ယူမယ်'));
       await t.pumpAndSettle();
       await reveal(t, find.byKey(const ValueKey('rate_1')));
       expect(

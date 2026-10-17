@@ -93,7 +93,7 @@ void main() {
     'Telegram MMK-only publication is visible immediately in the same units and calculates exactly',
     (tester) async {
       await start(tester, trend: true);
-      expect(find.text('ကျပ် ၁ သိန်း = ဘတ် 726'), findsOneWidget);
+      expect(find.text('ကျပ် ၁ သိန်း = 726 ဘတ်'), findsOneWidget);
       final selected = tester.widget<ChoiceChip>(
         find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'),
       );
@@ -184,7 +184,7 @@ void main() {
           .position
           .jumpTo(0);
       await tester.pumpAndSettle();
-      expect(find.text('ကျပ် ၁ သိန်း = ဘတ် 726'), findsOneWidget);
+      expect(find.text('ကျပ် ၁ သိန်း = 726 ဘတ်'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await close(tester);
     },
@@ -193,8 +193,8 @@ void main() {
     'After 24 hours the last rate stays visible with a stale label and cannot calculate as current',
     (tester) async {
       await start(tester, stale: true);
-      expect(find.text('ကျပ် ၁ သိန်း = ဘတ် 726'), findsOneWidget);
-      expect(find.text('ပြန်မစစ်ရသေးသောနှုန်း'), findsOneWidget);
+      expect(find.text('ကျပ် ၁ သိန်း = 726 ဘတ်'), findsOneWidget);
+      expect(find.text('ပြန်စစ်ဖို့လိုနေပြီ'), findsOneWidget);
       expect(find.text('ဒီနှုန်းနဲ့ တွက်မယ်'), findsNothing);
       expect(tester.takeException(), isNull);
       await close(tester);
