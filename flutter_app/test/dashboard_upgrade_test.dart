@@ -166,6 +166,7 @@ void main() {
     (t) async {
       for (final width in [320.0, 1100.0]) {
         await start(t, width: width, scale: width == 320 ? 1.3 : 1);
+        await reveal(t, find.text('ဒီနေ့'));
         await t.tap(find.text('ဒီနေ့'));
         await t.pumpAndSettle();
         final graph = find.byKey(const ValueKey('reference_rate_graph'));
@@ -180,6 +181,7 @@ void main() {
         expect(find.text('၁ ဘတ် ≈ 125 ကျပ်'), findsOneWidget);
         expect(find.text('ကျပ် ၁ သိန်း → 750 ဘတ်'), findsOneWidget);
         expect(find.text('ဘတ် 800 → ကျပ် ၁ သိန်း'), findsOneWidget);
+        await reveal(t, find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'));
         await t.tap(find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'));
         await t.pumpAndSettle();
         expect(find.text('ကျပ် ၁ သိန်း = 750 ဘတ်'), findsOneWidget);
