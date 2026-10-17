@@ -1327,7 +1327,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   void shareResult(Calculation result) {
     final q = result.quote;
     shareText(
-      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးနဲ့ သီးသန့်နုတ်ငွေ ရှိမရှိ ပြန်မေးပါ။',
+      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
     );
   }
 
@@ -1413,7 +1413,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                     const SizedBox(height: 12),
                     Text(parsed!.interpretation),
                     const Text(
-                      'ဘတ်ပေးဈေးလား၊ ကျပ်ပေးဈေးလား ပြန်စစ်ပေးပါ။ သီးသန့်နုတ်ငွေရှိရင် ကိုယ်တိုင်ထည့်ဖို့ လိုပါတယ်။',
+                      'ဘတ်ပေးဈေးလား၊ ကျပ်ပေးဈေးလား ပြန်စစ်ပြီးမှ ဒီဈေးကို သုံးပေးပါ။',
                     ),
                   ],
                 ],
@@ -1606,9 +1606,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   '${money(r.budgetMinor)} ${r.quote.direction.from} → ${money(r.receivedMinor)} ${r.quote.direction.to}',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                Text(
-                  '၁ ဘတ် = ${rateText(r.quote.rateMicros)} ကျပ် · Fee ${money(r.quote.feeFor(r.budgetMinor))} ${r.quote.direction.from}',
-                ),
+                Text(quoteRateLabel(r.quote)),
+                if (r.quote.feeFor(r.budgetMinor) > 0)
+                  Text(
+                    'နုတ်ပြီးသားငွေ ${money(r.quote.feeFor(r.budgetMinor))} ${r.quote.direction.from}',
+                  ),
                 if (r.note.isNotEmpty) Text(r.note),
                 TextButton.icon(
                   onPressed:
