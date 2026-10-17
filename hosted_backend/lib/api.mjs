@@ -54,6 +54,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   if(!owner)return json({error:'Admin အကောင့်ဖြင့် ဝင်ပါ',bootstrap_ready:canBootstrap},403);
   if(owner.user_id!==user.userId)return json({error:'ဤအကောင့်တွင် Admin ခွင့်မရှိပါ'},403);
   if(path==='/api/admin/insights'&&req.method==='GET'){
+   scheduleAlerts(db,runtime);
    const subscribers=await db.prepare('SELECT COUNT(*) AS count FROM alert_subscribers WHERE active=1').first();
    const deliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM alert_outbox GROUP BY status').all();
    return json({active_subscribers:subscribers.count,deliveries:deliveries.results});

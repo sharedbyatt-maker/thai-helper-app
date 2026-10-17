@@ -70,8 +70,11 @@ export function scheduleAlerts(db,runtime={}) {
  runtime.waitUntil((async()=>{
   const row=await configRow(db);if(!row)return;
   const c=await unseal(row.sealed,runtime.telegramKey);if(!c.enabled)return;
-  await queueAlerts(db,row.username);
-  await deliverAlerts(db,c.token,row.username,runtime.fetcher||fetch);
+  const deadline=Date.now()+20000;
+  for(let i=0;i<10&&Date.now()<deadline;i++){
+   await queueAlerts(db,row.username);
+   if(!await deliverAlerts(db,c.token,row.username,runtime.fetcher||fetch))break;
+  }
  })().catch(()=>console.error('Notification delivery deferred')));
 }
 export async function adminTelegram(req, db, path, data, runtime={}) {

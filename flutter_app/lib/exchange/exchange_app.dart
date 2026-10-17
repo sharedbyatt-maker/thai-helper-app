@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -345,8 +344,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
             rateHistory != null &&
             historyFetchedAt != null &&
             DateTime.now().difference(historyFetchedAt!) <
-                const Duration(minutes: 15))
+                const Duration(minutes: 15)) {
           return;
+        }
         final history = await repo.loadHistory();
         if (!mounted || id != requestId) return;
         setState(() {
@@ -1855,12 +1855,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
       );
       if (accepted == true && mounted) await writeRecords(preview.records);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         toast(
           e is FormatException
               ? e.message
               : 'မှတ်တမ်းဖိုင် ဖတ်မရသေးဘူး။ ဘတ်ဈေး app က ထုတ်ထားတဲ့ဖိုင်ကို ရွေးပေးပါ။',
         );
+      }
     }
   }
 
@@ -1874,12 +1875,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
       lastDate: now,
       helpText: 'တကယ်ငွေလဲပြီးတဲ့ရက်',
     );
-    if (chosen != null && mounted)
+    if (chosen != null && mounted) {
       await writeRecords(
         records
             .map((x) => x.id == r.id ? x.withCompleted(true, at: chosen) : x)
             .toList(),
       );
+    }
   }
 
   Future<bool> confirmDelete(String text) async =>

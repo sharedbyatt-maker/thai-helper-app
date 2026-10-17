@@ -19,11 +19,7 @@ export async function subscriberCommand(db,row,chat,text,callback) {
  // Reopening a link is an explicit new subscription. Old queued messages cannot leak through its version.
  await db.prepare(`INSERT INTO alert_subscribers(chat_id,bot,direction,mode,threshold,active,version,evaluated_revision,last_signature,created_at) VALUES(?,?,?,?,?,1,1,?,?,?) ON CONFLICT(chat_id) DO UPDATE SET bot=excluded.bot,direction=excluded.direction,mode=excluded.mode,threshold=excluded.threshold,active=1,version=alert_subscribers.version+1,evaluated_revision=excluded.evaluated_revision,last_signature=excluded.last_signature`).bind(chat,row.username,direction,mode,threshold,revision?.id||0,signature,Date.now()).run();
  const meaning=mode==='news'?'ဈေးအသစ်တင်တဲ့အခါ အသိပေးမယ်။ တစ်ရက်တည်း ဈေးမပြောင်းဘဲ ပြန်တင်တာကို ထပ်မပို့ဘူး။':`ကျပ် ၁ သိန်းအတွက် ${threshold/100} ဘတ် ${direction==='thb_mmk'?'သို့မဟုတ် အောက် ပေးရတဲ့ဈေး':'သို့မဟုတ် အထက် ရတဲ့ဈေး'} အသစ်တင်လာရင် တစ်ခါ အသိပေးမယ်။`;
- return reply(chat,`${sideName(direction)}\n${meaning}\n\nမင်းကိုယ်တိုင် စစ်ပြီးတင်တဲ့ နှုန်းအချက်အလက်ကိုပဲ အသုံးပြုပါတယ်။ /stop နဲ့ ရပ်နိုင်တယ်။`,{reply_markup:controls});
-}
-export async function alertInfo(db) {
- const row=await db.prepare('SELECT username FROM telegram_settings WHERE id=1').first();
- return {available:!!row?.username,username:row?.username||''};
+ return reply(chat,`${sideName(direction)}\n${meaning}\n\nဘတ်ဈေး app မှာ စစ်ပြီးတင်ထားတဲ့ နှုန်းအချက်အလက်ကိုပဲ အသုံးပြုပါတယ်။ /stop နဲ့ ရပ်နိုင်တယ်။`,{reply_markup:controls});
 }
 export async function queueAlerts(db,bot,now=Date.now()) {
  const latest=await db.prepare('SELECT id,payload FROM revisions ORDER BY id DESC LIMIT 1').first();
@@ -67,7 +63,9 @@ export async function deliverAlerts(db,token,bot,fetcher=fetch,now=Date.now()) {
     await db.prepare('UPDATE alert_outbox SET next_attempt=? WHERE id=?').bind(now+delay*1000,item.id).run();
     if(data.error_code===429)break;
    }
-  } catch { /* Keep the durable item for retry on the next publish/read. */ }
+  } catch { /* The next publish/read retries the durable item after its lease. */ }
+  if(item.attempts>=4)await db.prepare('UPDATE alert_outbox SET status=2 WHERE id=? AND status=0').bind(item.id).run();
  }
  await db.prepare('DELETE FROM alert_outbox WHERE revision<(SELECT COALESCE(MAX(id),0)-100 FROM revisions) AND status<>0').run();
+ return rows.results.length;
 }

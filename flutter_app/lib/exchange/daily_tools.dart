@@ -177,8 +177,9 @@ class _DailyToolsState extends State<DailyTools> {
   }
 
   void message(String text) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    }
   }
 
   @override
@@ -491,10 +492,11 @@ Future<void> showRateAlerts(
                           data['available'] != true ||
                           !RegExp(
                             r'^\w{5,32}$',
-                          ).hasMatch(data['username'] as String? ?? ''))
+                          ).hasMatch(data['username'] as String? ?? '')) {
                         throw const FormatException(
                           'ဈေးအသိပေးမှု ခဏမရသေးဘူး။ နောက်မှ ပြန်စမ်းပေးပါ။',
                         );
+                      }
                       final command = news
                           ? 'news_${direction.key}'
                           : 'watch_${direction.key}_$threshold';
@@ -504,18 +506,20 @@ Future<void> showRateAlerts(
                         ),
                         mode: LaunchMode.externalApplication,
                       );
-                      if (!opened)
+                      if (!opened) {
                         throw const FormatException(
                           'Telegram ဖွင့်မရသေးဘူး။ ပြန်စမ်းပေးပါ။',
                         );
+                      }
                       if (ctx.mounted) Navigator.pop(ctx);
                     } catch (e) {
-                      if (ctx.mounted)
+                      if (ctx.mounted) {
                         update(
                           () => error = e is FormatException
                               ? e.message
                               : 'လိုင်းမရသေးဘူး။ ခဏနေ ပြန်စမ်းပေးပါ။',
                         );
+                      }
                     } finally {
                       if (ctx.mounted) update(() => busy = false);
                     }
@@ -577,8 +581,10 @@ Future<void> showRateShare(
                         format: ui.ImageByteFormat.png,
                       );
                       image.dispose();
-                      if (data == null)
+                      if (data == null) {
                         throw const FormatException('ပုံထုတ်မရပါ');
+                      }
+                      if (!ctx.mounted) return;
                       final bytes = Uint8List.view(data.buffer);
                       try {
                         final box = ctx.findRenderObject() as RenderBox?;
@@ -595,22 +601,24 @@ Future<void> showRateShare(
                               ? null
                               : box.localToGlobal(Offset.zero) & box.size,
                         );
-                        if (result.status == ShareResultStatus.unavailable)
+                        if (result.status == ShareResultStatus.unavailable) {
                           downloadBytes(
                             bytes,
                             'bahtzay-rates.png',
                             'image/png',
                           );
+                        }
                       } catch (_) {
                         downloadBytes(bytes, 'bahtzay-rates.png', 'image/png');
                       }
                     } catch (_) {
-                      if (ctx.mounted)
+                      if (ctx.mounted) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
                           const SnackBar(
                             content: Text('ပုံမျှဝေမရသေးဘူး။ ပြန်စမ်းပေးပါ။'),
                           ),
                         );
+                      }
                     } finally {
                       if (ctx.mounted) update(() => busy = false);
                     }

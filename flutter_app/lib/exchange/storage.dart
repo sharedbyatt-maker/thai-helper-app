@@ -124,23 +124,26 @@ class ImportPreview {
 }
 
 ImportPreview previewRecordImport(String raw, List<PersonalRecord> existing) {
-  if (raw.length > 2000000)
+  if (raw.length > 2000000) {
     throw const FormatException(
       'ဖိုင်ကြီးလွန်းတယ်။ မှတ်တမ်းဖိုင်ကို ပြန်စစ်ပေးပါ။',
     );
+  }
   final data = jsonDecode(raw);
   if (data is! Map<String, dynamic> ||
       data['schema_version'] != 1 ||
       data['records'] is! List ||
-      (data['records'] as List).length > RecordStore.limit)
+      (data['records'] as List).length > RecordStore.limit) {
     throw const FormatException(
       'ဘတ်ဈေး app က ထုတ်ထားတဲ့ မှတ်တမ်း JSON ဖိုင်ကို ရွေးပေးပါ။',
     );
+  }
   final seen = existing.map((r) => r.id).toSet(), next = [...existing];
   var added = 0, skipped = 0;
   for (final item in data['records'] as List) {
-    if (item is! Map<String, dynamic>)
+    if (item is! Map<String, dynamic>) {
       throw const FormatException('မှတ်တမ်းဖိုင်ထဲက အချက်အလက် မပြည့်စုံပါ။');
+    }
     final r = PersonalRecord.fromJson(item);
     if (!seen.add(r.id)) {
       skipped++;
@@ -149,10 +152,11 @@ ImportPreview previewRecordImport(String raw, List<PersonalRecord> existing) {
     next.add(r);
     added++;
   }
-  if (next.length > RecordStore.limit)
+  if (next.length > RecordStore.limit) {
     throw const FormatException(
       'ပေါင်းလိုက်ရင် မှတ်တမ်း ၅၀၀ ကျော်သွားမယ်။ အဟောင်းတွေ ဖိုင်ထုတ်သိမ်းပြီးမှ ပြန်သွင်းပေးပါ။',
     );
+  }
   next.sort((a, b) => b.savedAt.compareTo(a.savedAt));
   return ImportPreview(next, added, skipped);
 }
