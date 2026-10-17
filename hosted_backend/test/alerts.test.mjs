@@ -4,7 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {subscriberCommand,queueAlerts,deliverAlerts} from '../lib/alerts.mjs';
 import {handle} from '../lib/api.mjs';
-import {seal} from '../lib/telegram.mjs';
+import {seal,scheduleAlerts} from '../lib/telegram.mjs';
 class D1 {
  constructor(){this.sqlite=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../drizzle',import.meta.url)).filter(f=>f.endsWith('.sql')).sort())this.sqlite.exec(readFileSync(new URL('../drizzle/'+file,import.meta.url),'utf8'));}
  prepare(sql){const stmt=this.sqlite.prepare(sql),wrap=(v=[])=>({bind:(...args)=>wrap(args),first:async()=>stmt.get(...v)||null,all:async()=>({results:stmt.all(...v)}),run:async()=>({meta:{changes:Number(stmt.run(...v).changes)}})});return wrap();}
@@ -73,4 +73,11 @@ test('Admin can update one direction while retaining an unchanged stale opposite
   db.sqlite.prepare('UPDATE draft SET version=1,payload=? WHERE id=1').run(JSON.stringify({notice:'',quotes:[{...stale,rate_micros:111111111},fresh]}));
   assert.equal((await call()).status,400);
  }finally{db.sqlite.close();}
+});
+
+test('Frequent public reads share a cooldown while confirmed publication and owner retry bypass it',async()=>{
+ let reads=0;const tasks=[];
+ const db={prepare:()=>({first:async()=>{reads++;return null;}})},runtime={waitUntil:task=>tasks.push(task)};
+ scheduleAlerts(db,runtime,true);scheduleAlerts(db,runtime);scheduleAlerts(db,runtime);scheduleAlerts(db,runtime,true);
+ await Promise.all(tasks);assert.equal(reads,2);assert.equal(tasks.length,2);
 });
