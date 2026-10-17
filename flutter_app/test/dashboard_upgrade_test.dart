@@ -166,9 +166,6 @@ void main() {
     (t) async {
       for (final width in [320.0, 1100.0]) {
         await start(t, width: width, scale: width == 320 ? 1.3 : 1);
-        await reveal(t, find.text('ဒီနေ့'));
-        await t.tap(find.text('ဒီနေ့'));
-        await t.pumpAndSettle();
         final graph = find.byKey(const ValueKey('reference_rate_graph'));
         expect(graph, findsOneWidget);
         expect(
@@ -186,6 +183,9 @@ void main() {
         await t.pumpAndSettle();
         expect(find.text('ကျပ် ၁ သိန်း = 750 ဘတ်'), findsOneWidget);
         expect(find.byKey(const ValueKey('per_baht_equivalent')), findsNothing);
+        await reveal(t, find.text('ဒီနေ့'));
+        await t.tap(find.text('ဒီနေ့'));
+        await t.pumpAndSettle();
         expect(
           (t.widget<CustomPaint>(graph).painter! as RateTrendPainter)
               .points
