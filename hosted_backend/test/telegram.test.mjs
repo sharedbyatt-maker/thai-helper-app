@@ -201,3 +201,14 @@ test('other side found in the copied post can be chosen explicitly, or skipped w
   const q=(await call(f,'/api/v2/rates')).data.quotes;assert.equal(q.find(q=>q.direction==='thb_mmk').rate_micros,Math.round(100000/748*1e6));
  }finally{f.db.sqlite.close();}
 });
+test('Concurrent duplicate public opt-ins and stop commands atomically share one subscription mutation',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);
+  const first=await Promise.all([message(f,secret,71,'/start news_mmk_thb',99),message(f,secret,71,'/start news_mmk_thb',99)]);
+  assert.equal(first[0].status,200);assert.deepEqual(first[0].data,first[1].data);
+  assert.equal(f.db.sqlite.prepare('SELECT version FROM alert_subscribers WHERE chat_id=?').get('99').version,1);
+  await Promise.all([message(f,secret,72,'/stop',99),message(f,secret,72,'/stop',99)]);
+  assert.deepEqual({...f.db.sqlite.prepare('SELECT active,version FROM alert_subscribers WHERE chat_id=?').get('99')},{active:0,version:2});
+  assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
+ }finally{f.db.sqlite.close();}
+});
