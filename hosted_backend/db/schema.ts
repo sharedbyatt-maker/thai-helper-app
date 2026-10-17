@@ -48,3 +48,10 @@ export const alertOutbox = sqliteTable('alert_outbox', {
   revision: integer('revision').notNull(), payload: text('payload').notNull(), status: integer('status').notNull().default(0),
   attempts: integer('attempts').notNull().default(0), nextAttempt: integer('next_attempt').notNull().default(0),
 });
+
+// Removed publications remain recoverable without remaining public.
+export const revisionTrash = sqliteTable('revision_trash', {
+  id: integer('id').primaryKey(), payload: text('payload').notNull(),
+  publishedAt: text('published_at').notNull(), deletedAt: text('deleted_at').notNull(),
+  requestId: text('request_id').notNull(),
+});

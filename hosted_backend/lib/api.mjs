@@ -1,3 +1,5 @@
+import { deletePublishedRevision } from './revision-management.mjs';
+import { repairPath, repairTestPublication } from './restore-six-days.mjs';
 import { Invalid, validate } from './validate.mjs';
 import { publicHistory } from './history.mjs';
 import { replacementPath, authorizedReplacement, replaceConfirmedHistory } from './confirmed-history.mjs';
@@ -22,6 +24,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   return row?{...JSON.parse(row.payload),schema_version:2,revision:row.id,published_at:row.published_at}:EMPTY;
  };
  try {
+  if(path===repairPath){if(req.method!=='POST')return json({error:'Not found'},404);const result=await repairTestPublication(req,db);return json(result.data,result.status);}
   if(path===replacementPath){
    if(req.method!=='POST')return json({error:'Not found'},404);
    if(!await authorizedReplacement(req))return json({error:'Unauthorized'},401);
@@ -63,8 +66,10 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    // Bound seed is idempotent, outside schema migrations.
    await db.prepare('INSERT OR IGNORE INTO draft(id,payload,version) VALUES(1,?,0)').bind(JSON.stringify({notice:'',quotes:[]})).run();
    const row=await db.prepare('SELECT * FROM draft WHERE id=1').first();
-   const history=await db.prepare('SELECT id,published_at FROM revisions ORDER BY id DESC LIMIT 50').all();
-   return json({draft:JSON.parse(row.payload),draft_version:row.version,published:await publicSheet(),history:history.results,csrf_token:'same-origin'});
+   const history=await db.prepare('SELECT id,payload,published_at FROM revisions ORDER BY id DESC LIMIT 50').all();
+   const trash=await db.prepare('SELECT id,payload,published_at,deleted_at FROM revision_trash ORDER BY deleted_at DESC LIMIT 30').all();
+   const summary=r=>({id:r.id,published_at:r.published_at,...(r.deleted_at?{deleted_at:r.deleted_at}:{}),...JSON.parse(r.payload)});
+   return json({draft:JSON.parse(row.payload),draft_version:row.version,published:await publicSheet(),history:history.results.map(summary),trash:trash.results.map(summary),csrf_token:'same-origin'});
   }
   if(path.startsWith('/api/admin/telegram')){
    let input={};if(req.method==='POST'){try{input=JSON.parse(await bodyText(req,8192));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON လိုပါသည်'},400);}}
@@ -101,9 +106,10 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    if(result[0].meta.changes)scheduleAlerts(db,runtime,true);
    return result[0].meta.changes?json({ok:true,draft_version:version+1,published:await publicSheet()}):json(conflict,409);
   }
+  if(path==='/api/admin/delete-revision'&&req.method==='POST'){const result=await deletePublishedRevision(db,data.revision,data.expected_revision,version);return json(result.data,result.status);}
   if(path==='/api/admin/restore'&&req.method==='POST'){
    if(!Number.isSafeInteger(data.revision))return json({error:'Revision လိုပါသည်'},400);
-   const row=await db.prepare('SELECT payload FROM revisions WHERE id=?').bind(data.revision).first();
+   const row=await db.prepare('SELECT payload FROM revisions WHERE id=? UNION ALL SELECT payload FROM revision_trash WHERE id=? LIMIT 1').bind(data.revision,data.revision).first();
    if(!row)return json({error:'Revision မတွေ့ပါ'},404);
    const result=await db.prepare('UPDATE draft SET payload=?,version=version+1 WHERE id=1 AND version=?').bind(row.payload,version).run();
    return result.meta.changes?json({ok:true,draft_version:version+1}):json(conflict,409);

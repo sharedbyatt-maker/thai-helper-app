@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync} from 'node:fs';
 import {handle} from '../lib/api.mjs';
 class D1 {
  constructor(sqlite=new DatabaseSync(':memory:')){this.sqlite=sqlite;}
@@ -12,7 +12,7 @@ class D1 {
 }
 const user={userId:'owner',email:'owner@test'};
 const origin='https://rates.example';
-async function setup(){const db=new D1();db.sqlite.exec(readFileSync(new URL('../drizzle/0000_fantastic_lady_vermin.sql',import.meta.url),'utf8'));return db;}
+async function setup(){const db=new D1();for(const f of readdirSync(new URL('../drizzle',import.meta.url)).filter(f=>f.endsWith('.sql')).sort())db.sqlite.exec(readFileSync(new URL('../drizzle/'+f,import.meta.url),'utf8'));return db;}
 async function call(db,path,method='GET',data,actor=user,extra={}){
  const req=new Request(origin+'/api/'+path,{method,headers:{Origin:origin,'X-Admin-Request':'1','Content-Type':'application/json',...extra},...(data===undefined?{}:{body:JSON.stringify(data)})});
  const res=await handle(req,db,actor,'owner@test');return {status:res.status,data:await res.json(),headers:res.headers};
@@ -64,4 +64,43 @@ test('public trend contains published observations only and permits cross-origin
  assert.equal(h.status,200);assert.equal(h.headers.get('Access-Control-Allow-Origin'),'*');assert.equal(h.data.points.length,1);
  assert.equal(h.data.points[0].quote_id,'test');assert.equal(h.data.timezone,'Asia/Bangkok');
  db.sqlite.close();
+});
+
+test('Deleting the latest publication archives it, restores earlier prices and timestamps, and advances the public revision',async()=>{
+ const db=await setup();try{
+ await enroll(db);const first=sheet(), second=sheet();second.quotes[0].rate_micros=140000000;
+ await call(db,'admin/draft','PUT',{sheet:first,expected_version:0});await call(db,'admin/publish','POST',{expected_version:1});
+ await call(db,'admin/draft','PUT',{sheet:second,expected_version:2});await call(db,'admin/publish','POST',{expected_version:3});
+ assert.equal((await call(db,'admin/delete-revision','POST',{revision:2,expected_revision:2,expected_version:4},null)).status,401);
+ assert.equal((await call(db,'admin/delete-revision','POST',{revision:2,expected_revision:2,expected_version:4},{userId:'other'})).status,403);
+ assert.equal((await call(db,'admin/delete-revision','POST',{revision:2,expected_revision:1,expected_version:4})).status,409);
+ assert.equal((await call(db,'admin/delete-revision','POST',{revision:2,expected_revision:2,expected_version:3})).status,409);
+ assert.equal((await call(db,'admin/delete-revision','POST',{revision:2,expected_revision:2,expected_version:4})).status,200);
+ const pub=(await call(db,'v2/rates')).data;assert.equal(pub.revision,3);assert.equal(pub.quotes[0].rate_micros,first.quotes[0].rate_micros);assert.equal(pub.quotes[0].observed_at,first.quotes[0].observed_at);
+ const state=(await call(db,'admin/state')).data;assert.equal(state.trash[0].id,2);assert.equal(state.history.some(r=>r.id===2),false);assert.equal(state.draft_version,5);assert.deepEqual(state.draft.quotes,first.quotes);
+ const retry=await call(db,'admin/delete-revision','POST',{revision:2,expected_revision:2,expected_version:4});assert.equal(retry.data.already_deleted,true);assert.equal((await call(db,'v2/rates')).data.revision,3);
+ await call(db,'admin/restore','POST',{revision:2,expected_version:5});assert.equal((await call(db,'admin/state')).data.draft.quotes[0].rate_micros,140000000);assert.equal((await call(db,'v2/rates')).data.quotes[0].rate_micros,first.quotes[0].rate_micros);
+ }finally{db.sqlite.close();}
+});
+test('Deleting a historical publication preserves current prices and an independently edited draft; deleting the final price leaves an empty public sheet',async()=>{
+ const db=await setup();try{
+ await enroll(db);const a=sheet();await call(db,'admin/draft','PUT',{sheet:a,expected_version:0});await call(db,'admin/publish','POST',{expected_version:1});
+ const b=sheet();b.quotes[0].rate_micros=140000000;await call(db,'admin/draft','PUT',{sheet:b,expected_version:2});await call(db,'admin/publish','POST',{expected_version:3});
+ const privateDraft={notice:'private',quotes:[]};await call(db,'admin/draft','PUT',{sheet:privateDraft,expected_version:4});
+ assert.equal((await call(db,'admin/delete-revision','POST',{revision:1,expected_revision:2,expected_version:5})).status,200);
+ let state=(await call(db,'admin/state')).data;assert.deepEqual(state.draft,privateDraft);assert.equal(state.published.quotes[0].rate_micros,140000000);assert.equal(state.published.revision,3);
+ }finally{db.sqlite.close();}
+ const only=await setup();try{await enroll(only);await call(only,'admin/draft','PUT',{sheet:sheet(),expected_version:0});await call(only,'admin/publish','POST',{expected_version:1});await call(only,'admin/delete-revision','POST',{revision:1,expected_revision:1,expected_version:2});assert.deepEqual((await call(only,'v2/rates')).data.quotes,[]);}finally{only.sqlite.close();}
+});
+test('Removal cancels stale Telegram previews and queued alerts, and a transaction failure rolls back the archive and public state',async()=>{
+ const db=await setup();try{
+  await enroll(db);await call(db,'admin/draft','PUT',{sheet:sheet(),expected_version:0});await call(db,'admin/publish','POST',{expected_version:1});
+  db.sqlite.prepare('INSERT INTO telegram_pending(id,owner_id,payload,expires,used) VALUES(?,?,?,?,0)').run('pending','42','{}',Date.now()+600000);
+  db.sqlite.prepare('INSERT INTO alert_outbox(id,chat_id,subscription_version,revision,payload,status,attempts,next_attempt) VALUES(?,?,?,?,?,0,0,0)').run('queued','1',1,1,'{}');
+  db.sqlite.exec("CREATE TRIGGER fail_delete BEFORE DELETE ON revisions BEGIN SELECT RAISE(ABORT,'test failure'); END;");
+  assert.equal((await call(db,'admin/delete-revision','POST',{revision:1,expected_revision:1,expected_version:2})).status,500);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM revision_trash').get().n,0);assert.equal((await call(db,'v2/rates')).data.revision,1);assert.equal((await call(db,'admin/state')).data.draft_version,2);
+  db.sqlite.exec('DROP TRIGGER fail_delete');assert.equal((await call(db,'admin/delete-revision','POST',{revision:1,expected_revision:1,expected_version:2})).status,200);
+  assert.equal(db.sqlite.prepare('SELECT used FROM telegram_pending').get().used,1);assert.equal(db.sqlite.prepare('SELECT status FROM alert_outbox').get().status,2);
+ }finally{db.sqlite.close();}
 });

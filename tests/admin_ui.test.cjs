@@ -6,16 +6,18 @@ const {JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'../hosted_backend/public/admin');
 const pause=()=>new Promise(r=>setTimeout(r,5));
 async function until(check){for(let i=0;i<150;i++){if(check())return;await pause();}throw Error('Admin UI did not settle');}
-function setup(quotes=[]){
+function setup(quotes=[],options={}){
  const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'https://rates.example/admin/index.html',runScripts:'outside-only'}),w=dom.window;
  w.confirm=()=>true;
- const state={draft:{notice:'',quotes},draft_version:0,published:{revision:0,quotes:[],published_at:null},history:[]};
+ const state={draft:{notice:'',quotes},draft_version:0,published:{revision:0,quotes:[],published_at:null},history:[],trash:[],...options};
  w.fetch=async(url,options={})=>{
   const endpoint=url.split('/').pop(),data=options.body?JSON.parse(options.body):{};
   const ok=data=>({ok:true,status:200,json:async()=>structuredClone(data)});
   if(endpoint==='state')return ok({...state,csrf_token:'same-origin'});
   assert.equal(options.headers['X-Admin-Request'],'1');
   if(endpoint==='draft'){assert.equal(data.expected_version,state.draft_version);state.draft=data.sheet;state.draft_version++;return ok({draft_version:state.draft_version});}
+  if(endpoint==='delete-revision'){assert.equal(data.expected_version,state.draft_version);assert.equal(data.expected_revision,state.published.revision);const row=state.history.find(r=>r.id===data.revision);state.trash.unshift({...row,deleted_at:new Date().toISOString()});state.history=state.history.filter(r=>r.id!==data.revision);state.published={...state.history[0],revision:state.published.revision+1};state.draft_version++;return ok({ok:true});}
+  if(endpoint==='restore'){assert.equal(data.expected_version,state.draft_version);const row=[...state.history,...state.trash].find(r=>r.id===data.revision);state.draft={notice:'',quotes:row.quotes};state.draft_version++;return ok({ok:true});}
   if(endpoint==='publish'){assert.equal(data.expected_version,state.draft_version);state.draft_version++;state.published={...structuredClone(state.draft),revision:state.published.revision+1,published_at:new Date().toISOString()};return ok({published:state.published});}
   throw Error('Unexpected endpoint '+endpoint);
  };
@@ -83,5 +85,22 @@ test('An explicit same-minute recheck refreshes the exact timestamp, keeps 24 ho
   await until(()=>$('workspace').hidden===false);$('editors').firstElementChild.querySelector('[data-action="today"]').click();
   $('preview-button').click();await until(()=>$('publish').disabled===false);
   const fresh=state.draft.quotes[0];assert.ok(Date.parse(fresh.observed_at)>Date.parse(old));assert.equal(Date.parse(fresh.valid_until)-Date.parse(fresh.observed_at),86400000);assert.match($('preview').textContent,/ထိုင်း/);
+ }finally{dom.window.close();}
+});
+
+test('Published prices show clear direction/date previews; deletion requires confirmation and archived recovery stays a draft',async()=>{
+ const at=new Date().toISOString(),q=rate=>({id:'daily-thb',label:'daily',direction:'thb_mmk',rate_micros:Math.round(100000000000/rate),flat_fee_minor:0,fee_bps:0,source_name:'reference',source_url:'',payout_method:'bank',note:'',observed_at:at,valid_until:new Date(Date.now()+86400000).toISOString(),source_checked:true});
+ const old={id:1,quotes:[q(748)],published_at:at},trial={id:2,quotes:[q(800)],published_at:at};
+ const {dom,w,state,$}=setup(trial.quotes,{published:{revision:2,quotes:trial.quotes,published_at:at},history:[trial,old]});try{
+  await until(()=>$('workspace').hidden===false);assert.match($('published-rates').textContent,/800/);assert.match($('history').textContent,/748/);
+  let confirmation='';w.confirm=text=>{confirmation=text;return false;};$('delete-latest').click();await until(()=>$('workspace').inert===false);assert.equal(state.published.revision,2);assert.match(confirmation,/800/);assert.match(confirmation,/အရင်တင်ချက်/);
+  w.confirm=()=>true;$('delete-latest').click();await until(()=>state.trash.length===1);await until(()=>$('workspace').inert===false);assert.match($('published-rates').textContent,/748/);assert.equal($('trash-count').textContent,'1 ခု');
+  $('trash').querySelector('[data-trash-restore="2"]').click();await until(()=>state.draft.quotes[0].rate_micros===q(800).rate_micros);await until(()=>$('workspace').inert===false);assert.equal(state.published.quotes[0].rate_micros,q(748).rate_micros);assert.equal($('publish').disabled,true);
+ }finally{dom.window.close();}
+});
+test('Removing one direction only changes the local draft until an explicit preview and publication',async()=>{
+ const {dom,w,state,$,get}=setup();try{await until(()=>$('workspace').hidden===false);$('add').click();$('add-mmk').click();const cards=[...$('editors').children];get(cards[0],'rate').value='748';get(cards[1],'rate').value='724';
+ w.confirm=()=>false;cards[0].querySelector('[data-action="remove"]').click();assert.equal($('editors').children.length,2);
+ w.confirm=()=>true;cards[0].querySelector('[data-action="remove"]').click();assert.equal($('editors').children.length,1);assert.equal($('editors').firstElementChild.dataset.direction,'mmk_thb');assert.equal(state.published.revision,0);assert.equal($('publish').disabled,true);
  }finally{dom.window.close();}
 });
