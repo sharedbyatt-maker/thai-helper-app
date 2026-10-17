@@ -564,79 +564,114 @@ class _ExchangeHomeState extends State<ExchangeHome>
   Widget directionPicker({bool showRates = false}) => LayoutBuilder(
     builder: (context, constraints) {
       final scheme = Theme.of(context).colorScheme;
-      final width = showRates
-          ? constraints.maxWidth >= 360
-                ? (constraints.maxWidth - 12) / 2
-                : constraints.maxWidth
-          : null;
-      return Wrap(
-        spacing: 12,
-        runSpacing: 10,
-        children: ExchangeDirection.values.map((d) {
-          final q = dailyQuote(d);
-          final selected = d == direction;
-          return SizedBox(
-            width: width,
-            child: ChoiceChip(
-              label: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    d.label,
-                    style: TextStyle(
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                  if (showRates) ...[
-                    const SizedBox(height: 7),
-                    Text(
-                      q == null
-                          ? 'မတင်ရသေးပါ'
-                          : quoteRateLabel(q).replaceFirst(' = ', ' → '),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
+      final compact = MediaQuery.sizeOf(context).width < 600;
+      Widget tile(ExchangeDirection d) {
+        final q = dailyQuote(d), selected = d == direction;
+        final price = q == null
+            ? 'မတင်ရသေးပါ'
+            : compact
+            ? d == ExchangeDirection.thbMmk
+                  ? '${referenceRateText(q.rateMicros)} ဘတ်\nကျပ် ၁ သိန်း'
+                  : 'ကျပ် ၁ သိန်း\n${referenceRateText(q.rateMicros)} ဘတ်'
+            : quoteRateLabel(q).replaceFirst(' = ', ' → ');
+        return Semantics(
+          key: ValueKey('direction_${d.key}'),
+          button: true,
+          selected: selected,
+          label: '${d.label}။ ${q == null ? 'မတင်ရသေးပါ' : quoteRateLabel(q)}',
+          onTap: () => changeDirection(d),
+          child: ExcludeSemantics(
+            child: Material(
+              color: selected
+                  ? scheme.primaryContainer.withValues(alpha: .7)
+                  : Theme.of(context).cardTheme.color,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: selected ? scheme.primary : scheme.outlineVariant,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => changeDirection(d),
+                child: Padding(
+                  padding: EdgeInsets.all(compact ? 12 : 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        d.label,
+                        softWrap: true,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
+                        style: TextStyle(
+                          fontSize: compact ? 12 : 14,
+                          height: 1.5,
+                          color: selected
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    if (q != null && !q.activeAt(DateTime.now()))
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
+                      const SizedBox(height: 4),
+                      Text(
+                        price,
+                        softWrap: true,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
+                        style: TextStyle(
+                          fontSize: compact ? 14 : 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
+                        ),
+                      ),
+                      if (q != null && !q.activeAt(DateTime.now()))
+                        const Text(
                           'ပြန်မစစ်ရသေး',
                           style: TextStyle(fontSize: 11),
                         ),
-                      ),
-                  ],
-                ],
-              ),
-              selected: selected,
-              onSelected: (_) => changeDirection(d),
-              showCheckmark: false,
-              avatar: Icon(
-                d == ExchangeDirection.thbMmk
-                    ? Icons.south_east_rounded
-                    : Icons.north_west_rounded,
-                size: 18,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-              selectedColor: scheme.primaryContainer.withValues(alpha: .7),
-              backgroundColor: Theme.of(context).cardTheme.color,
-              side: BorderSide(
-                color: selected
-                    ? scheme.primary.withValues(alpha: .5)
-                    : scheme.outlineVariant,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(showRates ? 20 : 14),
-              ),
-              labelPadding: EdgeInsets.symmetric(
-                horizontal: showRates ? 8 : 4,
-                vertical: showRates ? 12 : 7,
+                    ],
+                  ),
+                ),
               ),
             ),
-          );
-        }).toList(),
+          ),
+        );
+      }
+
+      if (showRates) {
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: tile(ExchangeDirection.thbMmk)),
+              const SizedBox(width: 10),
+              Expanded(child: tile(ExchangeDirection.mmkThb)),
+            ],
+          ),
+        );
+      }
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: ExchangeDirection.values
+            .map(
+              (d) => ChoiceChip(
+                key: ValueKey('direction_${d.key}'),
+                label: Text(d.label),
+                selected: d == direction,
+                onSelected: (_) => changeDirection(d),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            )
+            .toList(),
       );
     },
   );

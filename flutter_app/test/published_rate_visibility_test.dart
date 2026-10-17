@@ -94,10 +94,10 @@ void main() {
     (tester) async {
       await start(tester, trend: true);
       expect(find.text('ကျပ် ၁ သိန်း = 726 ဘတ်'), findsOneWidget);
-      final selected = tester.widget<ChoiceChip>(
-        find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'),
+      final selected = tester.widget<Semantics>(
+        find.byKey(const ValueKey('direction_mmk_thb')),
       );
-      expect(selected.selected, true);
+      expect(selected.properties.selected, true);
       await tester.ensureVisible(find.text('7 ရက်'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('7 ရက်'));
@@ -142,7 +142,7 @@ void main() {
     'Empty direction explains missing side and resume respects explicit choice',
     (tester) async {
       await start(tester);
-      await tester.tap(find.widgetWithText(ChoiceChip, 'ဘတ်ပေး → ကျပ်ယူ'));
+      await tester.tap(find.byKey(const ValueKey('direction_thb_mmk')));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('ဘတ်ပေး → ကျပ်ယူ နှုန်း မတင်ရသေးပါ။'),
@@ -160,9 +160,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<ChoiceChip>(
-              find.widgetWithText(ChoiceChip, 'ဘတ်ပေး → ကျပ်ယူ'),
-            )
+            .widget<Semantics>(find.byKey(const ValueKey('direction_thb_mmk')))
+            .properties
             .selected,
         true,
       );

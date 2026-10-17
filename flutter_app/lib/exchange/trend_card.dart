@@ -29,6 +29,7 @@ class _TrendCardState extends State<TrendCard> {
   String formatted(double n) => rateValueText(n, ExchangeDirection.mmkThb);
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 600;
     final q =
         widget.quotes.where((q) => identity(q) == selected).firstOrNull ??
         widget.quotes.where((q) => q.activeAt(DateTime.now())).firstOrNull ??
@@ -47,7 +48,7 @@ class _TrendCardState extends State<TrendCard> {
         : null;
     return Container(
       key: const ValueKey('rate_trend_card'),
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(compact ? 16 : 22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -81,18 +82,18 @@ class _TrendCardState extends State<TrendCard> {
                   size: 19,
                 ),
                 const Text(
-                  'နောက်ဆုံးတင်ထားတဲ့ဈေး',
+                  'နောက်ဆုံးဈေး',
                   style: TextStyle(color: pale, fontWeight: FontWeight.w600),
                 ),
                 if (q != null)
                   tag(active ? 'စစ်ထားပြီး' : 'ပြန်စစ်ဖို့လိုနေပြီ'),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: compact ? 8 : 16),
             Text(
               q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : quoteRateLabel(q),
-              style: const TextStyle(
-                fontSize: 29,
+              style: TextStyle(
+                fontSize: compact ? 24 : 29,
                 fontWeight: FontWeight.w700,
                 height: 1.6,
                 letterSpacing: -.3,
@@ -104,21 +105,23 @@ class _TrendCardState extends State<TrendCard> {
                 Text(
                   quotePerBahtLabel(q),
                   key: const ValueKey('per_baht_equivalent'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: compact ? 15 : 18,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
+              if (!compact) ...[
+                const SizedBox(height: 6),
+                Text(
+                  q.direction.label,
+                  style: const TextStyle(color: pale, fontSize: 13),
+                ),
+              ],
               const SizedBox(height: 6),
               Text(
-                q.direction.label,
-                style: const TextStyle(color: pale, fontSize: 13),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'နောက်ဆုံးစစ်ချိန် ${bangkokLabel(q.observedAt)}',
+                '${compact ? '' : 'နောက်ဆုံးစစ်ချိန် '}${bangkokLabel(q.observedAt)}',
                 style: const TextStyle(color: pale, fontSize: 12),
               ),
               if (!active)
@@ -170,12 +173,14 @@ class _TrendCardState extends State<TrendCard> {
                   }),
                 ),
               ),
-            const SizedBox(height: 22),
-            const Text(
-              'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            const SizedBox(height: 10),
+            SizedBox(height: compact ? 12 : 22),
+            if (!compact) ...[
+              const Text(
+                'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              const SizedBox(height: 10),
+            ],
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -195,10 +200,10 @@ class _TrendCardState extends State<TrendCard> {
                         backgroundColor: days == n
                             ? Colors.white
                             : Colors.white.withValues(alpha: .10),
-                        minimumSize: const Size(60, 40),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
+                        minimumSize: Size(compact ? 48 : 60, compact ? 36 : 40),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 10 : 14,
+                          vertical: compact ? 6 : 8,
                         ),
                       ),
                       child: Text(n == 1 ? 'ဒီနေ့' : '$n ရက်'),
@@ -206,23 +211,25 @@ class _TrendCardState extends State<TrendCard> {
                   ),
                 if (change != null)
                   tag(
-                    '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}% · မှတ်တမ်းကာလ',
+                    '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}%${compact ? '' : ' · မှတ်တမ်းကာလ'}',
                   ),
               ],
             ),
-            const SizedBox(height: 14),
-            Text(
-              focus != null
-                  ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ်'
-                  : points.length == 1
-                  ? 'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။ အမှတ်လေးကို ထိကြည့်ပါ။'
-                  : points.isEmpty
-                  ? (widget.loading
-                        ? 'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်'
-                        : 'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။')
-                  : 'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်',
-              style: const TextStyle(color: pale, fontSize: 12, height: 1.8),
-            ),
+            if (!compact || focus != null) ...[
+              SizedBox(height: compact ? 6 : 14),
+              Text(
+                focus != null
+                    ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ်'
+                    : points.length == 1
+                    ? 'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။ အမှတ်လေးကို ထိကြည့်ပါ။'
+                    : points.isEmpty
+                    ? (widget.loading
+                          ? 'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်'
+                          : 'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။')
+                    : 'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်',
+                style: const TextStyle(color: pale, fontSize: 12, height: 1.8),
+              ),
+            ],
             const SizedBox(height: 8),
             LayoutBuilder(
               builder: (context, c) => Semantics(
@@ -239,7 +246,7 @@ class _TrendCardState extends State<TrendCard> {
                     onHorizontalDragUpdate: (event) =>
                         selectPoint(event.localPosition.dx, c.maxWidth, points),
                     child: SizedBox(
-                      height: 158,
+                      height: compact ? 108 : 158,
                       width: double.infinity,
                       child: Stack(
                         children: [
@@ -310,24 +317,44 @@ class _TrendCardState extends State<TrendCard> {
                     ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: compact ? 8 : 16),
               Wrap(
-                spacing: 22,
+                spacing: compact ? 12 : 22,
                 runSpacing: 10,
                 children: [
-                  metric('အနိမ့်', formatted(low!)),
-                  metric('အမြင့်', formatted(high!)),
-                  metric(
-                    days == 1 ? 'ဈေးတင်ထားတာ' : 'ဈေးတင်ထားတဲ့ရက်',
-                    '${points.length} ${days == 1 ? 'ခု' : 'ရက်'}',
-                  ),
+                  compact
+                      ? Text(
+                          'အနိမ့် ${formatted(low!)}',
+                          style: const TextStyle(color: pale, fontSize: 12),
+                        )
+                      : metric('အနိမ့်', formatted(low!)),
+                  compact
+                      ? Text(
+                          'အမြင့် ${formatted(high!)}',
+                          style: const TextStyle(color: pale, fontSize: 12),
+                        )
+                      : metric('အမြင့်', formatted(high!)),
+                  if (compact)
+                    Text(
+                      '${points.length} ${days == 1 ? 'ခု' : 'ရက်'}',
+                      style: const TextStyle(color: pale, fontSize: 12),
+                    )
+                  else
+                    metric(
+                      days == 1 ? 'ဈေးတင်ထားတာ' : 'ဈေးတင်ထားတဲ့ရက်',
+                      '${points.length} ${days == 1 ? 'ခု' : 'ရက်'}',
+                    ),
                 ],
               ),
             ],
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 8 : 12),
             Text(
-              '${history.cached ? 'သိမ်းထားတဲ့မှတ်တမ်း · ' : ''}${q?.direction == ExchangeDirection.thbMmk ? 'ကျပ် ၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်' : 'ကျပ် ၁ သိန်းပေးရင် ရမယ့်ဘတ်'} · ထိုင်းအချိန်',
-              style: const TextStyle(color: pale, fontSize: 11, height: 1.8),
+              '${history.cached ? 'သိမ်းထားတဲ့မှတ်တမ်း · ' : ''}${q?.direction == ExchangeDirection.thbMmk ? '၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်' : '၁ သိန်းပေးရင် ရမယ့်ဘတ်'}${compact ? '' : ' · ထိုင်းအချိန်'}',
+              style: TextStyle(
+                color: pale,
+                fontSize: compact ? 10 : 11,
+                height: 1.6,
+              ),
             ),
             if (widget.unavailable)
               const Padding(
@@ -339,12 +366,21 @@ class _TrendCardState extends State<TrendCard> {
               ),
             if (q != null && active)
               Padding(
-                padding: const EdgeInsets.only(top: 18),
+                padding: EdgeInsets.only(top: compact ? 12 : 18),
                 child: FilledButton.icon(
                   onPressed: () => widget.onCalculate(q),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xff075d4d),
+                    minimumSize: compact
+                        ? const Size(double.infinity, 44)
+                        : null,
+                    padding: compact
+                        ? const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          )
+                        : null,
                   ),
                   icon: const Icon(Icons.calculate_outlined, size: 18),
                   label: const Text('ဒီနှုန်းနဲ့ တွက်မယ်'),

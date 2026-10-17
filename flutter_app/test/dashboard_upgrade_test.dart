@@ -176,10 +176,20 @@ void main() {
         );
         expect(find.text('ဘတ် 800 = ကျပ် ၁ သိန်း'), findsOneWidget);
         expect(find.text('၁ ဘတ် ≈ 125 ကျပ်'), findsOneWidget);
-        expect(find.text('ကျပ် ၁ သိန်း → 750 ဘတ်'), findsOneWidget);
-        expect(find.text('ဘတ် 800 → ကျပ် ၁ သိန်း'), findsOneWidget);
-        await reveal(t, find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'));
-        await t.tap(find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'));
+        expect(
+          find.text(
+            width < 600 ? 'ကျပ် ၁ သိန်း\n750 ဘတ်' : 'ကျပ် ၁ သိန်း → 750 ဘတ်',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            width < 600 ? '800 ဘတ်\nကျပ် ၁ သိန်း' : 'ဘတ် 800 → ကျပ် ၁ သိန်း',
+          ),
+          findsOneWidget,
+        );
+        await reveal(t, find.byKey(const ValueKey('direction_mmk_thb')));
+        await t.tap(find.byKey(const ValueKey('direction_mmk_thb')));
         await t.pumpAndSettle();
         expect(find.text('ကျပ် ၁ သိန်း = 750 ဘတ်'), findsOneWidget);
         expect(find.byKey(const ValueKey('per_baht_equivalent')), findsNothing);
