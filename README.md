@@ -18,7 +18,7 @@ The GitHub Pages workflow uses this hosted API by default. Set the optional repo
 
 ## Simple daily workflow
 
-The public calculator starts with amount and rate only. Comparison and target-payout options are collapsed. Separate deductions are optional and collapsed for zero-charge quotes; existing nonzero deductions automatically remain visible and included in calculations. The rate board keeps source/time details collapsed and preserves a real chart marker or an explicit empty chart frame when history is limited.
+The public calculator starts with amount and rate only. Comparison and target-payout options are collapsed. The public app has no source-details drawer or editable deduction inputs. Legacy nonzero published deductions remain a read-only notice and stay included in results; editing a rate clears legacy deductions so manual prices never silently retain them. The calculator uses a compact centered layout, large numeric entry and highlighted results. The rate board preserves a real chart marker or an explicit empty chart frame when history is limited.
 
 The hosted admin form has direction shortcuts, faded input examples, a live equivalent-rate explanation, required source confirmation, and a button to refresh observation/expiry times for daily editing. Existing quote IDs are reused by direction shortcuts. New opposite-direction rows copy source details but never infer a rate. Names, payout method, timestamps, notices and separate deductions are optional details; blank deduction values save as zero. Example numbers are never saved as actual rates.
 

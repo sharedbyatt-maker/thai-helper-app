@@ -52,9 +52,9 @@ class _TrendCardState extends State<TrendCard> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xff074f47), Color(0xff008f7a)],
+          colors: [Color(0xff06493f), Color(0xff078d77)],
         ),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
             color: const Color(0xff08765f).withValues(alpha: .15),
@@ -85,7 +85,7 @@ class _TrendCardState extends State<TrendCard> {
                   style: TextStyle(color: pale, fontWeight: FontWeight.w600),
                 ),
                 if (q != null)
-                  tag(active ? 'နောက်ဆုံးစစ်ထားတဲ့ဈေး' : 'ပြန်စစ်ဖို့လိုနေပြီ'),
+                  tag(active ? 'စစ်ထားပြီး' : 'ပြန်စစ်ဖို့လိုနေပြီ'),
               ],
             ),
             const SizedBox(height: 16),
@@ -213,7 +213,7 @@ class _TrendCardState extends State<TrendCard> {
             const SizedBox(height: 14),
             Text(
               focus != null
-                  ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ် · ${focus.sourceName}'
+                  ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ်'
                   : points.length == 1
                   ? 'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။ အမှတ်လေးကို ထိကြည့်ပါ။'
                   : points.isEmpty
@@ -367,20 +367,27 @@ class _TrendCardState extends State<TrendCard> {
       style: const TextStyle(color: Colors.white, fontSize: 11),
     ),
   );
-  Widget metric(String label, String value) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: const TextStyle(color: pale, fontSize: 11)),
-      const SizedBox(height: 3),
-      Text(
-        value,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
+  Widget metric(String label, String value) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .09),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: pale, fontSize: 11)),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
   String pointLabel(RatePoint p) => days == 1 && p.observedAt != null
       ? timeLabel(p.timestamp)

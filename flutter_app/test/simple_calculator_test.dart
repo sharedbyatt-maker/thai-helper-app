@@ -98,11 +98,13 @@ void main() {
   }
 
   testWidgets(
-    'Default calculator needs amount and rate only; optional deductions stay closed',
+    'Calculator has amount and rate without a source drawer or deduction controls',
     (tester) async {
       final key = await start(tester);
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
+      expect(find.text('ဒီဈေးကို ဘယ်ကရလဲ?'), findsNothing);
+      expect(find.text('သီးသန့်နုတ်ငွေ ရှိမှ ဖြည့်ပါ'), findsNothing);
       expect(find.byKey(const ValueKey('deduction_0')), findsNothing);
       expect(find.byKey(const ValueKey('deduction_percent_0')), findsNothing);
       await tester.enterText(find.byKey(const ValueKey('amount')), '1000');
@@ -137,35 +139,36 @@ void main() {
     },
   );
   testWidgets(
-    'A published nonzero deduction stays visible and is included in the result',
+    'Legacy published deductions remain transparent without editable controls, and manual prices never retain hidden deductions',
     (tester) async {
       await start(tester, charged: true);
       await reveal(tester, find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
       await tester.tap(find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('amount')), '1000');
-      await reveal(tester, find.byKey(const ValueKey('deduction_0')));
-      expect(
-        tester
-            .widget<TextField>(find.byKey(const ValueKey('deduction_0')))
-            .controller!
-            .text,
-        '20.0',
-      );
-      expect(
-        tester
-            .widget<TextField>(
-              find.byKey(const ValueKey('deduction_percent_0')),
-            )
-            .controller!
-            .text,
-        '1.0',
-      );
+      await reveal(tester, find.byKey(const ValueKey('published_deduction_0')));
+      expect(find.byKey(const ValueKey('deduction_0')), findsNothing);
+      expect(find.byKey(const ValueKey('deduction_percent_0')), findsNothing);
+      expect(find.textContaining('Test source'), findsNothing);
       await reveal(tester, find.byKey(const ValueKey('calculate')));
       await tester.tap(find.byKey(const ValueKey('calculate')));
       await tester.pumpAndSettle();
       await reveal(tester, find.text('ရငွေ 121,250 ကျပ်'));
       expect(find.text('ရငွေ 121,250 ကျပ်'), findsOneWidget);
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      await reveal(tester, find.byKey(const ValueKey('rate_0')));
+      await tester.enterText(find.byKey(const ValueKey('rate_0')), '800');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('published_deduction_0')), findsNothing);
+      await reveal(tester, find.byKey(const ValueKey('calculate')));
+      await tester.tap(find.byKey(const ValueKey('calculate')));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.text('ရငွေ 125,000 ကျပ်'));
+      expect(find.text('ရငွေ 125,000 ကျပ်'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await close(tester);
     },

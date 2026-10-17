@@ -166,9 +166,7 @@ class CalcLine {
         flat == null ||
         bps == null ||
         bps >= 10000) {
-      throw FormatException(
-        'ဈေး ${index + 1}: ဈေးနဲ့ သီးသန့်နုတ်ငွေကို ပြန်စစ်ပေးပါ',
-      );
+      throw FormatException('ဈေး ${index + 1}: ထည့်ထားတဲ့ဈေးကို ပြန်စစ်ပေးပါ');
     }
     final scaled = (perLakh ? 100000 / value : value) * rateScale;
     if (!scaled.isFinite || scaled < 1 || scaled > 1000000000000) {
@@ -386,7 +384,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
 
   void invalidate([CalcLine? line]) {
     setState(() {
-      line?.original = null;
+      if (line != null) {
+        line.original = null;
+        line.fee.text = '0';
+        line.percent.text = '0';
+      }
       results = [];
       calcError = null;
     });
@@ -494,41 +496,149 @@ class _ExchangeHomeState extends State<ExchangeHome>
         (onlyActive ? null : quotes.firstOrNull);
   }
 
-  Widget directionPicker({bool showRates = false}) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: ExchangeDirection.values.map((d) {
-      final q = dailyQuote(d);
-      return ChoiceChip(
-        label: showRates
-            ? Column(
+  Widget pageHeading(String title, String subtitle, IconData icon) => Padding(
+    padding: const EdgeInsets.only(bottom: 20, top: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Icon(icon, color: schemeColor(context), size: 25),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget stepHeading(String step, String title) => Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          step,
+          style: TextStyle(
+            color: schemeColor(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+        ),
+      ),
+    ],
+  );
+
+  Widget directionPicker({bool showRates = false}) => LayoutBuilder(
+    builder: (context, constraints) {
+      final scheme = Theme.of(context).colorScheme;
+      final width = showRates
+          ? constraints.maxWidth >= 360
+                ? (constraints.maxWidth - 12) / 2
+                : constraints.maxWidth
+          : null;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 10,
+        children: ExchangeDirection.values.map((d) {
+          final q = dailyQuote(d);
+          final selected = d == direction;
+          return SizedBox(
+            width: width,
+            child: ChoiceChip(
+              label: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(d.label),
-                  const SizedBox(height: 4),
                   Text(
-                    q == null
-                        ? 'မတင်ရသေးပါ'
-                        : quoteRateLabel(q).replaceFirst(' = ', ' → '),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                    d.label,
+                    style: TextStyle(
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
-                  if (q != null && !q.activeAt(DateTime.now()))
-                    const Text('ပြန်မစစ်ရသေး', style: TextStyle(fontSize: 11)),
+                  if (showRates) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      q == null
+                          ? 'မတင်ရသေးပါ'
+                          : quoteRateLabel(q).replaceFirst(' = ', ' → '),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    if (q != null && !q.activeAt(DateTime.now()))
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          'ပြန်မစစ်ရသေး',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                  ],
                 ],
-              )
-            : Text(d.label),
-        selected: d == direction,
-        onSelected: (_) => changeDirection(d),
-        showCheckmark: !showRates,
-        labelPadding: showRates
-            ? const EdgeInsets.symmetric(horizontal: 9, vertical: 8)
-            : null,
+              ),
+              selected: selected,
+              onSelected: (_) => changeDirection(d),
+              showCheckmark: false,
+              avatar: Icon(
+                d == ExchangeDirection.thbMmk
+                    ? Icons.south_east_rounded
+                    : Icons.north_west_rounded,
+                size: 18,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              selectedColor: scheme.primaryContainer.withValues(alpha: .7),
+              backgroundColor: Theme.of(context).cardTheme.color,
+              side: BorderSide(
+                color: selected
+                    ? scheme.primary.withValues(alpha: .5)
+                    : scheme.outlineVariant,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(showRates ? 20 : 14),
+              ),
+              labelPadding: EdgeInsets.symmetric(
+                horizontal: showRates ? 8 : 4,
+                vertical: showRates ? 12 : 7,
+              ),
+            ),
+          );
+        }).toList(),
       );
-    }).toList(),
+    },
   );
   void selectTab(int value) {
     if (value == 1 &&
@@ -544,46 +654,29 @@ class _ExchangeHomeState extends State<ExchangeHome>
     setState(() => tab = value);
   }
 
-  Widget connectionBanner(LoadedSheet data) => Container(
-    padding: const EdgeInsets.all(12),
-    margin: const EdgeInsets.only(bottom: 14),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
-    ),
+  Widget connectionBanner(LoadedSheet data) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
     child: Row(
       children: [
         Icon(
           data.origin == SheetOrigin.server
               ? Icons.cloud_done_outlined
               : Icons.offline_bolt_outlined,
-          size: 20,
-          color: data.origin == SheetOrigin.server
-              ? schemeColor(context)
-              : Theme.of(context).colorScheme.tertiary,
+          size: 17,
+          color: schemeColor(context),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                data.origin == SheetOrigin.server
-                    ? 'နောက်ဆုံးတင်ထားတဲ့ဈေးကို ပြထားပါတယ်'
-                    : data.origin == SheetOrigin.cache
-                    ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်'
-                    : 'ဈေးအသစ် မရသေးပါဘူး',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (lastFetched != null)
-                Text(
-                  'နောက်ဆုံးချိတ်ဆက်ချိန် ${when(lastFetched!)} · ထိုင်းအချိန်',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-            ],
+          child: Text(
+            data.origin == SheetOrigin.server
+                ? 'နောက်ဆုံးချိတ်ဆက်ချိန် ${lastFetched == null ? '—' : when(lastFetched!)} · ထိုင်းအချိန်'
+                : data.origin == SheetOrigin.cache
+                ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်'
+                : 'ဈေးအသစ် မရသေးပါဘူး',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.7,
+            ),
           ),
         ),
       ],
@@ -647,7 +740,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 title: const Text('အသုံးပြုနည်း'),
                 content: const SingleChildScrollView(
                   child: Text(
-                    'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။ သီးသန့်နုတ်ငွေရှိမှ အပိုရွေးချယ်မှုထဲမှာ ထည့်ပါ။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။',
+                    'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။',
                   ),
                 ),
                 actions: [
@@ -665,7 +758,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1040),
+            constraints: BoxConstraints(maxWidth: tab == 1 ? 660 : 960),
             child: tab == 0
                 ? daily()
                 : tab == 1
@@ -701,7 +794,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final quotes =
         data?.sheet.quotes.where((q) => q.direction == direction).toList() ??
         [];
-    final now = DateTime.now();
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
@@ -709,27 +801,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(14),
         children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    height: 1.8,
-                  ),
-                ),
-              ],
-            ),
+          pageHeading(
+            'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
+            'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။',
+            Icons.show_chart_rounded,
           ),
           if (data != null) connectionBanner(data),
           if (loading) const LinearProgressIndicator(),
@@ -780,63 +855,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 label: const Text('ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်မယ်'),
               ),
             ),
-          ...quotes.map((q) {
-            final active = q.activeAt(now);
-            return Card(
-              child: ExpansionTile(
-                key: PageStorageKey('quote_details_${q.direction.key}_${q.id}'),
-                tilePadding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 6,
-                ),
-                childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                title: Text(
-                  quotes.length == 1 ? 'ဒီဈေးကို ဘယ်ကရလဲ?' : q.label,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: Text(
-                  quotes.length == 1 ? q.sourceName : quoteRateLabel(q),
-                ),
-                children: [
-                  if (!active)
-                    const Text(
-                      'ဒါက အရင်တင်ထားတဲ့ဈေးပါ။ အခုဈေးဟုတ်မဟုတ် ပြန်စစ်ဖို့လိုပါတယ်။',
-                    ),
-                  Text('ဈေးရတဲ့နေရာ: ${q.sourceName}'),
-                  if (q.payoutMethod.isNotEmpty &&
-                      q.payoutMethod != 'မဖော်ပြထားပါ')
-                    Text('လက်ခံနည်း: ${q.payoutMethod}'),
-                  if (q.flatFeeMinor > 0 || q.feeBps > 0)
-                    Text(
-                      'သီးသန့်နုတ်ငွေ ${money(q.flatFeeMinor)} ${q.direction.from} + ${q.feeBps / 100}% ပါပါတယ်။',
-                    ),
-                  Text('ဈေးတင်ချိန် ${when(q.observedAt)}'),
-                  Text('ပြန်စစ်ရမယ့်အချိန် ${when(q.validUntil)}'),
-                  if (q.note.isNotEmpty) Text(q.note),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton(
-                        onPressed: active ? () => useQuote(q) : null,
-                        child: const Text('ဒီနှုန်းနဲ့ တွက်မယ်'),
-                      ),
-                      if (q.sourceUrl.isNotEmpty)
-                        TextButton.icon(
-                          onPressed: () => openSource(q.sourceUrl),
-                          icon: const Icon(Icons.open_in_new, size: 16),
-                          label: const Text('မူရင်းစာမျက်နှာ ကြည့်မယ်'),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          }),
           const Padding(
             padding: EdgeInsets.all(10),
             child: Text(
@@ -945,30 +963,26 @@ class _ExchangeHomeState extends State<ExchangeHome>
     key: const PageStorageKey('calculator'),
     padding: const EdgeInsets.all(14),
     children: [
-      Text(
+      pageHeading(
         'ငွေလဲတွက်မယ်',
-        style: Theme.of(
-          context,
-        ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        'ပေးမယ့်ငွေနဲ့ ဈေးထည့်လိုက်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။',
+        Icons.calculate_outlined,
       ),
-      const SizedBox(height: 8),
-      const Text(
-        'ပေးမယ့်ငွေနဲ့ ရထားတဲ့နှုန်းကို ဖြည့်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။',
-      ),
-      const SizedBox(height: 14),
       directionPicker(),
+      const SizedBox(height: 14),
       panel(
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              targetMode ? '၁။ ဘယ်လောက် ရချင်လဲ?' : '၁။ ဘယ်လောက် ပေးမလဲ?',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+            stepHeading(
+              '၁',
+              targetMode ? 'ဘယ်လောက် ရချင်လဲ?' : 'ဘယ်လောက် ပေးမလဲ?',
             ),
             const SizedBox(height: 14),
             TextField(
               key: const ValueKey('amount'),
               controller: amount,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -976,6 +990,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => calculate(),
               decoration: InputDecoration(
+                floatingLabelBehavior: FloatingLabelBehavior.always,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 20,
+                ),
                 labelText: targetMode
                     ? 'ရချင်တဲ့ပမာဏ (${direction.to})'
                     : 'ပေးမယ့်စုစုပေါင်းငွေ (${direction.from})',
@@ -1015,6 +1034,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
       FilledButton.icon(
         key: const ValueKey('calculate'),
         onPressed: calculate,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          elevation: 2,
+          shadowColor: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: .25),
+        ),
         icon: const Icon(Icons.calculate_outlined),
         label: Padding(
           padding: const EdgeInsets.all(8),
@@ -1028,7 +1054,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
       ),
       const SizedBox(height: 10),
-      OutlinedButton.icon(
+      TextButton.icon(
         onPressed: pasteQuote,
         icon: const Icon(Icons.content_paste),
         label: const Text('ကူးထားတဲ့စာကနေ ဈေးထည့်မယ်'),
@@ -1051,38 +1077,40 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
       for (var i = 0; i < results.length; i++) resultCard(results[i], i),
       const SizedBox(height: 10),
-      ExpansionTile(
-        key: const PageStorageKey('calculator_options'),
-        title: const Text(
-          'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်',
-          style: TextStyle(fontSize: 14),
-        ),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-        childrenPadding: const EdgeInsets.all(12),
-        children: [
-          const Text(
-            'တခြားလူပေးတဲ့ဈေးနဲ့ နှိုင်းချင်မှ နှုန်းအသစ် ထပ်ထည့်ပါ။ အများဆုံး ၃ ခု နှိုင်းနိုင်ပါတယ်။',
+      Card(
+        child: ExpansionTile(
+          key: const PageStorageKey('calculator_options'),
+          title: const Text(
+            'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်',
+            style: TextStyle(fontSize: 14),
           ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: lines.length < 3
-                ? () => setState(() {
-                    lines.add(CalcLine(label: 'ဈေး ${lines.length + 1}'));
-                    results = [];
-                  })
-                : null,
-            icon: const Icon(Icons.add),
-            label: const Text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'),
-          ),
-          TextButton(
-            onPressed: () => setTargetMode(!targetMode),
-            child: Text(
-              targetMode
-                  ? 'ပေးမယ့်ငွေနဲ့ တွက်မယ်'
-                  : 'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်',
+          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+          childrenPadding: const EdgeInsets.all(12),
+          children: [
+            const Text(
+              'တခြားလူပေးတဲ့ဈေးနဲ့ နှိုင်းချင်မှ နှုန်းအသစ် ထပ်ထည့်ပါ။ အများဆုံး ၃ ခု နှိုင်းနိုင်ပါတယ်။',
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: lines.length < 3
+                  ? () => setState(() {
+                      lines.add(CalcLine(label: 'ဈေး ${lines.length + 1}'));
+                      results = [];
+                    })
+                  : null,
+              icon: const Icon(Icons.add),
+              label: const Text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'),
+            ),
+            TextButton(
+              onPressed: () => setTargetMode(!targetMode),
+              child: Text(
+                targetMode
+                    ? 'ပေးမယ့်ငွေနဲ့ တွက်မယ်'
+                    : 'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်',
+              ),
+            ),
+          ],
+        ),
       ),
       const SizedBox(height: 18),
     ],
@@ -1098,12 +1126,33 @@ class _ExchangeHomeState extends State<ExchangeHome>
         children: [
           Row(
             children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '၂',
+                  style: TextStyle(
+                    color: schemeColor(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               Expanded(
                 child: Text(
                   lines.length == 1
-                      ? '၂။ ရထားတဲ့ ငွေလဲနှုန်း'
+                      ? 'ရထားတဲ့ ငွေလဲနှုန်း'
                       : 'နှိုင်းမယ့်ဈေး ${index + 1}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
                 ),
               ),
               if (lines.length > 1)
@@ -1122,9 +1171,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             key: ValueKey('${identityHashCode(line)}_${line.perLakh}'),
             initialValue: line.perLakh,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'ရထားတဲ့ဈေးရဲ့ ရေးပုံ',
-            ),
+            decoration: const InputDecoration(labelText: 'ဈေးရေးပုံ'),
             items: const [
               DropdownMenuItem(value: false, child: Text('၁ ဘတ်အတွက် ကျပ်')),
               DropdownMenuItem(
@@ -1148,79 +1195,32 @@ class _ExchangeHomeState extends State<ExchangeHome>
           TextField(
             key: ValueKey('rate_$index'),
             controller: line.rate,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => invalidate(line),
             decoration: InputDecoration(
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 18,
+              ),
               labelText: line.perLakh
                   ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်'
                   : '၁ ဘတ်အတွက် ကျပ်',
               hintText: line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
-              helperText:
-                  'ဘတ်ပေးဈေးနဲ့ ကျပ်ပေးဈေး မတူပါဘူး။ အပေါ်မှာ ရွေးထားတဲ့ဘက်ရဲ့ ဈေးကို ထည့်ပေးပါ။',
-              helperMaxLines: 3,
+              helperText: '${direction.label} ဈေးကို ထည့်ပေးပါ။',
+              helperMaxLines: 2,
             ),
           ),
-          if (line.original != null)
+          if (hasDeduction)
             Padding(
-              padding: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.only(top: 12),
               child: Text(
-                'ဈေးရတဲ့နေရာ: ${line.original!.sourceName}',
+                'ဒီဈေးမှာ ပေးငွေထဲက ${money(parseMoney(line.fee.text, allowZero: true) ?? 0)} ${direction.from} နဲ့ ${line.percent.text}% နုတ်တွက်ထားပါတယ်။',
+                key: ValueKey('published_deduction_$index'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-          const SizedBox(height: 10),
-          ExpansionTile(
-            key: PageStorageKey('deduction_${identityHashCode(line)}'),
-            initiallyExpanded: hasDeduction,
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: 12),
-            title: Text(
-              hasDeduction
-                  ? 'သီးသန့်နုတ်ငွေ ပါပါတယ်'
-                  : 'သီးသန့်နုတ်ငွေ ရှိမှ ဖြည့်ပါ',
-              style: TextStyle(
-                fontSize: 13,
-                color: hasDeduction
-                    ? Theme.of(context).colorScheme.error
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            children: [
-              const Text(
-                'ပြထားတဲ့ဈေးအတိုင်း လဲရင် မဖြည့်လည်းရပါတယ်။ ငွေလဲသူက ထပ်နုတ်မယ်လို့ ပြောထားမှ ဖြည့်ပေးပါ။',
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: ValueKey('deduction_$index'),
-                controller: line.fee,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (_) => invalidate(line),
-                decoration: InputDecoration(
-                  labelText: 'သီးသန့်နုတ်မယ့်ငွေ (${direction.from})',
-                  hintText: 'ဥပမာ 20',
-                  helperText: 'ပေးမယ့်ငွေထဲက နုတ်ပေးမယ်။ မနုတ်ရင် 0 ထားပါ။',
-                  helperMaxLines: 3,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: ValueKey('deduction_percent_$index'),
-                controller: line.percent,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (_) => invalidate(line),
-                decoration: const InputDecoration(
-                  labelText: 'ရာခိုင်နှုန်းနဲ့ နုတ်မှသာ (%)',
-                  hintText: 'ဥပမာ 1',
-                  helperText: '၁% နုတ်ရင် 1 ထည့်ပါ။ မနုတ်ရင် 0 ထားပါ။',
-                  helperMaxLines: 3,
-                ),
-              ),
-            ],
-          ),
           if (lines.length > 1)
             ExpansionTile(
               key: PageStorageKey('quote_name_${identityHashCode(line)}'),
@@ -1246,8 +1246,19 @@ class _ExchangeHomeState extends State<ExchangeHome>
     );
   }
 
-  Widget resultCard(Calculation result, int index) => panel(
-    Column(
+  Widget resultCard(Calculation result, int index) => Container(
+    margin: const EdgeInsets.symmetric(vertical: 10),
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      color: Theme.of(
+        context,
+      ).colorScheme.primaryContainer.withValues(alpha: .45),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: .2),
+      ),
+    ),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -1266,7 +1277,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
         Text('ပေးငွေ ${money(result.budget)} ${result.quote.direction.from}'),
         Text(
           'ရငွေ ${money(result.received)} ${result.quote.direction.to}',
-          style: Theme.of(context).textTheme.headlineSmall,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: schemeColor(context),
+            height: 1.7,
+          ),
         ),
         if (result.quote.feeFor(result.budget) > 0)
           Text(
@@ -1312,7 +1327,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   void shareResult(Calculation result) {
     final q = result.quote;
     shareText(
-      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'Source: ${q.sourceName} · ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးနဲ့ သီးသန့်နုတ်ငွေ ရှိမရှိ ပြန်မေးပါ။',
+      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးနဲ့ သီးသန့်နုတ်ငွေ ရှိမရှိ ပြန်မေးပါ။',
     );
   }
 

@@ -191,7 +191,9 @@ void main() {
         await reveal(t, graph);
         await t.tapAt(t.getTopLeft(graph) + const Offset(12, 78));
         await t.pumpAndSettle();
-        expect(find.textContaining('att'), findsOneWidget);
+        expect(find.textContaining('726 ဘတ်'), findsOneWidget);
+        expect(find.textContaining('att'), findsNothing);
+        expect(find.text('ဒီဈေးကို ဘယ်ကရလဲ?'), findsNothing);
         expect(t.takeException(), isNull);
         await close(t);
       }
