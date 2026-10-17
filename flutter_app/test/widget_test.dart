@@ -81,6 +81,7 @@ void main() {
       await tester.enterText(find.byKey(const ValueKey('amount')), '10000');
       await reveal(tester, find.byKey(const ValueKey('rate_0')), 200);
       await tester.enterText(find.byKey(const ValueKey('rate_0')), '125');
+      expect(find.text('ကူးထားတဲ့စာကနေ ဈေးထည့်မယ်'), findsNothing);
       final calculate = find.byKey(const ValueKey('calculate'));
       await reveal(tester, calculate, 250);
       await tester.tap(calculate);
@@ -96,6 +97,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('မှတ်တမ်း'));
       await tester.pumpAndSettle();
+      await reveal(tester, find.text('10,000 ဘတ် → 1,250,000 ကျပ်'), 200);
       expect(find.text('10,000 ဘတ် → 1,250,000 ကျပ်'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
@@ -120,40 +122,6 @@ void main() {
         find.byKey(const ValueKey('rate_0')),
       );
       expect(field.controller!.text, '');
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    },
-  );
-  testWidgets(
-    'Pasted Myanmar quote is confirmed before filling the calculator',
-    (tester) async {
-      await start(tester);
-      await tester.tap(find.text('ငွေတွက်'));
-      await tester.pumpAndSettle();
-      final paste = find.text('ကူးထားတဲ့စာကနေ ဈေးထည့်မယ်');
-      await reveal(tester, paste, 250);
-      await tester.tap(paste);
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('pasted_quote')),
-        '၁ သိန်းကျပ် = ၈၀၀ ဘတ်',
-      );
-      await tester.tap(find.text('နှုန်းဖတ်မယ်'));
-      await tester.pumpAndSettle();
-      expect(find.text('စစ်ပြီး ဒီနှုန်းသုံးမယ်'), findsOneWidget);
-      await tester.tap(find.text('စစ်ပြီး ဒီနှုန်းသုံးမယ်'));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 500));
-      await reveal(tester, find.byKey(const ValueKey('rate_0')), -250);
-      expect(
-        tester
-            .widget<TextField>(find.byKey(const ValueKey('rate_0')))
-            .controller!
-            .text,
-        '125.0',
-      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       tester.view.resetPhysicalSize();

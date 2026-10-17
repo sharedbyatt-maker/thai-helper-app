@@ -100,18 +100,16 @@ class _TrendCardState extends State<TrendCard> {
               ),
             ),
             if (q != null) ...[
-              if (q.direction == ExchangeDirection.thbMmk) ...[
-                const SizedBox(height: 8),
-                Text(
-                  quotePerBahtLabel(q),
-                  key: const ValueKey('per_baht_equivalent'),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: compact ? 15 : 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+              const SizedBox(height: 8),
+              Text(
+                quotePerBahtLabel(q),
+                key: const ValueKey('per_baht_equivalent'),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: compact ? 15 : 18,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
+              ),
               if (!compact) ...[
                 const SizedBox(height: 6),
                 Text(
