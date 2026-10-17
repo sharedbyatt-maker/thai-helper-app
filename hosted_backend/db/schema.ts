@@ -29,3 +29,10 @@ export const telegramPending = sqliteTable('telegram_pending', {
 export const telegramSession = sqliteTable('telegram_session', {
   id: integer('id').primaryKey(), source: text('source').notNull(),
 });
+
+// One-use owner-confirmed replacements retain the prior price/draft data.
+export const historyReplacements = sqliteTable('history_replacements', {
+  id: text('id').primaryKey(), requestId: text('request_id').notNull(),
+  createdAt: text('created_at').notNull(), appliedAt: text('applied_at'),
+  backupJson: text('backup_json').notNull(), summaryJson: text('summary_json').notNull(),
+});

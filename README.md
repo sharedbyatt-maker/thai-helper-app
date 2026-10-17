@@ -136,3 +136,18 @@ Daily: Channel ရွေးရန်မလိုပါ။ ဘယ် channel က�
 နှုန်းကို public rates နှင့် trend history သို့ တင်သည်။ ၂၄ နာရီကျော်လျှင် ပြန်မစစ်ရသေးသောနှုန်းဟု ဆက်ပြပြီး လက်ရှိနှုန်းအဖြစ် မတွက်ပေးပါ။ နှုန်းမှတ်တမ်းကို မဖျက်ပါ။ ရှိပြီးသား ဦးတည်ချက်တူနှုန်းကို အစားထိုးပြီး သီးခြား ပြောင်းပြန်ဦးတည်ချက်ကို မခန့်မှန်းပါ။ Draft သည် published နှင့် တူနေမှ sync လုပ်ပြီး မတင်ရသေးသော Draft ကို ထိန်းထားသည်။ Telegram တင်ပြီးနောက် Admin ကို Reload လုပ်ပါ။
 
 Hosting secret `TELEGRAM_CONFIG_KEY` သည် random 32-byte hexadecimal key ဖြစ်ရမည်။ Native Sites environment secret အဖြစ်သာ သိမ်းပြီး deploy လုပ်ရသည်။ Bot token/webhook secret ကို AES-GCM ဖြင့် encrypt လုပ်ကာ D1 တွင် သိမ်းသည်။ Key ကို အလိုအလျောက် မပြောင်းပါနှင့်။ Token ကို UI/API က ပြန်မပေးပါ။ Webhook သည် Telegram secret header၊ paired sender၊ private chat နှင့် durable duplicate receipt ကို စစ်သည်။ အသစ်ထည့်ထားသော Drizzle migrations ကို deploy ဖြင့် apply လုပ်ရသည်။ Local Python backend တွင် Telegram integration မပါပါ။
+
+## Confirmed six-day history replacement
+
+The owner approved replacing the previous published price history and draft with six daily observations on 2026-10-17. Values below are baht per 100,000 MMK; MMK→THB uses the first (3-lakh minimum) price from the supplied screenshots. Only the last visible update on each confirmed date is included.
+
+| Bangkok date | Source time | MMK→THB | THB→MMK |
+| --- | --- | ---: | ---: |
+| 2026-10-12 | 19:28 | 738 | 760 |
+| 2026-10-13 | 16:19 | 733 | 755 |
+| 2026-10-14 | 19:14 | 720 | 745 |
+| 2026-10-15 | 12:00 | 706 | 740 |
+| 2026-10-16 | 17:12 | 724 | 748 |
+| 2026-10-17 | 12:31 | 724 | 748 |
+
+`confirmed-history.mjs` contains the fixed dataset and a one-use operation protected by a high-entropy capability hash. No plaintext capability is stored in source. The operation checks the current revision and draft version, archives prior revisions and the draft in `history_replacements`, replaces prices in one atomic D1 batch, increments the draft version and invalidates prior pending Telegram confirmations. Account settings, bot configuration and receipts are retained. The receipt prevents any later retry from erasing new owner publications. Actual source observation times and 24-hour freshness are retained; publication timestamps record the import time. Schema migrations contain only the added archive/receipt table.
