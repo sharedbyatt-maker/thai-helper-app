@@ -57,10 +57,16 @@ export async function queueAlerts(db,bot,now=Date.now()) {
   ]);
  }
 }
-export async function deliverAlerts(db,token,bot,fetcher=fetch,now=Date.now()) {
+export async function deliverAlerts(db,token,bot,fetcher=fetch,now=Date.now) {
+ const suppliedTime=now;
+ const clock=typeof suppliedTime==='function'?suppliedTime:()=>suppliedTime;
+ const started=clock();
+ now=started;
  await db.prepare('UPDATE alert_outbox SET status=2 WHERE status=0 AND (attempts>=5 OR NOT EXISTS(SELECT 1 FROM alert_subscribers s WHERE s.chat_id=alert_outbox.chat_id AND s.version=alert_outbox.subscription_version AND s.active=1))').run();
  const rows=await db.prepare(`SELECT o.* FROM alert_outbox o JOIN alert_subscribers s ON s.chat_id=o.chat_id AND s.version=o.subscription_version WHERE s.bot=? AND s.active=1 AND o.status=0 AND o.next_attempt<=? AND o.attempts<5 ORDER BY o.revision LIMIT 10`).bind(bot,now).all();
  for(const item of rows.results) {
+  now=clock();
+  if(now-started>=20000)break;
   const payload=JSON.parse(item.payload);
   const latest=await db.prepare('SELECT id,payload FROM revisions ORDER BY id DESC LIMIT 1').first();
   const current=latest?JSON.parse(latest.payload).quotes.find(q=>q.direction===payload.direction):null;

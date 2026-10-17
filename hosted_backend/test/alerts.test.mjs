@@ -128,3 +128,15 @@ test('A duplicate subscription or stop receipt cannot mutate the subscription tw
   assert.equal(db.sqlite.prepare('SELECT version FROM alert_subscribers').get().version,2);
  }finally{db.sqlite.close();}
 });
+test('Slow delivery batches renew each item lease using the live clock and yield before worker background time expires',async()=>{
+ const db=new D1();try{
+  for(const chat of ['1','2','3'])await subscriberCommand(db,bot,chat,'/start news_mmk_thb');
+  publish(db,[quote('mmk_thb',730)]);await queueAlerts(db,bot.username,now);
+  let clock=now,sends=0;
+  await deliverAlerts(db,'token',bot.username,async()=>{sends++;clock+=11000;return {json:async()=>({ok:true})};},()=>clock);
+  assert.equal(sends,2);
+  const rows=db.sqlite.prepare('SELECT status,next_attempt FROM alert_outbox ORDER BY chat_id').all();
+  assert.equal(rows[0].next_attempt,now+60000);assert.equal(rows[1].next_attempt,now+71000);assert.equal(rows[2].status,0);
+  await deliverAlerts(db,'token',bot.username,async()=>{sends++;return {json:async()=>({ok:true})};},()=>clock);assert.equal(sends,3);
+ }finally{db.sqlite.close();}
+});
