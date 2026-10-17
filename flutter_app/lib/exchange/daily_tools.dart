@@ -109,7 +109,10 @@ class _DailyToolsState extends State<DailyTools> {
       setState(() {
         amountMinor = n;
         amount.text = money(n).replaceAll(',', '');
-        plannedDay = p.getString('planned_day_${direction.key}');
+        final savedDay = p.getString('planned_day_${direction.key}');
+        plannedDay = DateTime.tryParse(savedDay ?? '') == null
+            ? null
+            : savedDay;
         opens = count;
         ready = true;
       });
@@ -447,7 +450,7 @@ Future<void> showRateAlerts(
                 ],
                 const SizedBox(height: 12),
                 const Text(
-                  'Telegram မှာ Start နှိပ်မှ အသိပေးမှု ဖွင့်မယ်။ စောင့်ထားတဲ့ဈေးကိုတော့ ရောက်လာရင် တစ်ခါပဲ ပြောပေးမယ်။ /stop နဲ့ ပြန်ရပ်နိုင်တယ်။',
+                  'Telegram မှာ Start နှိပ်မှ ဖွင့်မယ်။ အသစ်ရွေးရင် အရင်ရွေးထားတာကို အစားထိုးမယ်။ စောင့်ထားတဲ့ဈေးကို ရောက်လာရင် တစ်ခါပဲ ပြောပေးမယ်။ /stop နဲ့ ရပ်နိုင်တယ်။',
                   style: TextStyle(fontSize: 12, height: 1.8),
                 ),
                 if (error != null)

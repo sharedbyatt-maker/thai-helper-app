@@ -150,7 +150,9 @@ void main() {
         scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('ဘတ်ပေး → ကျပ်ယူ နှုန်း မတင်ရသေးပါ။'), findsOneWidget);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       tester

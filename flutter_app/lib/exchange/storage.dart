@@ -24,7 +24,7 @@ class PersonalRecord {
   });
   factory PersonalRecord.fromJson(Map<String, dynamic> j) {
     final budget = j['budget_minor'], received = j['received_minor'];
-    for (final pair in [('id', 100), ('name', 200), ('note', 250)]) {
+    for (final pair in [('id', 100), ('name', 1000), ('note', 2000)]) {
       final value = j[pair.$1] ?? (pair.$1 == 'note' ? '' : null);
       if (value is! String ||
           value.length > pair.$2 ||
