@@ -23,17 +23,28 @@ RatePoint? priorDailyPoint(
 }) {
   final local = (now ?? DateTime.now()).toUtc().add(const Duration(hours: 7));
   final today = DateTime.utc(local.year, local.month, local.day);
+  final observed = quote.observedAt.toUtc().add(const Duration(hours: 7));
+  final quoteDay = DateTime.utc(observed.year, observed.month, observed.day);
+  final cutoff = quoteDay.isBefore(today) ? quoteDay : today;
   final items =
       (history?.points ?? <RatePoint>[])
           .where(
             (p) =>
                 p.quoteId == quote.id &&
                 p.direction == quote.direction &&
-                p.day.isBefore(today),
+                p.day.isBefore(cutoff),
           )
           .toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   return items.firstOrNull;
+}
+
+bool quoteIsToday(ExchangeQuote q) {
+  final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+  final observed = q.observedAt.toUtc().add(const Duration(hours: 7));
+  return now.year == observed.year &&
+      now.month == observed.month &&
+      now.day == observed.day;
 }
 
 String comparisonDay(RatePoint p, {DateTime? now}) {
@@ -248,7 +259,9 @@ class _DailyToolsState extends State<DailyTools> {
                 const SizedBox(height: 14),
                 if (received != null) ...[
                   Text(
-                    'ဒီနေ့ရမယ့်ငွေ',
+                    quoteIsToday(q!)
+                        ? 'ဒီနေ့ရမယ့်ငွေ'
+                        : 'နောက်ဆုံးစစ်ထားတဲ့ဈေးနဲ့ဆို',
                     style: TextStyle(
                       color: colors.onSurfaceVariant,
                       fontSize: 12,

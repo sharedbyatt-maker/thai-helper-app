@@ -1853,8 +1853,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ],
         ),
       );
-      if (accepted == true && mounted)
+      if (accepted == true && mounted) {
         await writeRecords(previewRecordImport(raw, records).records);
+      }
     } catch (e) {
       if (mounted) {
         toast(

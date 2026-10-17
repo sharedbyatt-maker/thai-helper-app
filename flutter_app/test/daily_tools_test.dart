@@ -66,6 +66,21 @@ void main() {
     },
   );
   test(
+    'A still-valid yesterday quote is never treated as a new today observation or compared with itself',
+    () {
+      final now = DateTime.parse('2026-10-17T01:00:00Z');
+      final q = quote(
+        ExchangeDirection.thbMmk,
+        130000000,
+        now.subtract(const Duration(hours: 12)),
+      );
+      expect(
+        priorDailyPoint(q, RateHistory([point(q, q.observedAt)]), now: now),
+        isNull,
+      );
+    },
+  );
+  test(
     'Backups merge without replacing existing records, reject malformed or unsupported data atomically, and retain completion dates',
     () {
       final now = DateTime.now(),
