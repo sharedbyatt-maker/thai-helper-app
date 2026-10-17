@@ -65,8 +65,14 @@ export async function publicTelegramInfo(db,runtime={}) {
  const c=await unseal(row.sealed,runtime.telegramKey);
  return {available:c.enabled===true,username:c.enabled?row.username:''};
 }
-export function scheduleAlerts(db,runtime={}) {
+let lastBackgroundAttempt=0;
+export function scheduleAlerts(db,runtime={},force=false) {
  if(!runtime.waitUntil)return;
+ // Public minute-by-minute polls share a cheap per-isolate cooldown. Confirmed
+ // publications and owner retry requests always bypass it; no request context is cached.
+ const now=Date.now();
+ if(!force&&now-lastBackgroundAttempt<60000)return;
+ lastBackgroundAttempt=now;
  runtime.waitUntil((async()=>{
   const row=await configRow(db);if(!row)return;
   const c=await unseal(row.sealed,runtime.telegramKey);if(!c.enabled)return;

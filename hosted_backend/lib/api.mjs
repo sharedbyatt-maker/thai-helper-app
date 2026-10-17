@@ -29,7 +29,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const result=await replaceConfirmedHistory(db,input?.expected_revision);
    return json(result.data,result.status);
   }
-  if(path==='/api/telegram/webhook'&&req.method==='POST'){const response=await webhook(req,db,await bodyText(req,32768),runtime);scheduleAlerts(db,runtime);return response;}
+  if(path==='/api/telegram/webhook'&&req.method==='POST'){const response=await webhook(req,db,await bodyText(req,32768),runtime);scheduleAlerts(db,runtime,true);return response;}
   if(path==='/api/v2/alerts'&&req.method==='GET')return json(await publicTelegramInfo(db,runtime));
   if(path==='/api/v2/history'&&req.method==='GET'){
    const since=new Date(Date.now()-31*86400000).toISOString();
@@ -54,7 +54,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   if(!owner)return json({error:'Admin အကောင့်ဖြင့် ဝင်ပါ',bootstrap_ready:canBootstrap},403);
   if(owner.user_id!==user.userId)return json({error:'ဤအကောင့်တွင် Admin ခွင့်မရှိပါ'},403);
   if(path==='/api/admin/insights'&&req.method==='GET'){
-   scheduleAlerts(db,runtime);
+   scheduleAlerts(db,runtime,true);
    const subscribers=await db.prepare('SELECT COUNT(*) AS count FROM alert_subscribers WHERE active=1').first();
    const deliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM alert_outbox GROUP BY status').all();
    return json({active_subscribers:subscribers.count,deliveries:deliveries.results});
@@ -98,7 +98,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
     db.prepare('INSERT INTO revisions(payload,published_at) SELECT payload,? FROM draft WHERE id=1 AND version=?').bind(now,version),
     db.prepare('UPDATE draft SET version=version+1 WHERE id=1 AND version=?').bind(version),
    ]);
-   if(result[0].meta.changes)scheduleAlerts(db,runtime);
+   if(result[0].meta.changes)scheduleAlerts(db,runtime,true);
    return result[0].meta.changes?json({ok:true,draft_version:version+1,published:await publicSheet()}):json(conflict,409);
   }
   if(path==='/api/admin/restore'&&req.method==='POST'){
