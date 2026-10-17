@@ -48,6 +48,16 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    let installPrompt;
+    window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
+    window.bahtzayInstall = async () => {
+      if (!installPrompt) return false;
+      const prompt = installPrompt; installPrompt = undefined;
+      await prompt.prompt();
+      return (await prompt.userChoice).outcome === 'accepted';
+    };
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

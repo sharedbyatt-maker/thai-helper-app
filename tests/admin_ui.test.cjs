@@ -23,48 +23,34 @@ function setup(quotes=[]){
  w.eval(fs.readFileSync(path.join(root,'app.js'),'utf8')+'\nwindow.api=api;');
  return {dom,w,state,$:id=>w.document.getElementById(id),get:(card,key)=>card.querySelector(`[data-key="${key}"]`)};
 }
-test('Guided inputs show examples, accept Myanmar digits and keep optional deductions at zero',async()=>{
+test('Daily form uses lakh units, generic provenance, no provider or fee inputs, and requires explicit publish',async()=>{
  const {dom,w,state,$,get}=setup();try{
   await until(()=>$('workspace').hidden===false);$('add').click();const card=$('editors').firstElementChild;
-  assert.match(get(card,'rate').placeholder,/125/);assert.match(get(card,'source_name').placeholder,/ဥပမာ/);
-  assert.equal(get(card,'flat_fee').closest('details').open,false);
-  get(card,'rate').value='၁၂၅';get(card,'rate').dispatchEvent(new w.Event('input',{bubbles:true}));
-  get(card,'source_name').value='Test source';get(card,'source_name').dispatchEvent(new w.Event('input',{bubbles:true}));get(card,'source_checked').checked=true;
+  assert.match(get(card,'rate').placeholder,/748/);assert.equal(get(card,'source_name'),null);assert.equal(get(card,'flat_fee'),null);assert.equal(get(card,'rate_unit'),null);
+  get(card,'rate').value='၇၄၈';get(card,'rate').dispatchEvent(new w.Event('input',{bubbles:true}));get(card,'source_checked').checked=true;
   $('preview-button').click();await until(()=>$('publish').disabled===false);
-  assert.equal(state.draft.quotes[0].rate_micros,125000000);assert.equal(state.draft.quotes[0].flat_fee_minor,0);assert.equal(state.draft.quotes[0].fee_bps,0);assert.equal(state.published.revision,0);
-  assert.ok(state.draft.quotes[0].label);assert.equal(state.draft.quotes[0].payout_method,'မဖော်ပြထားပါ');
+  assert.equal(state.draft.quotes[0].rate_micros,Math.round(100000/748*1e6));assert.equal(state.draft.quotes[0].flat_fee_minor,0);assert.equal(state.draft.quotes[0].fee_bps,0);assert.equal(state.published.revision,0);
+  assert.equal(state.draft.quotes[0].source_name,'နေ့စဉ်ရည်ညွှန်းနှုန်း');assert.match($('preview').textContent,/748/);
   $('publish').click();await until(()=>state.published.revision===1);await until(()=>$('message').textContent.includes('Publish အောင်မြင်'));
  }finally{dom.window.close();}
 });
-test('Daily shortcut reuses quote ID; opposite direction copies source and requires its own rate',async()=>{
+test('Daily directions keep stable IDs even after removal and never infer an opposite price',async()=>{
  const {dom,w,$,get}=setup();try{
   await until(()=>$('workspace').hidden===false);$('add').click();const first=$('editors').firstElementChild;
-  get(first,'source_name').value='Same daily source';get(first,'rate').value='125';const id=first.dataset.id;
-  $('add').click();assert.equal($('editors').children.length,1);assert.equal(first.dataset.id,id);
-  $('add-mmk').click();const second=$('editors').lastElementChild;
-  assert.equal(get(second,'direction').value,'mmk_thb');assert.match(get(second,'flat_fee').parentElement.textContent,/ကျပ်/);assert.equal(get(second,'source_name').value,'Same daily source');assert.equal(get(second,'rate').value,'');assert.equal(get(second,'source_checked').checked,false);
-  get(first,'source_checked').checked=true;first.querySelector('[data-action="today"]').click();assert.equal(get(first,'source_checked').checked,false);assert.equal($('publish').disabled,true);
-  assert.ok(new Date(get(first,'valid_until').value)>new Date(get(first,'observed_at').value));
+  get(first,'rate').value='748';const id=first.dataset.id;$('add').click();assert.equal($('editors').children.length,1);
+  $('add-mmk').click();const second=$('editors').lastElementChild;assert.equal(second.dataset.direction,'mmk_thb');assert.equal(get(second,'rate').value,'');
+  first.remove();$('add').click();assert.equal($('editors').lastElementChild.dataset.id,id);
+  const card=$('editors').lastElementChild;card.querySelector('[data-action="today"]').click();assert.equal(get(card,'source_checked').checked,true);assert.equal($('publish').disabled,true);
  }finally{dom.window.close();}
 });
-test('Existing deductions remain visible and preserved; edits invalidate a confirmed preview',async()=>{
- const now=new Date();const quote={id:'existing',label:'Existing',direction:'thb_mmk',rate_micros:125000000,flat_fee_minor:2000,fee_bps:100,source_name:'Source',source_url:'',payout_method:'Bank',note:'',observed_at:now.toISOString(),valid_until:new Date(+now+86400000).toISOString(),source_checked:true};
+test('Untouched legacy fees and full timestamps survive; a new rate clears deductions and invalidates preview',async()=>{
+ const at=new Date().toISOString();const quote={id:'existing',label:'Existing',direction:'thb_mmk',rate_micros:125000000,flat_fee_minor:2000,fee_bps:100,source_name:'Source',source_url:'',payout_method:'Bank',note:'',observed_at:at,valid_until:new Date(Date.now()+86400000).toISOString(),source_checked:true};
  const {dom,w,state,$,get}=setup([quote]);try{
   await until(()=>$('workspace').hidden===false);const card=$('editors').firstElementChild;
-  assert.equal(get(card,'flat_fee').closest('details').open,true);
-  $('preview-button').click();await until(()=>$('publish').disabled===false);
-  assert.equal(state.draft.quotes[0].flat_fee_minor,2000);assert.equal(state.draft.quotes[0].fee_bps,100);
-  get(card,'rate').value='126';get(card,'rate').dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal($('publish').disabled,true);assert.equal(get(card,'source_checked').checked,false);
- }finally{dom.window.close();}
-});
-test('Unit conversion stays equivalent and preview treats source markup as text',async()=>{
- const {dom,w,state,$,get}=setup();try{
-  await until(()=>$('workspace').hidden===false);$('add').click();const card=$('editors').firstElementChild;
-  get(card,'rate').value='125';get(card,'rate_unit').value='per_lakh';get(card,'rate_unit').dispatchEvent(new w.Event('change',{bubbles:true}));
-  assert.equal(get(card,'rate').value,'800');assert.match(get(card,'rate').placeholder,/800/);
-  get(card,'source_name').value='<script>bad()</script>';get(card,'source_checked').checked=true;
-  $('preview-button').click();await until(()=>$('publish').disabled===false);
-  assert.equal(state.draft.quotes[0].rate_micros,125000000);assert.equal($('preview-cards').querySelector('script,img'),null);assert.match($('preview-cards').textContent,/<script>/);
+  assert.equal(get(card,'rate').value,'800');assert.equal(get(card,'flat_fee'),null);assert.match(card.textContent,/အဟောင်းမှာ နုတ်ငွေ/);
+  $('preview-button').click();await until(()=>$('publish').disabled===false);assert.equal(state.draft.quotes[0].flat_fee_minor,2000);assert.equal(state.draft.quotes[0].observed_at,at);
+  get(card,'rate').value='750';get(card,'rate').dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal($('publish').disabled,true);assert.equal(get(card,'source_checked').checked,false);
+  get(card,'source_checked').checked=true;$('preview-button').click();await until(()=>$('publish').disabled===false);assert.equal(state.draft.quotes[0].flat_fee_minor,0);assert.equal(state.draft.quotes[0].fee_bps,0);
  }finally{dom.window.close();}
 });
 test('Telegram setup keeps token out of displayed state and provides an expiring pairing link',async()=>{
