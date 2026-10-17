@@ -1,4 +1,5 @@
 import { validate, Invalid } from './validate.mjs';
+import { subscriberCommand,queueAlerts,deliverAlerts } from './alerts.mjs';
 const enc = new TextEncoder();
 const hex = bytes => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 const unhex = s => Uint8Array.from(s.match(/../g) || [], b => parseInt(b, 16));
@@ -58,6 +59,24 @@ async function telegram(token, method, body, fetcher) {
 const configRow = db => db.prepare('SELECT * FROM telegram_settings WHERE id=1').first();
 const cleanText = (v,n) => typeof v==='string' && v.trim().length<=n ? v.trim() : '';
 const summary = (row,c) => ({configured:!!row,username:row?.username||'',paired:!!row?.owner_id,owner_id:row?.owner_id||'',source_name:c?.source_name||'',source_url:c?.source_url||'',direction:c?.direction||'mmk_thb',enabled:c?.enabled===true});
+export async function publicTelegramInfo(db,runtime={}) {
+ const row=await configRow(db);
+ if(!row)return {available:false,username:''};
+ const c=await unseal(row.sealed,runtime.telegramKey);
+ return {available:c.enabled===true,username:c.enabled?row.username:''};
+}
+export function scheduleAlerts(db,runtime={}) {
+ if(!runtime.waitUntil)return;
+ runtime.waitUntil((async()=>{
+  const row=await configRow(db);if(!row)return;
+  const c=await unseal(row.sealed,runtime.telegramKey);if(!c.enabled)return;
+  const deadline=Date.now()+20000;
+  for(let i=0;i<10&&Date.now()<deadline;i++){
+   await queueAlerts(db,row.username);
+   if(!await deliverAlerts(db,c.token,row.username,runtime.fetcher||fetch))break;
+  }
+ })().catch(()=>console.error('Notification delivery deferred')));
+}
 export async function adminTelegram(req, db, path, data, runtime={}) {
  const secret=runtime.telegramKey, fetcher=runtime.fetcher||fetch;
  const row=await configRow(db), c=row?await unseal(row.sealed,secret):null;
@@ -214,6 +233,10 @@ export async function webhook(req,db,raw,runtime={}) {
   const paired=await db.prepare('UPDATE telegram_settings SET owner_id=?,pair_hash=NULL,pair_until=NULL,generation=generation+1 WHERE id=1 AND pair_hash=? AND pair_until>?').bind(chat,nonceHash,Date.now()).run();
   return Response.json(reply(chat,paired.meta.changes?'ချိတ်ဆက်ပြီးပါပြီ ✓\nဒီ account ကပဲ နှုန်းတင်နိုင်ပါသည်။\nChannel ရွေးစရာ မလိုပါ။\nကျပ်ပေး ဘတ်ယူ 726 လို့ ပို့နိုင်ပါတယ်။\n/help ဖြင့် အသုံးပြုပုံ ကြည့်ပါ။':'ချိတ်ဆက် link သက်တမ်းကုန်ပါပြီ။ Admin မှာ link အသစ်ယူပါ။'));
  }
+ const subscriberCached=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(id).first();
+ if(subscriberCached)return Response.json(JSON.parse(subscriberCached.response));
+ const subscription=await subscriberCommand(db,row,chat,text,u.callback_query?.data);
+ if(subscription){if(u.callback_query){try{await telegram(c.token,'answerCallbackQuery',{callback_query_id:u.callback_query.id},runtime.fetcher||fetch);}catch{}}return Response.json(await receipt(db,id,subscription));}
  if(row.owner_id!==chat)return Response.json({ok:true});
  if(u.callback_query){try{await telegram(c.token,'answerCallbackQuery',{callback_query_id:u.callback_query.id},runtime.fetcher||fetch);}catch{}}
  const cached=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(id).first();if(cached)return Response.json(JSON.parse(cached.response));

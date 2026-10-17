@@ -10,7 +10,7 @@ The hosted backend uses ChatGPT Sites with a durable Cloudflare D1 database. No 
 
 Sign into the dashboard with the ChatGPT account that owns this Site. The initial owner is checked against the trusted Sites access record, then its Site-specific identity is pinned in the database. Other signed-in accounts cannot edit rates. No new password, API key, or activation code is needed.
 
-Enter separate THB→MMK and MMK→THB quotes, include source/fee/expiry, check the source, then **Save Draft → Preview → Publish**. Drafts stay private. The app refreshes about once a minute. No invented live rates are supplied: the owner must publish the first real daily sheet.
+Enter separate THB→MMK and MMK→THB prices in baht per 100,000 MMK, confirm that you checked each updated price, then **Save Draft → Preview → Publish**. Drafts stay private. The app refreshes about once a minute. No invented live rates are supplied: the owner must publish the first real daily sheet.
 
 `hosted_backend/` retains the deployed backend source, migrations, tests and Sites build integration. Its native Site source repository is synchronized separately by the Sites workflow. Personal transaction records remain browser-local, not in the shared backend.
 
@@ -20,7 +20,7 @@ The GitHub Pages workflow uses this hosted API by default. Set the optional repo
 
 The public calculator starts with amount and rate only. Comparison and target-payout options are collapsed. The public app has no source-details drawer or editable deduction inputs. Legacy nonzero published deductions remain a read-only notice and stay included in results; editing a rate clears legacy deductions so manual prices never silently retain them. The calculator uses a compact centered layout, large numeric entry and highlighted results. The rate board preserves a real chart marker or an explicit empty chart frame when history is limited.
 
-The hosted admin form has direction shortcuts, faded input examples, a live equivalent-rate explanation, required source confirmation, and a button to refresh observation/expiry times for daily editing. Existing quote IDs are reused by direction shortcuts. New opposite-direction rows copy source details but never infer a rate. Names, payout method, timestamps, notices and separate deductions are optional details; blank deduction values save as zero. Example numbers are never saved as actual rates.
+The hosted admin form has one independent per-lakh input for each direction, faded examples, an equivalent-rate explanation, a check confirmation and a daily recheck shortcut. Source/provider and fee inputs are removed; internal generic provenance remains for compatibility. Existing quote IDs survive daily edits and re-adding a direction. Time fields are optional details. Unchanged legacy deductions are preserved transparently; typing a new price clears them. Example numbers are never saved as actual prices.
 
 ## User interface and rate trend
 
@@ -28,14 +28,14 @@ The public board opens with the 7-day chart, with Today / 7-day / 30-day choices
 
 ## Features
 
-Currency-only tools for Myanmar users: owner-published directional quotes, personal quote comparison, pasted chat rates, and device-local exchange records. Thai language features and simulated provider rankings are not part of the active app.
+Currency-only tools for Myanmar users: owner-published directional quotes, personal quote comparison, timestamped price sharing, opt-in Telegram price alerts, and device-local exchange records with backup import/export. Thai language features and simulated provider rankings are not part of the active app.
 
 ## What the owner does each day
 
 1. Open `/admin` and sign in.
 2. Add or edit **ဘတ်ပေး → ကျပ်ယူ** and **ကျပ်ပေး → ဘတ်ယူ** separately. Neither direction is inferred from the other.
-3. Enter a rate as MMK per THB or THB per 100,000 MMK, plus the fee in the paying currency, source, payout method, observed time and expiry (up to seven days).
-4. Check the source confirmation, save Draft, then Preview.
+3. Enter baht per 100,000 MMK. Updating the price sets the observation time to now and freshness to 24 hours. Expand time details only when you need to record a different check time.
+4. Confirm the updated price was checked, save Draft, then Preview. The daily recheck shortcut can confirm an unchanged price without typing it again.
 5. Publish. Public clients refresh automatically once per minute and can pull to refresh. Unpublished drafts remain private.
 6. To correct a mistake, restore an earlier version to Draft, review its rate/expiry, then publish a new version. Restoring alone does not change public data.
 
@@ -92,14 +92,14 @@ The previous scheduled estimated-provider updater is removed. Legacy data and ar
 - **Input is total spending, including fees.** `fee = flat + ceil(total × percentage)`; payout converts the remaining amount and rounds down to a minor unit.
 - Target-payout calculation returns the smallest total budget that meets the target using the chosen flat/percentage fee. It does not use the previous global search across stepped provider fees.
 - The calculator compares at most three quotes in the same direction. A comparison assumes the user has checked matching payout methods and conditions.
-- Pasted text is parsed on the device, not sent to an AI service. Supported examples: `1 THB = 125 MMK`, `၁ ဘတ် = ၁၂၅ ကျပ်`, `၁ သိန်း = ၈၀၀ ဘတ်`. These numbers are **format examples, not real quotes**. Ambiguous/multiple different rates are rejected. The user must confirm the interpretation and separately enter direction/fees. Screenshot OCR is not included.
+- The legacy rate parser remains covered by unit tests; its calculator paste UI has been removed. Parser examples: `1 THB = 125 MMK`, `၁ ဘတ် = ၁၂၅ ကျပ်`, `၁ သိန်း = ၈၀၀ ဘတ်`. These numbers are **format examples, not real quotes**. Ambiguous/multiple different rates are rejected. Screenshot OCR is not included.
 - Source-selected quotes lose their checked-source provenance when the user edits them. Expired source quotes cannot be calculated as current quotes.
 
 ## Personal records
 
-No customer login is needed. Rate snapshots, amounts and optional notes are stored using SharedPreferences on the current device/browser; no personal records are sent to the publishing backend. Users can mark a saved calculation as completed, delete records, and export/share JSON. Completion is user-reported, not independently verified.
+No customer login is needed. Rate snapshots, amounts and optional notes are stored using SharedPreferences on the current device/browser; no personal records are sent to the publishing backend. Users can mark a saved calculation as completed, choose the actual completion date, delete records, download JSON, and preview a non-destructive JSON import. Completion is user-reported, not independently verified.
 
-The monthly THB→MMK summary includes only records marked completed and groups them by the month the calculation was saved. Limits: 500 records; browser storage can be cleared or lost; no cross-device sync. Export important records. Corrupt stored data is not silently replaced.
+Monthly summaries keep THB→MMK and MMK→THB totals separate and include only completed records. They use the actual completion date, falling back to the save date for older records without a completion date. Limits: 500 records; browser storage can be cleared or lost; no cross-device sync. Export important records. Corrupt stored data is not silently replaced.
 
 ## Security and operational limits
 
@@ -153,3 +153,15 @@ The owner approved replacing the previous published price history and draft with
 `confirmed-history.mjs` contains the fixed dataset and a one-use operation protected by a high-entropy capability hash. No plaintext capability is stored in source. The operation checks the current revision and draft version, archives prior revisions and the draft in `history_replacements`, replaces prices in one atomic D1 batch, increments the draft version and invalidates prior pending Telegram confirmations. Account settings, bot configuration and receipts are retained. The receipt prevents any later retry from erasing new owner publications. Actual source observation times and 24-hour freshness are retained; publication timestamps record the import time. Schema migrations contain only the added archive/receipt table.
 
 Phone layouts use fully wrapping, equal-height direction cards without chip avatar/fade constraints. The mobile trend card uses a 108px plot, compact periods/summary and fewer repeated labels; desktop retains the detailed 158px chart. Responsive tests load the real Myanmar fonts and check 320–430px widths, larger accessibility text, glyph selection bounds, six real points and card height.
+
+
+## Daily-use tools and subscriber alerts
+
+- Home retains a separate personal amount for each direction on this browser. It shows the payout and difference against the most recent actual earlier Bangkok day; a missing yesterday is labeled by its actual date. Freshness checks also apply here. Prices and reverse prices are never invented.
+- Planned dates are local notes shown when the app is opened, not background calendar notifications. Home Screen installation is offered after repeat visits. It uses the browser install prompt when available and otherwise gives iPhone/Android instructions.
+- The daily share card contains public prices, original observation times, stale labels and the app URL. It excludes private amounts, notes, records, and source names. A PNG can be shared or downloaded when native file sharing is unavailable.
+- JSON import validates the whole backup before offering a count preview. It merges by record ID, skips duplicates without replacing existing records, and enforces the 500-record limit. Export/import and PNG download are provided for the deployed web app.
+- The daily Admin editor accepts baht per 100,000 MMK with independent prices and stable per-direction feed IDs. Source/provider and fee inputs have been removed. Untouched legacy deductions remain honestly preserved; entering a new price explicitly clears them. Unchanged expired opposite quotes may be carried forward with their real observation time alongside a fresh direction.
+- A user chooses the bell on Home, selects daily-price news or a target, opens Telegram, and presses Start. News uses `news_thb_mmk` / `news_mmk_thb`; one-shot targets use `watch_<direction>_<hundredths-of-baht-per-lakh>`. THB→MMK targets mean at or below; MMK→THB means at or above. The bot stores only the Telegram chat ID, direction, mode and target needed for delivery. `/stop` disables sends; resubscribing invalidates older queued messages. Public subscribers never obtain owner publishing privileges.
+- Notifications evaluate only confirmed, fresh publications. Same-day unchanged rates and carried opposite rates are suppressed. A new day's confirmation may send the same price again. Target alerts stop after a successful send. The queue has bounded batches, leases, Telegram backoff, and expiry checks. Publishing, public rate reads and Admin insight refresh resume pending work through the Worker request's background lifetime. There is no independent minute-by-minute cron: delivery can be delayed during Telegram/network failure until another publication/read/insight refresh. External delivery is at least once; a rare ambiguous network timeout can result in a repeated message.
+- Admin insight counts show active subscriptions and queued/delivered messages. Personal record amounts and browser usage are not sent to the publishing backend. Published data and existing owner/bot settings are not changed by these additive schema migrations.

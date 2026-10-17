@@ -36,3 +36,15 @@ export const historyReplacements = sqliteTable('history_replacements', {
   createdAt: text('created_at').notNull(), appliedAt: text('applied_at'),
   backupJson: text('backup_json').notNull(), summaryJson: text('summary_json').notNull(),
 });
+
+export const alertSubscribers = sqliteTable('alert_subscribers', {
+  chatId: text('chat_id').primaryKey(), bot: text('bot').notNull(), direction: text('direction').notNull(),
+  mode: text('mode').notNull(), threshold: integer('threshold'), active: integer('active').notNull().default(1),
+  version: integer('version').notNull().default(1), evaluatedRevision: integer('evaluated_revision').notNull().default(0),
+  lastSignature: text('last_signature').notNull().default(''), createdAt: integer('created_at').notNull(),
+});
+export const alertOutbox = sqliteTable('alert_outbox', {
+  id: text('id').primaryKey(), chatId: text('chat_id').notNull(), subscriptionVersion: integer('subscription_version').notNull(),
+  revision: integer('revision').notNull(), payload: text('payload').notNull(), status: integer('status').notNull().default(0),
+  attempts: integer('attempts').notNull().default(0), nextAttempt: integer('next_attempt').notNull().default(0),
+});

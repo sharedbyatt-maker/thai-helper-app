@@ -58,6 +58,7 @@ void main() {
     bool empty = false,
     int Function()? revision,
   }) async {
+    SharedPreferences.setMockInitialValues({});
     t.view.physicalSize = Size(width, 1100);
     t.view.devicePixelRatio = 1;
     final now = DateTime.now().toUtc();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,8 @@ import 'rates_repository.dart';
 import 'storage.dart';
 import 'rate_history.dart';
 import 'trend_card.dart';
+import 'daily_tools.dart';
+import 'platform_files.dart';
 
 class CurrencyApp extends StatefulWidget {
   final RatesRepository? repository;
@@ -219,6 +222,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
   ExchangeDirection direction = ExchangeDirection.thbMmk;
   ExchangeDirection? recordsDirection;
   bool directionChosen = false;
+  bool appVisible = true;
+  int? historyRevision;
+  DateTime? historyFetchedAt;
   bool targetMode = false,
       loading = true,
       recordsReady = false,
@@ -233,10 +239,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
     WidgetsBinding.instance.addObserver(this);
     _refresh();
     _loadRecords();
-    timer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => _refresh(silent: true),
-    );
+    restoreDirection();
+    timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (appVisible) _refresh(silent: true);
+    });
   }
 
   @override
@@ -253,7 +259,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh(silent: true);
+    appVisible = state == AppLifecycleState.resumed;
+    if (appVisible) _refresh(silent: true);
   }
 
   void toast(String message) {
@@ -333,10 +340,19 @@ class _ExchangeHomeState extends State<ExchangeHome>
         loadError = null;
       });
       try {
+        if (historyRevision == next.sheet.revision &&
+            rateHistory != null &&
+            historyFetchedAt != null &&
+            DateTime.now().difference(historyFetchedAt!) <
+                const Duration(minutes: 15)) {
+          return;
+        }
         final history = await repo.loadHistory();
         if (!mounted || id != requestId) return;
         setState(() {
           rateHistory = history;
+          historyRevision = history.cached ? null : next.sheet.revision;
+          historyFetchedAt = DateTime.now();
           trendLoading = false;
           trendUnavailable = false;
         });
@@ -395,7 +411,30 @@ class _ExchangeHomeState extends State<ExchangeHome>
     });
   }
 
+  Future<void> restoreDirection() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString('preferred_direction');
+      await p.setInt('app_open_count', (p.getInt('app_open_count') ?? 0) + 1);
+      if (!mounted || directionChosen || raw == null) return;
+      setState(() {
+        direction = parseDirection(raw);
+        directionChosen = true;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> rememberDirection(ExchangeDirection value) async {
+    try {
+      await (await SharedPreferences.getInstance()).setString(
+        'preferred_direction',
+        value.key,
+      );
+    } catch (_) {}
+  }
+
   void changeDirection(ExchangeDirection next) {
+    rememberDirection(next);
     directionChosen = true;
     if (next == direction) return;
     setState(() {
@@ -855,6 +894,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
             loading: loading || trendLoading,
             unavailable: trendUnavailable,
             onCalculate: useQuote,
+          ),
+          const SizedBox(height: 14),
+          DailyTools(
+            quote: dailyQuote(direction),
+            history: rateHistory,
+            quotes: data?.sheet.quotes ?? [],
+            direction: direction,
           ),
           const SizedBox(height: 14),
           if (!loading &&
@@ -1436,7 +1482,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final colors = Theme.of(context).colorScheme;
     final now = DateTime.now().toUtc().add(const Duration(hours: 7));
     final month = records.where((r) {
-      final saved = r.savedAt.toUtc().add(const Duration(hours: 7));
+      final saved = (r.completedAt ?? r.savedAt).toUtc().add(
+        const Duration(hours: 7),
+      );
       return r.completed && saved.year == now.year && saved.month == now.month;
     }).toList();
     final visible =
@@ -1497,7 +1545,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   monthlyRecordSummary(side, month),
                 const SizedBox(height: 8),
                 const Text(
-                  'လဲပြီးပြီလို့ ကိုယ်တိုင်မှတ်ထားတာတွေကို သိမ်းတဲ့လအလိုက် ပေါင်းပြထားပါတယ်။',
+                  'လဲပြီးတဲ့ရက်အလိုက် ပေါင်းထားပါတယ်။ ရက်မမှတ်ခဲ့တဲ့ အဟောင်းတွေကိုတော့ သိမ်းတဲ့ရက် သုံးထားတယ်။',
                   style: TextStyle(fontSize: 12),
                 ),
               ],
@@ -1526,6 +1574,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
         ],
+        if (recordsReady && records.isEmpty)
+          OutlinedButton.icon(
+            onPressed: writingRecord ? null : importRecords,
+            icon: const Icon(Icons.file_open_outlined),
+            label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
+          ),
         if (recordsReady && visible.isEmpty)
           panel(
             Column(
@@ -1563,9 +1617,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
             runSpacing: 4,
             children: [
               OutlinedButton.icon(
-                onPressed: () => shareText(store.export(records)),
+                onPressed: exportRecords,
                 icon: const Icon(Icons.ios_share),
-                label: const Text('မှတ်တမ်းအားလုံး ဖိုင်ထုတ် / မျှဝေမယ်'),
+                label: const Text('မှတ်တမ်းဖိုင် သိမ်းမယ်'),
+              ),
+              OutlinedButton.icon(
+                onPressed: writingRecord ? null : importRecords,
+                icon: const Icon(Icons.file_open_outlined),
+                label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
               ),
               TextButton(
                 onPressed: writingRecord ? null : clearRecords,
@@ -1713,6 +1772,18 @@ class _ExchangeHomeState extends State<ExchangeHome>
                         .toList(),
                   ),
           ),
+          if (r.completed)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: TextButton.icon(
+                key: ValueKey('record_date_${r.id}'),
+                onPressed: writingRecord ? null : () => setCompletedDate(r),
+                icon: const Icon(Icons.event_outlined, size: 17),
+                label: Text(
+                  'လဲပြီးတဲ့ရက် · ${when(r.completedAt ?? r.savedAt).split(' ').first}',
+                ),
+              ),
+            ),
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1744,6 +1815,75 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ],
       ),
     );
+  }
+
+  void exportRecords() {
+    final bytes = Uint8List.fromList(utf8.encode(store.export(records)));
+    downloadBytes(
+      bytes,
+      'bahtzay-records-${DateTime.now().toIso8601String().substring(0, 10)}.json',
+      'application/json',
+    );
+  }
+
+  Future<void> importRecords() async {
+    if (writingRecord) return;
+    try {
+      final raw = await pickBackup();
+      if (raw == null || !mounted) return;
+      final preview = previewRecordImport(raw, records);
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
+          content: Text(
+            'အသစ်ထည့်မယ့်မှတ်တမ်း ${preview.added} ခု\nထပ်နေတာ ${preview.skipped} ခုကို ကျော်ထားမယ်။\n\nဒီဖုန်းထဲက ရှိပြီးသားတွေကို မဖျက်ပါဘူး။',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('မသွင်းတော့'),
+            ),
+            FilledButton(
+              onPressed: preview.added == 0
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              child: const Text('ပေါင်းထည့်မယ်'),
+            ),
+          ],
+        ),
+      );
+      if (accepted == true && mounted) {
+        await writeRecords(previewRecordImport(raw, records).records);
+      }
+    } catch (e) {
+      if (mounted) {
+        toast(
+          e is FormatException
+              ? e.message
+              : 'မှတ်တမ်းဖိုင် ဖတ်မရသေးဘူး။ ဘတ်ဈေး app က ထုတ်ထားတဲ့ဖိုင်ကို ရွေးပေးပါ။',
+        );
+      }
+    }
+  }
+
+  Future<void> setCompletedDate(PersonalRecord r) async {
+    final now = DateTime.now();
+    final current = (r.completedAt ?? r.savedAt).toLocal();
+    final chosen = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(now) ? now : current,
+      firstDate: DateTime(2000),
+      lastDate: now,
+      helpText: 'တကယ်ငွေလဲပြီးတဲ့ရက်',
+    );
+    if (chosen != null && mounted) {
+      await writeRecords(
+        records
+            .map((x) => x.id == r.id ? x.withCompleted(true, at: chosen) : x)
+            .toList(),
+      );
+    }
   }
 
   Future<bool> confirmDelete(String text) async =>

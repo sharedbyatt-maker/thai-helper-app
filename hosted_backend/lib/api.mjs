@@ -1,7 +1,7 @@
 import { Invalid, validate } from './validate.mjs';
 import { publicHistory } from './history.mjs';
 import { replacementPath, authorizedReplacement, replaceConfirmedHistory } from './confirmed-history.mjs';
-import { adminTelegram, webhook } from './telegram.mjs';
+import { adminTelegram, webhook, publicTelegramInfo, scheduleAlerts } from './telegram.mjs';
 class TooLarge extends Error {}
 async function bodyText(req, limit) {
  if(Number(req.headers.get('Content-Length'))>limit)throw new TooLarge();
@@ -15,7 +15,7 @@ const EMPTY={schema_version:2,revision:0,published_at:null,notice:'နှုန�
 const conflict={error:'Draft ပြောင်းထားပါသည်။ Reload လုပ်ပါ။'};
 export async function handle(req, db, user, bootstrapEmail, runtime={}) {
  const path=new URL(req.url).pathname;
- const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history'].includes(path);
+ const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history','/api/v2/alerts'].includes(path);
  const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...(publicRoute?{'Access-Control-Allow-Origin':'*'}:{})}});
  const publicSheet=async()=>{
   const row=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
@@ -29,13 +29,14 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const result=await replaceConfirmedHistory(db,input?.expected_revision);
    return json(result.data,result.status);
   }
-  if(path==='/api/telegram/webhook'&&req.method==='POST')return await webhook(req,db,await bodyText(req,32768),runtime);
+  if(path==='/api/telegram/webhook'&&req.method==='POST'){const response=await webhook(req,db,await bodyText(req,32768),runtime);scheduleAlerts(db,runtime);return response;}
+  if(path==='/api/v2/alerts'&&req.method==='GET')return json(await publicTelegramInfo(db,runtime));
   if(path==='/api/v2/history'&&req.method==='GET'){
    const since=new Date(Date.now()-31*86400000).toISOString();
    const rows=await db.prepare('SELECT id,payload,published_at FROM revisions WHERE published_at>=? ORDER BY id DESC LIMIT 400').bind(since).all();
    return json(publicHistory(rows.results));
   }
-  if(publicRoute&&req.method==='GET')return json(await publicSheet());
+  if(publicRoute&&req.method==='GET'){scheduleAlerts(db,runtime);return json(await publicSheet());}
   if(path==='/api/health'&&req.method==='GET'){await db.prepare('SELECT 1').first();return json({ok:true,storage:'D1'});}
   if(!path.startsWith('/api/admin/'))return json({error:'Not found'},404);
   if(req.method!=='GET'&&(req.headers.get('X-Admin-Request')!=='1'||!req.headers.get('Origin')||req.headers.get('Origin')!==new URL(req.url).origin))return json({error:'Same-origin admin request လိုပါသည်'},403);
@@ -52,6 +53,12 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   }
   if(!owner)return json({error:'Admin အကောင့်ဖြင့် ဝင်ပါ',bootstrap_ready:canBootstrap},403);
   if(owner.user_id!==user.userId)return json({error:'ဤအကောင့်တွင် Admin ခွင့်မရှိပါ'},403);
+  if(path==='/api/admin/insights'&&req.method==='GET'){
+   scheduleAlerts(db,runtime);
+   const subscribers=await db.prepare('SELECT COUNT(*) AS count FROM alert_subscribers WHERE active=1').first();
+   const deliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM alert_outbox GROUP BY status').all();
+   return json({active_subscribers:subscribers.count,deliveries:deliveries.results});
+  }
   if(path==='/api/admin/state'&&req.method==='GET'){
    // Bound seed is idempotent, outside schema migrations.
    await db.prepare('INSERT OR IGNORE INTO draft(id,payload,version) VALUES(1,?,0)').bind(JSON.stringify({notice:'',quotes:[]})).run();
@@ -78,13 +85,20 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const row=await db.prepare('SELECT payload,version FROM draft WHERE id=1').first();
    if(!row||row.version!==version)return json(conflict,409);
    const sheet=validate(JSON.parse(row.payload));
-   if(sheet.quotes.some(q=>Date.parse(q.valid_until)<=Date.now()))return json({error:'သက်တမ်းကုန်သောနှုန်း ပါနေပါသည်'},400);
+   const previous=await publicSheet();
+   const fresh=sheet.quotes.filter(q=>Date.parse(q.valid_until)>Date.now());
+   if(sheet.quotes.length&&fresh.length===0)return json({error:'သက်တမ်းကုန်သောနှုန်း ပါနေပါသည်'},400);
+   for(const q of sheet.quotes.filter(q=>Date.parse(q.valid_until)<=Date.now())) {
+    const retained=previous.quotes.find(x=>x.id===q.id&&x.direction===q.direction);
+    if(!retained||Object.keys(q).some(k=>retained[k]!==q[k]))return json({error:'အဟောင်းနှုန်းကို ပြင်ထားပါသည်။ ပြန်စစ်ထားသော အချိန် သတ်မှတ်ပါ။'},400);
+   }
    const now=new Date().toISOString();
    // batch is atomic. SELECT and UPDATE both compare the validated version.
    const result=await db.batch([
     db.prepare('INSERT INTO revisions(payload,published_at) SELECT payload,? FROM draft WHERE id=1 AND version=?').bind(now,version),
     db.prepare('UPDATE draft SET version=version+1 WHERE id=1 AND version=?').bind(version),
    ]);
+   if(result[0].meta.changes)scheduleAlerts(db,runtime);
    return result[0].meta.changes?json({ok:true,draft_version:version+1,published:await publicSheet()}):json(conflict,409);
   }
   if(path==='/api/admin/restore'&&req.method==='POST'){
