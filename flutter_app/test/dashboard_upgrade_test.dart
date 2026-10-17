@@ -178,10 +178,14 @@ void main() {
         expect(find.text('၁ ဘတ် ≈ 125 ကျပ်'), findsOneWidget);
         expect(find.text('ကျပ် ၁ သိန်း → 750 ဘတ်'), findsOneWidget);
         expect(find.text('ဘတ် 800 → ကျပ် ၁ သိန်း'), findsOneWidget);
+        await reveal(t, find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'));
         await t.tap(find.widgetWithText(ChoiceChip, 'ကျပ်ပေး → ဘတ်ယူ'));
         await t.pumpAndSettle();
         expect(find.text('ကျပ် ၁ သိန်း = 750 ဘတ်'), findsOneWidget);
         expect(find.byKey(const ValueKey('per_baht_equivalent')), findsNothing);
+        await reveal(t, find.text('ဒီနေ့'));
+        await t.tap(find.text('ဒီနေ့'));
+        await t.pumpAndSettle();
         expect(
           (t.widget<CustomPaint>(graph).painter! as RateTrendPainter)
               .points

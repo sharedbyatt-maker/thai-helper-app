@@ -1,5 +1,6 @@
 import { Invalid, validate } from './validate.mjs';
 import { publicHistory } from './history.mjs';
+import { replacementPath, authorizedReplacement, replaceConfirmedHistory } from './confirmed-history.mjs';
 import { adminTelegram, webhook } from './telegram.mjs';
 class TooLarge extends Error {}
 async function bodyText(req, limit) {
@@ -21,6 +22,13 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   return row?{...JSON.parse(row.payload),schema_version:2,revision:row.id,published_at:row.published_at}:EMPTY;
  };
  try {
+  if(path===replacementPath){
+   if(req.method!=='POST')return json({error:'Not found'},404);
+   if(!await authorizedReplacement(req))return json({error:'Unauthorized'},401);
+   let input;try{input=JSON.parse(await bodyText(req,1024));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON required'},400);}
+   const result=await replaceConfirmedHistory(db,input?.expected_revision);
+   return json(result.data,result.status);
+  }
   if(path==='/api/telegram/webhook'&&req.method==='POST')return await webhook(req,db,await bodyText(req,32768),runtime);
   if(path==='/api/v2/history'&&req.method==='GET'){
    const since=new Date(Date.now()-31*86400000).toISOString();

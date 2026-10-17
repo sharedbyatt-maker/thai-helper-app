@@ -93,6 +93,14 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('rate_trend_card')), findsOneWidget);
         expect(find.widgetWithText(TextButton, '7 ရက်'), findsOneWidget);
+        final initialPlot = find.byKey(const ValueKey('reference_rate_graph'));
+        expect(
+          (tester.widget<CustomPaint>(initialPlot).painter! as RateTrendPainter)
+              .points
+              .length,
+          7,
+        );
+
         await tester.tap(find.text('30 ရက်'));
         await tester.pumpAndSettle();
         expect(
