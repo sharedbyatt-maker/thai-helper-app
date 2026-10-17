@@ -166,6 +166,8 @@ void main() {
     (t) async {
       for (final width in [320.0, 1100.0]) {
         await start(t, width: width, scale: width == 320 ? 1.3 : 1);
+        await t.tap(find.text('ဒီနေ့'));
+        await t.pumpAndSettle();
         final graph = find.byKey(const ValueKey('reference_rate_graph'));
         expect(graph, findsOneWidget);
         expect(

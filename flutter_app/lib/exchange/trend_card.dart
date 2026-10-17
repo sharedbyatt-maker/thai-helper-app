@@ -22,7 +22,7 @@ class TrendCard extends StatefulWidget {
 
 class _TrendCardState extends State<TrendCard> {
   String? selected;
-  int days = 1;
+  int days = 7;
   int? hovered;
   String identity(ExchangeQuote q) => '${q.direction.key}:${q.id}';
   static const pale = Color(0xffbbebe0);
