@@ -11,28 +11,32 @@ Future<String?> pickBackup() async {
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..accept = '.json,application/json';
+  Future<void> readSelected() async {
+    final files = input.files;
+    if (files == null || files.length == 0) {
+      if (!result.isCompleted) result.complete(null);
+      return;
+    }
+    final file = files.item(0)!;
+    if (file.size > 2000000) {
+      result.completeError(
+        const FormatException(
+          'ဖိုင်ကြီးလွန်းတယ်။ မှတ်တမ်း JSON ဖိုင်ကို ရွေးပေးပါ။',
+        ),
+      );
+      return;
+    }
+    try {
+      result.complete((await file.text().toDart).toDart);
+    } catch (e) {
+      result.completeError(e);
+    }
+  }
+
   input.addEventListener(
     'change',
-    ((web.Event event) async {
-      final files = input.files;
-      if (files == null || files.length == 0) {
-        if (!result.isCompleted) result.complete(null);
-        return;
-      }
-      final file = files.item(0)!;
-      if (file.size > 2000000) {
-        result.completeError(
-          const FormatException(
-            'ဖိုင်ကြီးလွန်းတယ်။ မှတ်တမ်း JSON ဖိုင်ကို ရွေးပေးပါ။',
-          ),
-        );
-        return;
-      }
-      try {
-        result.complete((await file.text().toDart).toDart);
-      } catch (e) {
-        result.completeError(e);
-      }
+    ((web.Event event) {
+      unawaited(readSelected());
     }).toJS,
   );
   input.addEventListener(

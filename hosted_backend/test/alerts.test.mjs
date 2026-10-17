@@ -22,7 +22,7 @@ test('news tracks only explicit direction changes, suppresses same-day unchanged
   publish(db,[{...q,observed_at:new Date(now+1000).toISOString()}]);await queueAlerts(db,bot.username,now+1000);assert.equal(count(db),0);
   publish(db,[quote('thb_mmk',740)]);await queueAlerts(db,bot.username,now);assert.equal(count(db),1);
   await queueAlerts(db,bot.username,now);assert.equal(count(db),1);
-  await subscriberCommand(db,bot,'7','/stop');let sent=0;await deliverAlerts(db,'token',bot.username,async()=>{sent++;return {json:async()=>({ok:true})};},now);assert.equal(sent,0);
+  await subscriberCommand(db,bot,'7','/stop');let sent=0;await deliverAlerts(db,'token',bot.username,async()=>{sent++;return {json:async()=>({ok:true})};},now);assert.equal(sent,0);assert.equal(db.sqlite.prepare('SELECT status FROM alert_outbox').get().status,2);
  }finally{db.sqlite.close();}
 });
 test('target alerts use opposite threshold inequalities without inventing a reverse price and fire once after successful delivery',async()=>{
@@ -46,7 +46,7 @@ test('delivery retry is durable, follows Telegram backoff, and stale or supersed
   publish(db,[quote('mmk_thb',731)]);await queueAlerts(db,bot.username,now);
   await subscriberCommand(db,bot,'1','/start news_thb_mmk');await deliverAlerts(db,'token',bot.username,async()=>{throw Error('superseded delivery');},now);
   publish(db,[quote('thb_mmk',740)]);await queueAlerts(db,bot.username,now);await deliverAlerts(db,'token',bot.username,async()=>{throw Error('expired delivery');},now+86400001);
-  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS count FROM alert_outbox WHERE status=2').get().count,1);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS count FROM alert_outbox WHERE status=2').get().count,2);
  }finally{db.sqlite.close();}
 });
 test('public Telegram subscribers cannot publish, acquire owner rights, or change a draft; command retries are idempotent',async()=>{
