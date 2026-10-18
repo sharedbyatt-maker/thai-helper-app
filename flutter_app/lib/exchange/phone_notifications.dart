@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart' hide Text;
-import 'user_language.dart' show Text, uiText;
+import 'user_language.dart' show Text;
 import 'package:url_launcher/url_launcher.dart';
 import 'platform_files.dart';
 import 'rates_repository.dart';
