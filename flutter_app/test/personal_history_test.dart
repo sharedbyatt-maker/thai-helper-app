@@ -1,3 +1,4 @@
+import 'support/app_update_fixture.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -69,7 +70,7 @@ Future<void> start(
   t.view.devicePixelRatio = 1;
   t.platformDispatcher.textScaleFactorTestValue = scale;
   await t.pumpWidget(
-    CurrencyApp(
+    CurrencyApp(updates: noNativeUpdates(), 
       repository: RatesRepository(
         client: MockClient(
           (_) async => http.Response(

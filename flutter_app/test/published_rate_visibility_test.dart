@@ -1,3 +1,4 @@
+import 'support/app_update_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -82,7 +83,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpWidget(CurrencyApp(repository: repo));
+    await tester.pumpWidget(CurrencyApp(updates: noNativeUpdates(), repository: repo));
     await tester.pumpAndSettle();
   }
 

@@ -18,7 +18,8 @@ import 'app_updates.dart';
 
 class CurrencyApp extends StatefulWidget {
   final RatesRepository? repository;
-  const CurrencyApp({super.key, this.repository});
+  final AppUpdateService updates;
+  const CurrencyApp({super.key, this.repository, this.updates = const AppUpdateService()});
   @override
   State<CurrencyApp> createState() => _CurrencyAppState();
 }
@@ -129,7 +130,7 @@ class _CurrencyAppState extends State<CurrencyApp> {
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
       themeMode: mode,
-      home: AppUpdateHost(child: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository)),
+      home: AppUpdateHost(service: widget.updates, child: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository)),
     );
   }
 }
