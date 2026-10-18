@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart' hide Text;
-import 'user_language.dart' show Text;
+import 'user_language.dart' show Text, uiText;
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
@@ -313,7 +313,7 @@ class _DailyToolsState extends State<DailyTools> {
                   ),
                   onChanged: setAmount,
                   decoration: InputDecoration(
-                    labelText: 'ပေးမယ့်ငွေ (${widget.direction.from})',
+                    labelText: uiText(context, 'ပေးမယ့်ငွေ (${widget.direction.from})'),
                     errorText: inputError,
                     errorMaxLines: 3,
                     hintText: widget.direction == ExchangeDirection.thbMmk
@@ -523,8 +523,8 @@ Future<void> showRateAlerts(
                       decimal: true,
                     ),
                     decoration: const InputDecoration(
-                      labelText: 'ကျပ် ၁ သိန်းအတွက် ဘတ်',
-                      hintText: 'ဥပမာ 730',
+                      labelText: uiText(context, 'ကျပ် ၁ သိန်းအတွက် ဘတ်'),
+                      hintText: uiText(context, 'ဥပမာ 730'),
                     ),
                   ),
                 ],
