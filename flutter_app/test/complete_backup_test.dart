@@ -120,12 +120,14 @@ void main() {
     final negative = Map<String, dynamic>.from(valid)
       ..['exchange_records'] = [{...exchangeRecord('x2').toJson(), 'budget_minor': -1}];
     final noBudget = Map<String, dynamic>.from(valid)..remove('budget');
-    final futureBudget = Map<String, dynamic>.from(valid)
-      ..['budget'] = budget('future', 90000).toJson()
-        ..['entries'] = [
-          BudgetEntry(id: 'future', day: '2026-10-19',
-            kind: BudgetKind.expense, amount: 200, category: 'food').toJson(),
-        ];
+    final futureBudget = Map<String, dynamic>.from(valid);
+    futureBudget['budget'] = {
+      ...budget('future', 90000).toJson(),
+      'entries': [
+        BudgetEntry(id: 'future', day: '2026-10-19',
+          kind: BudgetKind.expense, amount: 200, category: 'food').toJson(),
+      ],
+    };
     for (final invalid in [
       '{not json',
       'x' * (CompleteBackupService.maxBytes + 1),
