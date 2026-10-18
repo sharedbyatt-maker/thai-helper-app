@@ -1,4 +1,9 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:thai_helper/exchange/exchange_app.dart';
+import 'package:thai_helper/exchange/rates_repository.dart';
+import 'support/app_update_fixture.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,7 +17,7 @@ final today=DateTime.utc(2026,10,18);
 ExchangeQuote quote(int rate)=>ExchangeQuote(id:'daily-thb_mmk',label:'ဘတ်ပေး → ကျပ်ယူ',direction:ExchangeDirection.thbMmk,rateMicros:rate,sourceName:'Reference',observedAt:DateTime.utc(2026,10,17,5,31),validUntil:DateTime.utc(2026,10,18,5,31),sourceChecked:true);
 void main(){
  setUp(()=>SharedPreferences.setMockInitialValues({}));
- Future<void> reveal(WidgetTester tester,Finder finder)async{if(finder.evaluate().isEmpty){await tester.scrollUntilVisible(finder,180,scrollable:find.byType(Scrollable).first);}await tester.ensureVisible(finder);await tester.pumpAndSettle();}
+ Future<void> reveal(WidgetTester tester,Finder finder)async{if(finder.evaluate().isEmpty){tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);await tester.pumpAndSettle();if(finder.evaluate().isEmpty){await tester.scrollUntilVisible(finder,180,scrollable:find.byType(Scrollable).first);}}await tester.ensureVisible(finder);await tester.pumpAndSettle();}
  Future<void> enter(WidgetTester tester,String key,String text)async{final f=find.byKey(ValueKey(key));await reveal(tester,f);await tester.enterText(f,text);await tester.pump();}
  Future<void> saveEntry(WidgetTester tester)async{final f=find.byKey(const ValueKey('budget_save_entry'));await reveal(tester,f);await tester.tap(f);await tester.pumpAndSettle();}
  Future<void> start(WidgetTester tester,BudgetStore store,{ExchangeQuote? rate})async{await tester.pumpWidget(MaterialApp(theme:ThemeData(useMaterial3:true,fontFamily:'Noto Sans Myanmar'),home:BudgetPage(store:store,quote:rate,today:today)));await tester.pumpAndSettle();}
@@ -49,6 +54,17 @@ void main(){
   await enter(tester,'budget_backup_text',backup);await tester.tap(find.byKey(const ValueKey('budget_preview_restore')));await tester.pumpAndSettle();
   final restore=find.byKey(const ValueKey('budget_restore'));await reveal(tester,restore);expect(tester.widget<FilledButton>(restore).onPressed,isNull);expect((await store.load()).opening,50000);
   await reveal(tester,find.byKey(const ValueKey('budget_confirm_restore')));await tester.tap(find.byKey(const ValueKey('budget_confirm_restore')));await tester.pumpAndSettle();await reveal(tester,restore);await tester.tap(restore);await tester.pumpAndSettle();expect((await store.load()).opening,100000);expect((await store.load()).entries.single.id,'restored');expect(tester.takeException(),isNull);
+ });
+ testWidgets('Daily and exchange-history shortcuts open the same local wallet while preserving three main tabs',(tester)async{
+  await BudgetStore().save(const BudgetData(opening:123400),expectedRevision:0);
+  final repo=RatesRepository(client:MockClient((r)async=>http.Response(jsonEncode(r.url.path.endsWith('/history')?{'schema_version':1,'timezone':'Asia/Bangkok','points':[]}:{'schema_version':2,'revision':1,'published_at':DateTime.now().toIso8601String(),'notice':'','quotes':[]}),200)));
+  await tester.pumpWidget(CurrencyApp(repository:repo,updates:noNativeUpdates()));await tester.pumpAndSettle();
+  expect(find.byType(NavigationDestination),findsNWidgets(3));
+  await reveal(tester,find.byKey(const ValueKey('open_budget')));await tester.tap(find.byKey(const ValueKey('open_budget')));await tester.pumpAndSettle();
+  expect(tester.widget<Text>(find.byKey(const ValueKey('budget_balance'))).data,'1,234 ဘတ်');
+  await tester.pageBack();await tester.pumpAndSettle();await tester.tap(find.text('မှတ်တမ်း'));await tester.pumpAndSettle();
+  await reveal(tester,find.byKey(const ValueKey('open_budget')));await tester.tap(find.byKey(const ValueKey('open_budget')));await tester.pumpAndSettle();
+  expect(tester.widget<Text>(find.byKey(const ValueKey('budget_balance'))).data,'1,234 ဘတ်');expect(tester.takeException(),isNull);
  });
  testWidgets('Budget page, monthly category bars and entry editor fit 320px with large real Myanmar text',(tester)async{
   tester.view.physicalSize=const Size(320,800);tester.view.devicePixelRatio=1;addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
