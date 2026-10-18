@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
-import 'user_language.dart' show Text, uiText;
+import 'user_language.dart' show Text;
 import 'package:flutter/services.dart';
 import 'budget.dart';
 import 'complete_backup_page.dart';
