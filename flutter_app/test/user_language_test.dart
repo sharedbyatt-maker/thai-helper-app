@@ -94,6 +94,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('My money'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Salary'), 220,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Salary'), findsWidgets);
     expect(find.text('လစာ'), findsOneWidget);
     expect((await BudgetStore().load()).entries.single.note, 'လစာ');
