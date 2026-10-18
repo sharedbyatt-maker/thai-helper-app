@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Text;
-import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu, uiText;
+import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu;
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
