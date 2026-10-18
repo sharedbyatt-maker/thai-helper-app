@@ -421,8 +421,6 @@ const _en = <String, String>{
   "အရင်ငွေစာရင်းကို အစားမထိုးထားပါဘူး။": "Existing money records were not replaced.",
   "Backup သိမ်းမယ်": "Export backup",
   "အသုံးပြုနည်း / ကိုယ်ရေးအချက်အလက်": "Help / Privacy",
-  "ကြိုဖယ်ထားမယ့်ငွေ": "Reserved money",
-  "တကယ်ဝင်ပြီး / သုံးပြီးတဲ့ရက်": "Date received / spent",
   "ဖိုင်ထုတ်သိမ်းပြီးပြီလား? ဒီဖုန်းထဲက မှတ်တမ်းအားလုံး ဖျက်တော့မလား?": "Have you exported your backup? Delete all local history?",
   "ငွေလဲပြီးတာ": "Completed exchange",
   "သိမ်းထားတဲ့": "Saved",
