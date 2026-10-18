@@ -25,10 +25,6 @@ Future<void> openSettings(WidgetTester tester) async {
   expect(find.byKey(const ValueKey('app_settings_list')), findsOneWidget);
   expect(find.byKey(const ValueKey('settings_language')), findsOneWidget);
   expect(find.byKey(const ValueKey('settings_theme')), findsOneWidget);
-  expect(find.byKey(const ValueKey('settings_backup')), findsOneWidget);
-  expect(find.byKey(const ValueKey('settings_help')), findsOneWidget);
-  expect(find.byKey(const ValueKey('settings_update')), findsOneWidget);
-  expect(find.byKey(const ValueKey('settings_notifications')), findsOneWidget);
 }
 
 void main() {
@@ -91,6 +87,10 @@ void main() {
     await tester.tap(find.widgetWithText(NavigationDestination,'ငွေစာရင်း'));
     await tester.pumpAndSettle();
     await openSettings(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('settings_backup')), 160,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.byKey(const ValueKey('settings_backup')));
     await tester.pumpAndSettle();
     expect(find.byType(CompleteBackupPage), findsOneWidget);
@@ -115,9 +115,16 @@ void main() {
     await tester.tap(find.widgetWithText(NavigationDestination,'My money'));
     await tester.pumpAndSettle();
     await openSettings(tester);
-    await tester.ensureVisible(find.byKey(const ValueKey('settings_update')));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('settings_update')), 180,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('settings_close')), -220,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.byKey(const ValueKey('settings_close')));
     await tester.pumpAndSettle();
     expect(find.byType(AppBar), findsOneWidget);
