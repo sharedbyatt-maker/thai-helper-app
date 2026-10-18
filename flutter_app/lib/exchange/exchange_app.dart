@@ -1570,7 +1570,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             TextField(
               controller: note,
               maxLength: 250,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: uiText(context, 'မှတ်ချက် (ရေးချင်မှ)'),
               ),
             ),
