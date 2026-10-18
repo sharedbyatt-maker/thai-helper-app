@@ -58,13 +58,13 @@ class AppSettingsSheet extends StatelessWidget {
                   ],
                 ),
                 const Divider(height: 16),
-                ListTile(
-                  key: const ValueKey('settings_language'),
-                  leading: const Icon(Icons.language_rounded),
-                  title: const Text('ဘာသာစကား'),
-                  subtitle: const Text('မြန်မာ / English'),
-                  trailing: const LanguageMenu(),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                const ListTile(
+                  key: ValueKey('settings_language'),
+                  leading: Icon(Icons.language_rounded),
+                  title: Text('ဘာသာစကား'),
+                  subtitle: Text('မြန်မာ / English'),
+                  trailing: LanguageMenu(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
                 ),
                 ListTile(
                   key: const ValueKey('settings_theme'),
