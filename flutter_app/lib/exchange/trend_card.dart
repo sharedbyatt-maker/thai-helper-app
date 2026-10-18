@@ -1,5 +1,6 @@
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'user_language.dart' show Text, uiText;
 import 'models.dart';
 import 'rate_history.dart';
 
@@ -146,7 +147,7 @@ class _TrendCardState extends State<TrendCard> {
                   ),
                   iconEnabledColor: pale,
                   decoration: InputDecoration(
-                    labelText: 'ကြည့်ချင်တဲ့ဈေး',
+                    labelText: uiText(context, 'ကြည့်ချင်တဲ့ဈေး'),
                     labelStyle: const TextStyle(color: pale),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: .08),

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/material.dart' as raw show Text;
+import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu, uiText;
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,10 +29,12 @@ class CurrencyApp extends StatefulWidget {
 
 class _CurrencyAppState extends State<CurrencyApp> {
   ThemeMode mode = ThemeMode.system;
+  UserLanguage language = UserLanguage.myanmar;
   @override
   void initState() {
     super.initState();
     _restoreTheme();
+    _restoreLanguage();
   }
 
   Future<void> _restoreTheme() async {
@@ -49,6 +53,34 @@ class _CurrencyAppState extends State<CurrencyApp> {
       );
     } catch (_) {
       // The system theme remains usable when browser storage is blocked.
+    }
+  }
+
+  Future<void> _restoreLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 1),
+      );
+      final raw = prefs.getString('user_language');
+      if (mounted) {
+        setState(() => language =
+            raw == 'en' ? UserLanguage.english : UserLanguage.myanmar);
+      }
+    } catch (_) {
+      // Language still works in memory if private browser storage is blocked.
+    }
+  }
+
+  Future<void> _changeLanguage(UserLanguage next) async {
+    setState(() => language = next);
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 1),
+      );
+      await prefs.setString('user_language',
+          next == UserLanguage.english ? 'en' : 'my');
+    } catch (_) {
+      // Keep the selected language available for this session.
     }
   }
 
@@ -131,6 +163,14 @@ class _CurrencyAppState extends State<CurrencyApp> {
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
       themeMode: mode,
+      locale: language == UserLanguage.english
+          ? const Locale('en')
+          : const Locale('my'),
+      builder: (context, child) => UserLanguageScope(
+        language: language,
+        onChanged: _changeLanguage,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: AppUpdateHost(service: widget.updates, child: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository)),
     );
   }
@@ -834,7 +874,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
         actions: [
           IconButton(
-            tooltip: 'ဈေးအသစ် ယူမယ်',
+            tooltip: uiText(context, 'ဈေးအသစ် ယူမယ်'),
             onPressed: loading ? null : _refresh,
             icon: loading
                 ? const SizedBox(
@@ -844,13 +884,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   )
                 : const Icon(Icons.refresh_rounded),
           ),
+          const LanguageMenu(),
           IconButton(
-            tooltip: 'အလင်း / အမှောင်',
+            tooltip: uiText(context, 'အလင်း / အမှောင်'),
             onPressed: widget.onTheme,
             icon: const Icon(Icons.contrast),
           ),
           IconButton(
-            tooltip: 'အသုံးပြုနည်း',
+            tooltip: uiText(context, 'အသုံးပြုနည်း'),
             icon: const Icon(Icons.info_outline),
             onPressed: () => showDialog<void>(
               context: context,
@@ -903,23 +944,23 @@ class _ExchangeHomeState extends State<ExchangeHome>
         selectedIndex: tab,
         indicatorColor: scheme.primaryContainer,
         onDestinationSelected: selectTab,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.currency_exchange),
-            label: 'ဘတ်ဈေး',
+            icon: const Icon(Icons.currency_exchange),
+            label: uiText(context, 'ဘတ်ဈေး'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.calculate_outlined),
-            label: 'ငွေတွက်',
+            icon: const Icon(Icons.calculate_outlined),
+            label: uiText(context, 'ငွေတွက်'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-            label: 'ငွေစာရင်း',
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: const Icon(Icons.account_balance_wallet_rounded),
+            label: uiText(context, 'ငွေစာရင်း'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            label: 'မှတ်တမ်း',
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: uiText(context, 'မှတ်တမ်း'),
           ),
         ],
       ),
@@ -947,7 +988,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           if (loading) const LinearProgressIndicator(),
           if (loadError != null) panel(Text(loadError!)),
           if (data?.sheet.notice.isNotEmpty == true)
-            panel(Text(data!.sheet.notice)),
+            panel(raw.Text(data!.sheet.notice)),
           directionPicker(showRates: true),
           const SizedBox(height: 16),
           TrendCard(
@@ -1307,7 +1348,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
               if (lines.length > 1)
                 IconButton(
-                  tooltip: 'ဒီဈေးကို ဖယ်မယ်',
+                  tooltip: uiText(context, 'ဒီဈေးကို ဖယ်မယ်'),
                   onPressed: () => setState(() {
                     lines.removeAt(index).dispose();
                     results = [];
@@ -1321,7 +1362,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             key: ValueKey('${identityHashCode(line)}_${line.perLakh}'),
             initialValue: line.perLakh,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'ဈေးရေးပုံ'),
+            decoration: InputDecoration(labelText: uiText(context, 'ဈေးရေးပုံ')),
             items: const [
               DropdownMenuItem(value: false, child: Text('၁ ဘတ်အတွက် ကျပ်')),
               DropdownMenuItem(
@@ -1358,7 +1399,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်'
                   : '၁ ဘတ်အတွက် ကျပ်',
               hintText: line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
-              helperText: '${direction.label} ဈေးကို ထည့်ပေးပါ။',
+              helperText: uiText(context, '${direction.label} ဈေးကို ထည့်ပေးပါ။'),
               helperMaxLines: 2,
             ),
           ),
@@ -1388,9 +1429,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   controller: line.name,
                   maxLength: 100,
                   onChanged: (_) => invalidate(line),
-                  decoration: const InputDecoration(
-                    labelText: 'မှတ်ထားမယ့်နာမည်',
-                    hintText: 'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး',
+                  decoration: InputDecoration(
+                    labelText: uiText(context, 'မှတ်ထားမယ့်နာမည်'),
+                    hintText: uiText(context, 'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး'),
                   ),
                 ),
               ],
@@ -1530,8 +1571,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
             TextField(
               controller: note,
               maxLength: 250,
-              decoration: const InputDecoration(
-                labelText: 'မှတ်ချက် (ရေးချင်မှ)',
+              decoration: InputDecoration(
+                labelText: uiText(context, 'မှတ်ချက် (ရေးချင်မှ)'),
               ),
             ),
           ],
@@ -1855,7 +1896,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ),
                 if (r.note.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(r.note),
+                  raw.Text(r.note),
                 ],
               ],
             ),

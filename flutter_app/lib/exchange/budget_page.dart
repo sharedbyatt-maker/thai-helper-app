@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/material.dart' as raw show Text;
+import 'user_language.dart' show Text, uiText;
 import 'package:flutter/services.dart';
 import 'budget.dart';
 import 'complete_backup_page.dart';
@@ -136,8 +138,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
     final estimate=quote==null||summary.homeLeft<=0?0:quote!.payout(summary.homeLeft);
     return Scaffold(
       appBar:AppBar(title:const Text('ကိုယ့်ငွေစာရင်း'),actions:[
-        IconButton(tooltip:'စာရင်းပြန်ဖတ်မယ်',onPressed:loading||busy?null:reload,icon:const Icon(Icons.refresh)),
-        PopupMenuButton<String>(tooltip:'Backup / အကူအညီ',onSelected:(v){if(v=='export')backup();if(v=='import')restore();if(v=='complete'){Navigator.of(context).push<void>(MaterialPageRoute(builder:(_)=>const CompleteBackupPage())).then((_){if(mounted)reload();});}if(v=='help')showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('ကိုယ့်ငွေကို စီမံမယ်'),content:const SingleChildScrollView(child:Text('ရပြီးသားဝင်ငွေနဲ့ တကယ်သုံးပြီးတဲ့ငွေကို ဘတ်နဲ့ မှတ်ပါ။ အိမ်မှာတကယ်ရတဲ့ ကျပ်ပမာဏကိုလည်း တွဲမှတ်နိုင်တယ်။\n\nအခန်းခ/မီတာခ ပေးတဲ့အခါ “ဖယ်ထားငွေထဲက ပေးတာ” ကို ရွေးရင် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။ အိမ်ပို့ပြီးငွေကိုတော့ အိမ်ပို့ရန်ကျန်ငွေထဲက အလိုအလျောက် လျှော့ပေးမယ်။\n\nစုငွေကို အစီအစဉ်မှာ ဖယ်ထားနိုင်တယ်။ ရက်ကျော်နေတဲ့အစီအစဉ်ရဲ့ ဖယ်ထားငွေကိုလည်း အသစ်စီမံတဲ့အထိ ဆက်ဖယ်ထားပေးမယ်။\n\nဒီစာရင်းကို ဖုန်း/Browser ထဲမှာပဲ သိမ်းတယ်။ Admin ကို မပို့ပါဘူး။ Backup ဖိုင်ကို ကိုယ်တိုင် ထုတ်သိမ်းထားပါ။')),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('နားလည်ပြီ'))]));},itemBuilder:(_)=>[
+        IconButton(tooltip: uiText(context, 'စာရင်းပြန်ဖတ်မယ်'),onPressed:loading||busy?null:reload,icon:const Icon(Icons.refresh)),
+        PopupMenuButton<String>(tooltip: uiText(context, 'Backup / အကူအညီ'),onSelected:(v){if(v=='export')backup();if(v=='import')restore();if(v=='complete'){Navigator.of(context).push<void>(MaterialPageRoute(builder:(_)=>const CompleteBackupPage())).then((_){if(mounted)reload();});}if(v=='help')showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('ကိုယ့်ငွေကို စီမံမယ်'),content:const SingleChildScrollView(child:Text('ရပြီးသားဝင်ငွေနဲ့ တကယ်သုံးပြီးတဲ့ငွေကို ဘတ်နဲ့ မှတ်ပါ။ အိမ်မှာတကယ်ရတဲ့ ကျပ်ပမာဏကိုလည်း တွဲမှတ်နိုင်တယ်။\n\nအခန်းခ/မီတာခ ပေးတဲ့အခါ “ဖယ်ထားငွေထဲက ပေးတာ” ကို ရွေးရင် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။ အိမ်ပို့ပြီးငွေကိုတော့ အိမ်ပို့ရန်ကျန်ငွေထဲက အလိုအလျောက် လျှော့ပေးမယ်။\n\nစုငွေကို အစီအစဉ်မှာ ဖယ်ထားနိုင်တယ်။ ရက်ကျော်နေတဲ့အစီအစဉ်ရဲ့ ဖယ်ထားငွေကိုလည်း အသစ်စီမံတဲ့အထိ ဆက်ဖယ်ထားပေးမယ်။\n\nဒီစာရင်းကို ဖုန်း/Browser ထဲမှာပဲ သိမ်းတယ်။ Admin ကို မပို့ပါဘူး။ Backup ဖိုင်ကို ကိုယ်တိုင် ထုတ်သိမ်းထားပါ။')),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('နားလည်ပြီ'))]));},itemBuilder:(_)=>[
           PopupMenuItem(value:'export',enabled:ready,child:const Text('Backup သိမ်းမယ်')),
           const PopupMenuItem(value:'complete',child:Text('မှတ်တမ်းအားလုံး Backup')),
           const PopupMenuItem(value:'import',child:Text('Backup ပြန်ထည့်မယ်')),
@@ -175,7 +177,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
             if(data.plans.isNotEmpty)ExpansionTile(tilePadding:EdgeInsets.zero,title:Text('သိမ်းထားတဲ့အစီအစဉ်များ · ${data.plans.length} ခု',style:const TextStyle(fontSize:13)),children:[for(final p in [...data.plans]..sort((a,b)=>b.start.compareTo(a.start)))Padding(padding:const EdgeInsets.symmetric(vertical:8),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('${p.start} → ${p.end} မတိုင်မီ'),Text('${money(p.fixed+p.home+p.savings)} ဘတ် ဖယ်ထားဖို့ စီမံထားတယ်။',style:const TextStyle(fontSize:12)),Wrap(spacing:8,children:[TextButton(onPressed:busy?null:()=>plan(selected:p),child:const Text('ဒီကာလ ပြင်မယ်')),TextButton(onPressed:busy?null:()=>removePlan(p),child:const Text('ဒီအစီအစဉ် ဖျက်မယ်'))])]))]),
           ])),
           card(Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-            Row(children:[IconButton(tooltip:'ယခင်လ',onPressed:month.year<=2000&&month.month==1?null:()=>setState(()=>month=DateTime.utc(month.year,month.month-1)),icon:const Icon(Icons.chevron_left)),Expanded(child:Text('${month.year} / ${month.month} စာရင်း',textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.w700))),IconButton(tooltip:'နောက်လ',onPressed:month.year==today.year&&month.month==today.month?null:()=>setState(()=>month=DateTime.utc(month.year,month.month+1)),icon:const Icon(Icons.chevron_right))]),
+            Row(children:[IconButton(tooltip: uiText(context, 'ယခင်လ'),onPressed:month.year<=2000&&month.month==1?null:()=>setState(()=>month=DateTime.utc(month.year,month.month-1)),icon:const Icon(Icons.chevron_left)),Expanded(child:Text('${month.year} / ${month.month} စာရင်း',textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.w700))),IconButton(tooltip: uiText(context, 'နောက်လ'),onPressed:month.year==today.year&&month.month==today.month?null:()=>setState(()=>month=DateTime.utc(month.year,month.month+1)),icon:const Icon(Icons.chevron_right))]),
             line('ဒီလ ဝင်ငွေ',report.total(BudgetKind.income)),line('ဒီလ သုံးငွေ',report.total(BudgetKind.expense)),line('ဒီလ အိမ်ပို့ပြီးငွေ',report.total(BudgetKind.remittance)),
             const Divider(),const Text('ဒီလ ထွက်ငွေ ဘာတွေအတွက် သုံးထားလဲ?',style:TextStyle(fontWeight:FontWeight.w700)),
             if(report.out==0)const Padding(padding:EdgeInsets.symmetric(vertical:16),child:Text('ဒီလအတွက် သုံးငွေ မမှတ်ရသေးဘူး။')),
@@ -184,7 +186,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
           ])),
           Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text('ဒီလ မှတ်တမ်း ${report.entries.length} ခု',style:const TextStyle(fontWeight:FontWeight.w700))),
           if(report.entries.isEmpty)const Text('အောက်က “သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။',style:TextStyle(height:1.8)),
-          for(final e in report.entries)Card(child:Padding(padding:const EdgeInsets.all(14),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(e.label,style:const TextStyle(fontWeight:FontWeight.w700)),Text('${e.kind==BudgetKind.income?'+':'−'}${money(e.amount)} ဘတ်',key:ValueKey('budget_entry_${e.id}'),style:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:e.kind==BudgetKind.income?scheme.primary:scheme.onSurface)),Text(e.day,style:const TextStyle(fontSize:12)),if(e.receivedMmk!=null)Text('အိမ်မှာရငွေ ${money(e.receivedMmk!)} ကျပ်'),if(e.fromFixed)const Text('ပုံမှန်ပေးစရာ ဖယ်ထားငွေထဲက သုံးထားတယ်။',style:TextStyle(fontSize:12)),if(e.note.isNotEmpty)Text(e.note),if(e.referenceRate!=null)Text('မှတ်ချိန်က ရည်ညွှန်းဈေး · ${referenceRateText(e.referenceRate!)} ဘတ် / ကျပ် ၁ သိန်း\n${bangkokLabel(DateTime.parse(e.referenceAt!))} ထိုင်းအချိန်',style:const TextStyle(fontSize:12,height:1.8))])),PopupMenuButton<String>(key:ValueKey('budget_menu_${e.id}'),tooltip:'မှတ်တမ်း ပြင် / ဖျက်',onSelected:(v){if(v=='edit')entry(e.kind,original:e);if(v=='delete')remove(e);},itemBuilder:(_)=>[const PopupMenuItem(value:'edit',child:Text('ပြင်မယ်')),const PopupMenuItem(value:'delete',child:Text('ဖျက်မယ်'))])]))),
+          for(final e in report.entries)Card(child:Padding(padding:const EdgeInsets.all(14),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(e.label,style:const TextStyle(fontWeight:FontWeight.w700)),Text('${e.kind==BudgetKind.income?'+':'−'}${money(e.amount)} ဘတ်',key:ValueKey('budget_entry_${e.id}'),style:TextStyle(fontSize:20,fontWeight:FontWeight.w700,color:e.kind==BudgetKind.income?scheme.primary:scheme.onSurface)),Text(e.day,style:const TextStyle(fontSize:12)),if(e.receivedMmk!=null)Text('အိမ်မှာရငွေ ${money(e.receivedMmk!)} ကျပ်'),if(e.fromFixed)const Text('ပုံမှန်ပေးစရာ ဖယ်ထားငွေထဲက သုံးထားတယ်။',style:TextStyle(fontSize:12)),if(e.note.isNotEmpty)raw.Text(e.note),if(e.referenceRate!=null)Text('မှတ်ချိန်က ရည်ညွှန်းဈေး · ${referenceRateText(e.referenceRate!)} ဘတ် / ကျပ် ၁ သိန်း\n${bangkokLabel(DateTime.parse(e.referenceAt!))} ထိုင်းအချိန်',style:const TextStyle(fontSize:12,height:1.8))])),PopupMenuButton<String>(key:ValueKey('budget_menu_${e.id}'),tooltip: uiText(context, 'မှတ်တမ်း ပြင် / ဖျက်'),onSelected:(v){if(v=='edit')entry(e.kind,original:e);if(v=='delete')remove(e);},itemBuilder:(_)=>[const PopupMenuItem(value:'edit',child:Text('ပြင်မယ်')),const PopupMenuItem(value:'delete',child:Text('ဖျက်မယ်'))])]))),
         ],
       ])),
     );
@@ -228,16 +230,16 @@ class _BudgetEntryEditorState extends State<BudgetEntryEditor> {
   Widget build(BuildContext context){
     final categories=widget.kind==BudgetKind.income?budgetIncomeCategories:budgetExpenseCategories;
     return Scaffold(appBar:AppBar(title:Text('${budgetKindName(widget.kind)} ${widget.initial==null?'မှတ်မယ်':'ပြင်မယ်'}')),body:ListView(padding:const EdgeInsets.all(20),children:[
-      TextField(key:const ValueKey('budget_amount'),controller:amount,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w700),decoration:const InputDecoration(labelText:'ဘတ်ပမာဏ',hintText:'ဥပမာ 50'),onChanged:(_)=>setState((){})),
+      TextField(key:const ValueKey('budget_amount'),controller:amount,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w700),decoration:InputDecoration(labelText: uiText(context, 'ဘတ်ပမာဏ'),hintText: uiText(context, 'ဥပမာ 50')),onChanged:(_)=>setState((){})),
       const SizedBox(height:18),
-      if(widget.kind!=BudgetKind.remittance)DropdownButtonFormField<String>(initialValue:category,isExpanded:true,decoration:const InputDecoration(labelText:'အမျိုးအစား'),items:categories.entries.map((c)=>DropdownMenuItem(value:c.key,child:Text(c.value))).toList(),onChanged:busy?null:(v){if(v!=null)setState((){category=v;if(widget.initial==null)fixed=v=='home'||v=='bills';});}),
+      if(widget.kind!=BudgetKind.remittance)DropdownButtonFormField<String>(initialValue:category,isExpanded:true,decoration:InputDecoration(labelText: uiText(context, 'အမျိုးအစား')),items:categories.entries.map((c)=>DropdownMenuItem(value:c.key,child:Text(c.value))).toList(),onChanged:busy?null:(v){if(v!=null)setState((){category=v;if(widget.initial==null)fixed=v=='home'||v=='bills';});}),
       if(widget.kind==BudgetKind.expense)CheckboxListTile(key:const ValueKey('budget_from_fixed'),contentPadding:EdgeInsets.zero,value:fixed,onChanged:busy?null:(v)=>setState(()=>fixed=v??false),title:const Text('ပုံမှန်ပေးစရာ ဖယ်ထားငွေထဲက ပေးတာ'),subtitle:const Text('အခန်းခ/မီတာခလို ပေးပြီးသမျှအတွက် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။')),
       if(widget.kind==BudgetKind.remittance)...[
         const Text('တကယ်လွှဲပြီးတာကို မှတ်ထားတာပါ။ ဒီနေရာကနေ ငွေလွှဲပေးတာ မဟုတ်ပါဘူး။',style:TextStyle(height:1.8)),
-        const SizedBox(height:16),TextField(key:const ValueKey('budget_received_mmk'),controller:mmk,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:const InputDecoration(labelText:'အိမ်မှာ တကယ်ရတဲ့ ကျပ်ငွေ (သိမှဖြည့်)',hintText:'ဥပမာ 100000')),
+        const SizedBox(height:16),TextField(key:const ValueKey('budget_received_mmk'),controller:mmk,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:InputDecoration(labelText: uiText(context, 'အိမ်မှာ တကယ်ရတဲ့ ကျပ်ငွေ (သိမှဖြည့်)'),hintText: uiText(context, 'ဥပမာ 100000'))),
       ],
-      const SizedBox(height:16),OutlinedButton.icon(key:const ValueKey('budget_entry_date'),onPressed:busy?null:()async{final value=await showDatePicker(context:context,initialDate:parseBudgetDay(day),firstDate:DateTime(2000),lastDate:widget.today,helpText:'တကယ်ဝင်ပြီး / သုံးပြီးတဲ့ရက်');if(value!=null&&mounted)setState(()=>day=budgetDay(DateTime.utc(value.year,value.month,value.day)));},icon:const Icon(Icons.calendar_month),label:Text('ရက်စွဲ · $day')),
-      const SizedBox(height:16),TextField(key:const ValueKey('budget_note'),controller:note,enabled:!busy,maxLength:180,maxLines:2,decoration:const InputDecoration(labelText:'မှတ်ချက် (ရေးချင်မှ)',hintText:'ဥပမာ နေ့လယ်စာ / ဒီလအခန်းခ')),
+      const SizedBox(height:16),OutlinedButton.icon(key:const ValueKey('budget_entry_date'),onPressed:busy?null:()async{final value=await showDatePicker(context:context,initialDate:parseBudgetDay(day),firstDate:DateTime(2000),lastDate:widget.today,helpText:uiText(context,'တကယ်ဝင်ပြီး / သုံးပြီးတဲ့ရက်'));if(value!=null&&mounted)setState(()=>day=budgetDay(DateTime.utc(value.year,value.month,value.day)));},icon:const Icon(Icons.calendar_month),label:Text('ရက်စွဲ · $day')),
+      const SizedBox(height:16),TextField(key:const ValueKey('budget_note'),controller:note,enabled:!busy,maxLength:180,maxLines:2,decoration:InputDecoration(labelText: uiText(context, 'မှတ်ချက် (ရေးချင်မှ)'),hintText: uiText(context, 'ဥပမာ နေ့လယ်စာ / ဒီလအခန်းခ'))),
       if(error!=null)Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text(error!,style:TextStyle(color:Theme.of(context).colorScheme.error,height:1.8))),
       FilledButton.icon(key:const ValueKey('budget_save_entry'),onPressed:busy?null:save,icon:const Icon(Icons.check),label:Text(busy?'သိမ်းနေတယ်…':'သိမ်းမယ်')),
       const SizedBox(height:24),
@@ -275,7 +277,7 @@ class _BudgetPlanEditorState extends State<BudgetPlanEditor> {
   @override
   void dispose(){opening.dispose();fixed.dispose();home.dispose();savings.dispose();super.dispose();}
   Future<void> date(bool from)async{
-    final chosen=await showDatePicker(context:context,initialDate:parseBudgetDay(from?start:end),firstDate:DateTime(2000),lastDate:DateTime(2100,12,31),helpText:from?'ဒီအစီအစဉ် စမယ့်ရက်':'နောက်ဝင်ငွေရမယ့်ရက်');
+    final chosen=await showDatePicker(context:context,initialDate:parseBudgetDay(from?start:end),firstDate:DateTime(2000),lastDate:DateTime(2100,12,31),helpText:uiText(context,from?'ဒီအစီအစဉ် စမယ့်ရက်':'နောက်ဝင်ငွေရမယ့်ရက်'));
     if(chosen!=null&&mounted)setState((){if(from){start=budgetDay(DateTime.utc(chosen.year,chosen.month,chosen.day));}else{end=budgetDay(DateTime.utc(chosen.year,chosen.month,chosen.day));}});
   }
   Future<void> save()async{
@@ -290,7 +292,7 @@ class _BudgetPlanEditorState extends State<BudgetPlanEditor> {
     }catch(e){if(mounted)setState(()=>error=e is FormatException?e.message:'သိမ်းမရသေးဘူး။ ပြန်စမ်းပေးပါ။');}
     finally{if(mounted)setState(()=>busy=false);}
   }
-  Widget field(String key,String label,String hint,TextEditingController controller)=>Padding(padding:const EdgeInsets.symmetric(vertical:10),child:TextField(key:ValueKey(key),controller:controller,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:InputDecoration(labelText:label,hintText:hint)));
+  Widget field(String key,String label,String hint,TextEditingController controller)=>Padding(padding:const EdgeInsets.symmetric(vertical:10),child:TextField(key:ValueKey(key),controller:controller,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:InputDecoration(labelText:uiText(context,label),hintText:uiText(context,hint))));
   @override
   Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('ငွေစီမံမယ်')),body:ListView(padding:const EdgeInsets.all(20),children:[
     field('budget_opening','စာရင်းမစခင် ရှိငွေ (ဘတ်)','ဥပမာ 2000',opening),
@@ -335,7 +337,7 @@ class _BudgetRestorePageState extends State<BudgetRestorePage> {
   Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Backup ပြန်ထည့်မယ်')),body:ListView(padding:const EdgeInsets.all(20),children:[
     const Text('လက်ရှိ ကိုယ့်ငွေစာရင်းကို ဒီ backup နဲ့ အစားထိုးမှာပါ။ လက်ရှိစာရင်းကိုလည်း အရင် Backup သိမ်းထားနိုင်တယ်။ ငွေလဲမှတ်တမ်းနဲ့ နေ့စဉ်ဈေးကို မပြောင်းပါဘူး။',style:TextStyle(height:1.8)),
     if(kIsWeb)OutlinedButton.icon(onPressed:busy?null:()async{try{final raw=await pickBackup();if(raw!=null&&mounted){text.text=raw;check();}}catch(e){if(mounted)setState(()=>error=e is FormatException?e.message:'ဖိုင် ဖတ်မရသေးဘူး။');}},icon:const Icon(Icons.upload_file),label:const Text('Backup ဖိုင် ရွေးမယ်')),
-    const SizedBox(height:14),TextField(key:const ValueKey('budget_backup_text'),controller:text,enabled:!busy,maxLines:6,decoration:const InputDecoration(labelText:'ဒါမှမဟုတ် Backup စာကို ဒီမှာ ကူးထည့်ပါ',hintText:'{"kind":"bahtzay_budget", ...}'),onChanged:(_)=>setState((){preview=null;accepted=false;})),
+    const SizedBox(height:14),TextField(key:const ValueKey('budget_backup_text'),controller:text,enabled:!busy,maxLines:6,decoration:InputDecoration(labelText: uiText(context, 'ဒါမှမဟုတ် Backup စာကို ဒီမှာ ကူးထည့်ပါ'),hintText:'{"kind":"bahtzay_budget", ...}'),onChanged:(_)=>setState((){preview=null;accepted=false;})),
     const SizedBox(height:14),OutlinedButton(key:const ValueKey('budget_preview_restore'),onPressed:busy?null:check,child:const Text('ဖိုင်ကို အရင်စစ်မယ်')),
     if(preview!=null)...[
       const SizedBox(height:16),Text('လက်ရှိမှတ်တမ်း ${widget.currentCount} ခု → Backup မှတ်တမ်း ${preview!.entries.length} ခု\nအစီအစဉ် ${preview!.plans.length} ခု · စာရင်းမစခင်ရှိငွေ ${money(preview!.opening)} ဘတ်',style:const TextStyle(height:1.8)),

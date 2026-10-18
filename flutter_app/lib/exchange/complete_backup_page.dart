@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'user_language.dart' show Text, uiText;
 import 'package:flutter/services.dart';
 
 import 'complete_backup.dart';
@@ -157,9 +158,9 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
           enabled: !busy,
           minLines: 3,
           maxLines: 5,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: 'ဒါမှမဟုတ် Backup စာကို ကူးထည့်ပါ',
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: uiText(context, 'ဒါမှမဟုတ် Backup စာကို ကူးထည့်ပါ'),
           ),
           onChanged: (_) => setState(() {
             preview = null;
