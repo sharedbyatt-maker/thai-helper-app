@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'budget.dart';
 import 'models.dart';
 import 'platform_files.dart';
-import 'rate_history.dart';
+import 'trend_card.dart' show bangkokLabel;
 
 String _id() => '${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1000000000)}';
 String _editMoney(int n) => n == 0 ? '' : (n / 100).toStringAsFixed(2);

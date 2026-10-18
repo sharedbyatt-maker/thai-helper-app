@@ -32,13 +32,13 @@ void main(){
  });
  test('Expired periods keep reserves protected until a new plan takes effect; older payments do not consume a new plan',(){
   const old=BudgetPlan(id:'old',start:'2026-09-01',end:'2026-10-01',fixed:10000,savings:20000);
-  final data=BudgetData(opening:100000,plans:[old]);expect(BudgetSummary(data,today).protected,30000);expect(BudgetSummary(data,today).daily,isNull);
+  const data=BudgetData(opening:100000,plans:[old]);expect(BudgetSummary(data,today).protected,30000);expect(BudgetSummary(data,today).daily,isNull);
   final next=data.copy(plans:[old,period],entries:[row('past',BudgetKind.expense,10000,day:'2026-09-30',fixed:true)]);
   expect(BudgetSummary(next,today).fixedLeft,300000);
  });
  test('Backup round-trips the original receipts, reference quote and period settings without live repricing',(){
   const transfer=BudgetEntry(id:'receipt',day:'2026-10-17',kind:BudgetKind.remittance,amount:74800,category:'family',receivedMmk:10000000,referenceRate:133689840,referenceAt:'2026-10-17T05:31:00.000Z');
-  final data=BudgetData(opening:1000000,plans:[period],entries:[transfer]);final store=BudgetStore(clock:()=>today);
+  const data=BudgetData(opening:1000000,plans:[period],entries:[transfer]);final store=BudgetStore(clock:()=>today);
   final restored=store.decode(store.backup(data));expect(restored.toJson(),data.toJson());expect(restored.entries.single.receivedMmk,10000000);expect(restored.entries.single.referenceRate,133689840);
  });
  test('Invalid backups, future actual entries, impossible dates, duplicated IDs and overlapping periods are rejected',(){
