@@ -3,6 +3,29 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const fs=require('node:fs');
 const {webcrypto}=require('node:crypto');
+const {execFileSync}=require('node:child_process');
+const os=require('node:os');
+const path=require('node:path');
+test('Build replaces Flutter retirement workers and preserves older caching workers',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'bahtzay-worker-'));
+ try{
+  fs.copyFileSync('flutter_app/web/bahtzay-push-sw.js',path.join(root,'bahtzay-push-sw.js'));
+  const worker=path.join(root,'flutter_service_worker.js');
+  for(const input of ["self.addEventListener('activate',e=>e.waitUntil(self.registration.unregister()));",'// existing asset cache\n']){
+   fs.writeFileSync(worker,input);
+   execFileSync(process.execPath,['scripts/prepare_web_push.mjs',root]);
+   const output=fs.readFileSync(worker,'utf8');
+   assert.ok(!output.includes('unregister'));
+   assert.equal(output.includes('existing asset cache'),input.includes('existing asset cache'));
+   const handlers={},calls=[];
+   const self={addEventListener:(kind,fn)=>handlers[kind]=fn,skipWaiting:()=>calls.push('install'),clients:{claim:async()=>calls.push('claim')},registration:{unregister:()=>assert.fail('Push registration must survive activation')}};
+   vm.runInNewContext(output,{self,URL,Date,importScripts:file=>vm.runInNewContext(fs.readFileSync(path.join(root,file),'utf8'),{self,URL,Date})});
+   handlers.install();handlers.activate({waitUntil:()=>{}});assert.deepEqual(calls,['install','claim']);
+   execFileSync(process.execPath,['scripts/prepare_web_push.mjs',root]);
+   assert.equal(fs.readFileSync(worker,'utf8'),output);
+  }
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
 function client({ios=false,standalone=false,permission='default',granted='granted',subscribed=false}={}){
  const storage=new Map(),calls=[],reg={active:{},pushManager:{getSubscription:async()=>subscribed?sub:null,subscribe:async()=>{subscribed=true;return sub;}}};
  const sub={toJSON:()=>({endpoint:'https://fcm.googleapis.com/fcm/send/self',keys:{p256dh:'a',auth:'b'}}),unsubscribe:async()=>{subscribed=false;calls.push('browser-unsubscribe');return true;}};
