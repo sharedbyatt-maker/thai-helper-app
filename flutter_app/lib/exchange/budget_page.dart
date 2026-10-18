@@ -211,9 +211,10 @@ class _BudgetEntryEditorState extends State<BudgetEntryEditor> {
   @override
   void dispose(){amount.dispose();note.dispose();mmk.dispose();super.dispose();}
   Future<void> save() async {
+    if(busy)return;
     FocusScope.of(context).unfocus();setState((){busy=true;error=null;});
     try{
-      final reference=widget.initial==null?(widget.quote?.direction==ExchangeDirection.thbMmk?widget.quote:null):null;
+      final reference=widget.kind==BudgetKind.remittance&&widget.initial==null?(widget.quote?.direction==ExchangeDirection.thbMmk?widget.quote:null):null;
       final e=BudgetEntry(id:widget.initial?.id??_id(),day:day,kind:widget.kind,amount:_amount(amount.text),category:category,note:note.text.trim(),fromFixed:widget.kind==BudgetKind.expense&&fixed,receivedMmk:widget.kind==BudgetKind.remittance&&mmk.text.trim().isNotEmpty?_amount(mmk.text):null,referenceRate:widget.initial?.referenceRate??reference?.rateMicros,referenceAt:widget.initial?.referenceAt??reference?.observedAt.toUtc().toIso8601String());
       BudgetEntry.fromJson(e.toJson(),today:widget.today);
       await widget.onSave(e);
@@ -276,6 +277,7 @@ class _BudgetPlanEditorState extends State<BudgetPlanEditor> {
     if(chosen!=null&&mounted)setState((){if(from){start=budgetDay(DateTime.utc(chosen.year,chosen.month,chosen.day));}else{end=budgetDay(DateTime.utc(chosen.year,chosen.month,chosen.day));}});
   }
   Future<void> save()async{
+    if(busy)return;
     FocusScope.of(context).unfocus();setState((){busy=true;error=null;});
     try{
       final value=BudgetPlan(id:widget.initial?.id??_id(),start:start,end:end,fixed:_amount(fixed.text,optional:true),home:_amount(home.text,optional:true),savings:_amount(savings.text,optional:true));

@@ -18,7 +18,7 @@ void main(){
  Future<void> start(WidgetTester tester,BudgetStore store,{ExchangeQuote? rate})async{await tester.pumpWidget(MaterialApp(theme:ThemeData(useMaterial3:true,fontFamily:'Noto Sans Myanmar'),home:BudgetPage(store:store,quote:rate,today:today)));await tester.pumpAndSettle();}
  testWidgets('Income and expenses persist, can be edited/deleted, and never modify private exchange records',(tester)async{
   final store=BudgetStore(clock:()=>today),prefs=await SharedPreferences.getInstance();await prefs.setString(RecordStore.key,'Existing exchange records');
-  await start(tester,store);expect(find.byKey(const ValueKey('budget_balance')),findsOneWidget);
+  await start(tester,store,rate:quote(133689840));expect(find.byKey(const ValueKey('budget_balance')),findsOneWidget);
   await reveal(tester,find.byKey(const ValueKey('budget_add_income')));await tester.tap(find.byKey(const ValueKey('budget_add_income')));await tester.pumpAndSettle();
   await enter(tester,'budget_amount','15000');await saveEntry(tester);expect((await store.load()).entries.single.amount,1500000);
   await tester.tap(find.byKey(const ValueKey('budget_add_expense')));await tester.pumpAndSettle();await enter(tester,'budget_amount','50');await enter(tester,'budget_note','နေ့လယ်စာ');await saveEntry(tester);
