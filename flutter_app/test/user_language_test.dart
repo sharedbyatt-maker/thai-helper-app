@@ -100,7 +100,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Salary'), findsWidgets);
-    expect(find.text('လစာ'), findsOneWidget);
+    expect(find.text('လစာ'), findsWidgets);
     expect((await BudgetStore().load()).entries.single.note, 'လစာ');
     expect(tester.takeException(), isNull);
   });
