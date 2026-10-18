@@ -237,7 +237,7 @@ class _BudgetEntryEditorState extends State<BudgetEntryEditor> {
         const Text('တကယ်လွှဲပြီးတာကို မှတ်ထားတာပါ။ ဒီနေရာကနေ ငွေလွှဲပေးတာ မဟုတ်ပါဘူး။',style:TextStyle(height:1.8)),
         const SizedBox(height:16),TextField(key:const ValueKey('budget_received_mmk'),controller:mmk,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:InputDecoration(labelText: uiText(context, 'အိမ်မှာ တကယ်ရတဲ့ ကျပ်ငွေ (သိမှဖြည့်)'),hintText: uiText(context, 'ဥပမာ 100000'))),
       ],
-      const SizedBox(height:16),OutlinedButton.icon(key:const ValueKey('budget_entry_date'),onPressed:busy?null:()async{final value=await showDatePicker(context:context,initialDate:parseBudgetDay(day),firstDate:DateTime(2000),lastDate:widget.today,helpText:'တကယ်ဝင်ပြီး / သုံးပြီးတဲ့ရက်');if(value!=null&&mounted)setState(()=>day=budgetDay(DateTime.utc(value.year,value.month,value.day)));},icon:const Icon(Icons.calendar_month),label:Text('ရက်စွဲ · $day')),
+      const SizedBox(height:16),OutlinedButton.icon(key:const ValueKey('budget_entry_date'),onPressed:busy?null:()async{final value=await showDatePicker(context:context,initialDate:parseBudgetDay(day),firstDate:DateTime(2000),lastDate:widget.today,helpText:uiText(context,'တကယ်ဝင်ပြီး / သုံးပြီးတဲ့ရက်'));if(value!=null&&mounted)setState(()=>day=budgetDay(DateTime.utc(value.year,value.month,value.day)));},icon:const Icon(Icons.calendar_month),label:Text('ရက်စွဲ · $day')),
       const SizedBox(height:16),TextField(key:const ValueKey('budget_note'),controller:note,enabled:!busy,maxLength:180,maxLines:2,decoration:InputDecoration(labelText: uiText(context, 'မှတ်ချက် (ရေးချင်မှ)'),hintText: uiText(context, 'ဥပမာ နေ့လယ်စာ / ဒီလအခန်းခ'))),
       if(error!=null)Padding(padding:const EdgeInsets.symmetric(vertical:12),child:Text(error!,style:TextStyle(color:Theme.of(context).colorScheme.error,height:1.8))),
       FilledButton.icon(key:const ValueKey('budget_save_entry'),onPressed:busy?null:save,icon:const Icon(Icons.check),label:Text(busy?'သိမ်းနေတယ်…':'သိမ်းမယ်')),
@@ -276,7 +276,7 @@ class _BudgetPlanEditorState extends State<BudgetPlanEditor> {
   @override
   void dispose(){opening.dispose();fixed.dispose();home.dispose();savings.dispose();super.dispose();}
   Future<void> date(bool from)async{
-    final chosen=await showDatePicker(context:context,initialDate:parseBudgetDay(from?start:end),firstDate:DateTime(2000),lastDate:DateTime(2100,12,31),helpText:from?'ဒီအစီအစဉ် စမယ့်ရက်':'နောက်ဝင်ငွေရမယ့်ရက်');
+    final chosen=await showDatePicker(context:context,initialDate:parseBudgetDay(from?start:end),firstDate:DateTime(2000),lastDate:DateTime(2100,12,31),helpText:uiText(context,from?'ဒီအစီအစဉ် စမယ့်ရက်':'နောက်ဝင်ငွေရမယ့်ရက်'));
     if(chosen!=null&&mounted)setState((){if(from){start=budgetDay(DateTime.utc(chosen.year,chosen.month,chosen.day));}else{end=budgetDay(DateTime.utc(chosen.year,chosen.month,chosen.day));}});
   }
   Future<void> save()async{
@@ -291,7 +291,7 @@ class _BudgetPlanEditorState extends State<BudgetPlanEditor> {
     }catch(e){if(mounted)setState(()=>error=e is FormatException?e.message:'သိမ်းမရသေးဘူး။ ပြန်စမ်းပေးပါ။');}
     finally{if(mounted)setState(()=>busy=false);}
   }
-  Widget field(String key,String label,String hint,TextEditingController controller)=>Padding(padding:const EdgeInsets.symmetric(vertical:10),child:TextField(key:ValueKey(key),controller:controller,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:InputDecoration(labelText:label,hintText:hint)));
+  Widget field(String key,String label,String hint,TextEditingController controller)=>Padding(padding:const EdgeInsets.symmetric(vertical:10),child:TextField(key:ValueKey(key),controller:controller,enabled:!busy,keyboardType:const TextInputType.numberWithOptions(decimal:true),decoration:InputDecoration(labelText:uiText(context,label),hintText:uiText(context,hint))));
   @override
   Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('ငွေစီမံမယ်')),body:ListView(padding:const EdgeInsets.all(20),children:[
     field('budget_opening','စာရင်းမစခင် ရှိငွေ (ဘတ်)','ဥပမာ 2000',opening),
