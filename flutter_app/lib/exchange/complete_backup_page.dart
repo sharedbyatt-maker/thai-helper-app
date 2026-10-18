@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -45,12 +44,12 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
       if (kIsWeb) {
         downloadBytes(
           Uint8List.fromList(utf8.encode(raw)),
-          'bahtzay-all-' + DateTime.now().toIso8601String().substring(0, 10) + '.json',
+          'bahtzay-all-${DateTime.now().toIso8601String().substring(0, 10)}.json',
           'application/json',
         );
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text(kIsWeb
               ? 'Backup ဖိုင် ထုတ်ပေးပြီးပြီ။ ဖိုင်ကို လုံခြုံတဲ့နေရာမှာ သိမ်းပေးပါ။'
               : 'Backup စာကို အောက်မှာ ကူးပြီး လုံခြုံတဲ့နေရာမှာ သိမ်းပေးပါ။'),
@@ -177,14 +176,10 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
         if (preview != null) ...[
           const SizedBox(height: 16),
           Text(
-            'ကိုယ့်ငွေစာရင်း ' + preview!.previousBudget.entries.length.toString()
-            + ' ခု → ' + preview!.incoming.budget.entries.length.toString()
-            + ' ခု\nငွေစီမံအစီအစဉ် ' + preview!.previousBudget.plans.length.toString()
-            + ' ခု → ' + preview!.incoming.budget.plans.length.toString()
-            + ' ခု\nငွေလဲမှတ်တမ်း ' + preview!.previousRecords.length.toString()
-            + ' ခု → ' + preview!.mergedRecords.records.length.toString()
-            + ' ခု\nအသစ် ' + preview!.mergedRecords.added.toString()
-            + ' ခု · ရှိပြီးသား ' + preview!.mergedRecords.skipped.toString() + ' ခု',
+            'ကိုယ့်ငွေစာရင်း ${preview!.previousBudget.entries.length} ခု → ${preview!.incoming.budget.entries.length} ခု\n'
+            'ငွေစီမံအစီအစဉ် ${preview!.previousBudget.plans.length} ခု → ${preview!.incoming.budget.plans.length} ခု\n'
+            'ငွေလဲမှတ်တမ်း ${preview!.previousRecords.length} ခု → ${preview!.mergedRecords.records.length} ခု\n'
+            'အသစ် ${preview!.mergedRecords.added} ခု · ရှိပြီးသား ${preview!.mergedRecords.skipped} ခု',
             style: const TextStyle(height: 1.9, fontWeight: FontWeight.w600),
           ),
           CheckboxListTile(
