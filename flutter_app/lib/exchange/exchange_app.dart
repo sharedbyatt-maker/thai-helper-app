@@ -87,7 +87,11 @@ class _CurrencyAppState extends State<CurrencyApp> {
   }
 
   Future<void> _toggleTheme() async {
-    final next = mode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    final effectiveDark = mode == ThemeMode.dark ||
+        (mode == ThemeMode.system &&
+            WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+                Brightness.dark);
+    final next = effectiveDark ? ThemeMode.light : ThemeMode.dark;
     setState(() => mode = next);
     try {
       final prefs = await SharedPreferences.getInstance().timeout(
