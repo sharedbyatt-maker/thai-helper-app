@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -34,11 +35,11 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
       ? e.message.toString()
       : 'ဖိုင်ကို ဖတ်/သိမ်းမရသေးပါ။ မှတ်တမ်းတွေကို မပြောင်းထားပါဘူး။';
 
-  Future<void> export() async {
+  Future<void> exportAll() async {
     if (busy) return;
     setState(() { busy = true; error = null; });
     try {
-      final raw = await service.export();
+      final raw = await service.exportAll();
       if (!mounted) return;
       setState(() => exported = raw);
       if (kIsWeb) {
@@ -125,7 +126,7 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
         const SizedBox(height: 12),
         FilledButton.icon(
           key: const ValueKey('complete_backup_export'),
-          onPressed: busy ? null : export,
+          onPressed: busy ? null : exportAll,
           icon: const Icon(Icons.download_outlined),
           label: const Text('မှတ်တမ်းအားလုံး သိမ်းမယ်'),
         ),
