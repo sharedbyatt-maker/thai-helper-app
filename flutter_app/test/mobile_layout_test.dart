@@ -1,3 +1,4 @@
+import 'support/app_update_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -93,7 +94,7 @@ void main() {
           ),
         );
         t.platformDispatcher.textScaleFactorTestValue = scenario.$2;
-        await t.pumpWidget(CurrencyApp(repository: repo));
+        await t.pumpWidget(CurrencyApp(updates: noNativeUpdates(), repository: repo));
         await t.pumpAndSettle();
         final left = find.byKey(const ValueKey('direction_thb_mmk'));
         final right = find.byKey(const ValueKey('direction_mmk_thb'));

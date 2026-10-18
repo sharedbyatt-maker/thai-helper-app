@@ -1,3 +1,4 @@
+import 'support/app_update_fixture.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -87,7 +88,7 @@ void main() {
         await tester.pumpWidget(
           RepaintBoundary(
             key: boundary,
-            child: CurrencyApp(repository: repo),
+            child: CurrencyApp(updates: noNativeUpdates(), repository: repo),
           ),
         );
         await tester.pumpAndSettle();

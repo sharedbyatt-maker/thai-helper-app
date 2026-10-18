@@ -59,6 +59,11 @@ export const revisionTrash = sqliteTable('revision_trash', {
 export const pushConfig = sqliteTable('push_config', {
  id: integer('id').primaryKey(), publicKey: text('public_key').notNull(), sealed: text('sealed').notNull(),
 });
+
+export const appRelease = sqliteTable('app_release', {
+ id: integer('id').primaryKey(), payload: text('payload').notNull(),
+ version: integer('version').notNull().default(0), updatedAt: text('updated_at').notNull(),
+});
 export const pushSubscribers = sqliteTable('push_subscribers', {
  id: text('id').primaryKey(), endpoint: text('endpoint').notNull(), keys: text('keys_json').notNull(),
  manageHash: text('manage_hash').notNull(), active: integer('active').notNull().default(1),

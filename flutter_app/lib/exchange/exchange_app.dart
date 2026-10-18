@@ -14,10 +14,12 @@ import 'rate_history.dart';
 import 'trend_card.dart';
 import 'daily_tools.dart';
 import 'platform_files.dart';
+import 'app_updates.dart';
 
 class CurrencyApp extends StatefulWidget {
   final RatesRepository? repository;
-  const CurrencyApp({super.key, this.repository});
+  final AppUpdateService updates;
+  const CurrencyApp({super.key, this.repository, this.updates = const AppUpdateService()});
   @override
   State<CurrencyApp> createState() => _CurrencyAppState();
 }
@@ -128,7 +130,7 @@ class _CurrencyAppState extends State<CurrencyApp> {
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
       themeMode: mode,
-      home: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository),
+      home: AppUpdateHost(service: widget.updates, child: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository)),
     );
   }
 }
@@ -852,6 +854,15 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ),
                 ),
                 actions: [
+                  TextButton.icon(
+                    key: const ValueKey('app_update_check'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      AppUpdateHost.open(context);
+                    },
+                    icon: const Icon(Icons.system_update_alt),
+                    label: const Text('App version / Update စစ်မယ်'),
+                  ),
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text('နားလည်ပါပြီ'),

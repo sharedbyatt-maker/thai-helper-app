@@ -1,3 +1,4 @@
+import { readRelease,saveRelease } from './app-release.mjs';
 import { pushApi,schedulePush } from './push.mjs';
 import { eventInsert,publishAnnouncement } from './notification-events.mjs';
 import { deletePublishedRevision } from './revision-management.mjs';
@@ -20,13 +21,14 @@ const conflict={error:'Draft ပြောင်းထားပါသည်။ Re
 export async function handle(req, db, user, bootstrapEmail, runtime={}) {
  const path=new URL(req.url).pathname;
  const phoneRoute=path.startsWith('/api/v2/push/');
- const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history','/api/v2/alerts'].includes(path);
+ const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history','/api/v2/alerts','/api/v2/app-release'].includes(path);
  const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...((publicRoute||phoneRoute)?{'Access-Control-Allow-Origin':'*'}:{})}});
  const publicSheet=async()=>{
   const row=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
   return row?{...JSON.parse(row.payload),schema_version:2,revision:row.id,published_at:row.published_at}:EMPTY;
  };
  try {
+  if(path==='/api/v2/app-release'&&req.method==='GET')return json(await readRelease(db,true));
   if(phoneRoute){
    if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'600'}});
    let input={};if(req.method==='POST'){try{input=JSON.parse(await bodyText(req,8192));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON required'},400);}}
@@ -79,7 +81,12 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const history=await db.prepare('SELECT id,payload,published_at FROM revisions ORDER BY id DESC LIMIT 50').all();
    const trash=await db.prepare('SELECT id,payload,published_at,deleted_at FROM revision_trash ORDER BY deleted_at DESC LIMIT 30').all();
    const summary=r=>({id:r.id,published_at:r.published_at,...(r.deleted_at?{deleted_at:r.deleted_at}:{}),...JSON.parse(r.payload)});
-   return json({draft:JSON.parse(row.payload),draft_version:row.version,published:await publicSheet(),history:history.results.map(summary),trash:trash.results.map(summary),csrf_token:'same-origin'});
+   return json({draft:JSON.parse(row.payload),draft_version:row.version,published:await publicSheet(),history:history.results.map(summary),trash:trash.results.map(summary),app_release:await readRelease(db),csrf_token:'same-origin'});
+  }
+  if(path==='/api/admin/app-release'&&req.method==='GET')return json(await readRelease(db));
+  if(path==='/api/admin/app-release'&&req.method==='PUT'){
+   let input;try{input=JSON.parse(await bodyText(req,16384));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON လိုပါတယ်။'},400);}
+   const result=await saveRelease(db,input);return json(result.data,result.status);
   }
   if(path.startsWith('/api/admin/telegram')){
    let input={};if(req.method==='POST'){try{input=JSON.parse(await bodyText(req,8192));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON လိုပါသည်'},400);}}
