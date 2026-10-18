@@ -873,7 +873,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
         actions: [
           IconButton(
-            tooltip: 'ဈေးအသစ် ယူမယ်',
+            tooltip: uiText(context, 'ဈေးအသစ် ယူမယ်'),
             onPressed: loading ? null : _refresh,
             icon: loading
                 ? const SizedBox(
@@ -885,12 +885,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ),
           const LanguageMenu(),
           IconButton(
-            tooltip: 'အလင်း / အမှောင်',
+            tooltip: uiText(context, 'အလင်း / အမှောင်'),
             onPressed: widget.onTheme,
             icon: const Icon(Icons.contrast),
           ),
           IconButton(
-            tooltip: 'အသုံးပြုနည်း',
+            tooltip: uiText(context, 'အသုံးပြုနည်း'),
             icon: const Icon(Icons.info_outline),
             onPressed: () => showDialog<void>(
               context: context,
@@ -1347,7 +1347,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
               if (lines.length > 1)
                 IconButton(
-                  tooltip: 'ဒီဈေးကို ဖယ်မယ်',
+                  tooltip: uiText(context, 'ဒီဈေးကို ဖယ်မယ်'),
                   onPressed: () => setState(() {
                     lines.removeAt(index).dispose();
                     results = [];
@@ -1361,7 +1361,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             key: ValueKey('${identityHashCode(line)}_${line.perLakh}'),
             initialValue: line.perLakh,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'ဈေးရေးပုံ'),
+            decoration: InputDecoration(labelText: uiText(context, 'ဈေးရေးပုံ')),
             items: const [
               DropdownMenuItem(value: false, child: Text('၁ ဘတ်အတွက် ကျပ်')),
               DropdownMenuItem(
@@ -1398,7 +1398,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်'
                   : '၁ ဘတ်အတွက် ကျပ်',
               hintText: line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
-              helperText: '${direction.label} ဈေးကို ထည့်ပေးပါ။',
+              helperText: uiText(context, '${direction.label} ဈေးကို ထည့်ပေးပါ။'),
               helperMaxLines: 2,
             ),
           ),
@@ -1428,9 +1428,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   controller: line.name,
                   maxLength: 100,
                   onChanged: (_) => invalidate(line),
-                  decoration: const InputDecoration(
-                    labelText: 'မှတ်ထားမယ့်နာမည်',
-                    hintText: 'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး',
+                  decoration: InputDecoration(
+                    labelText: uiText(context, 'မှတ်ထားမယ့်နာမည်'),
+                    hintText: uiText(context, 'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး'),
                   ),
                 ),
               ],
@@ -1571,7 +1571,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               controller: note,
               maxLength: 250,
               decoration: const InputDecoration(
-                labelText: 'မှတ်ချက် (ရေးချင်မှ)',
+                labelText: uiText(context, 'မှတ်ချက် (ရေးချင်မှ)'),
               ),
             ),
           ],
