@@ -41,9 +41,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ငွေတွက်'), findsOneWidget);
 
+    await tester.tap(find.byKey(const ValueKey('settings_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('language_menu')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('English').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings_close')));
     await tester.pumpAndSettle();
 
     expect(find.text('Calculator'), findsOneWidget);
@@ -72,9 +76,13 @@ void main() {
     await tester.pumpWidget(CurrencyApp(repository: _repo(), updates: noNativeUpdates()));
     await tester.pumpAndSettle();
     expect(find.text('Calculator'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('settings_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('language_menu')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('မြန်မာ').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('settings_close')));
     await tester.pumpAndSettle();
     expect(find.text('ငွေတွက်'), findsOneWidget);
     expect((await SharedPreferences.getInstance()).getString('user_language'), 'my');
