@@ -32,10 +32,27 @@ String uiTranslate(String source, UserLanguage language) {
   for (final entry in _ordered) {
     if (result.contains(entry.key)) result = result.replaceAll(entry.key, entry.value);
   }
+  // Interpolated monetary amounts have Arabic digits; replace only their
+  // currency suffix, rather than substituting short Burmese syllables inside
+  // unrelated phrases or user-supplied names.
+  result = result.replaceAllMapped(
+    RegExp(r'([0-9][0-9,.]*)\\s+ဘတ်'),
+    (match) => '${match[1]} THB',
+  );
+  result = result.replaceAllMapped(
+    RegExp(r'([0-9][0-9,.]*)\\s+ကျပ်'),
+    (match) => '${match[1]} MMK',
+  );
   return result;
 }
 
-final _ordered = _en.entries.toList()
+const _nonComposable = <String>{
+  'မှ', 'ခု', 'ရက်', 'နေ့', 'ဘတ်', 'ကျပ်', 'လက်ရှိ',
+  'စာရင်း', 'အားလုံး', 'အရင်', 'မှတ်တမ်း', 'ပြင်မယ်',
+};
+final _ordered = _en.entries
+    .where((item) => item.key.length > 4 && !_nonComposable.contains(item.key))
+    .toList()
   ..sort((a, b) => b.key.length.compareTo(a.key.length));
 
 String uiText(BuildContext context, String source) =>
