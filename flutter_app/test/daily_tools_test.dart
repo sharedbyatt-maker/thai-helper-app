@@ -303,6 +303,7 @@ void main() {
         await t.ensureVisible(find.text('ဈေးအသိပေးမယ်'));
         await t.tap(find.text('ဈေးအသိပေးမယ်'));
         await t.pumpAndSettle();
+        await t.ensureVisible(find.byType(SwitchListTile));
         await t.tap(find.byType(SwitchListTile));
         await t.pumpAndSettle();
         expect(find.byKey(const ValueKey('alert_target')), findsOneWidget);

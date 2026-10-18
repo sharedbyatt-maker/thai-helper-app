@@ -55,3 +55,22 @@ export const revisionTrash = sqliteTable('revision_trash', {
   publishedAt: text('published_at').notNull(), deletedAt: text('deleted_at').notNull(),
   requestId: text('request_id').notNull(),
 });
+
+export const pushConfig = sqliteTable('push_config', {
+ id: integer('id').primaryKey(), publicKey: text('public_key').notNull(), sealed: text('sealed').notNull(),
+});
+export const pushSubscribers = sqliteTable('push_subscribers', {
+ id: text('id').primaryKey(), endpoint: text('endpoint').notNull(), keys: text('keys_json').notNull(),
+ manageHash: text('manage_hash').notNull(), active: integer('active').notNull().default(1),
+ version: integer('version').notNull().default(1), startRevision: integer('start_revision').notNull(),
+ createdAt: integer('created_at').notNull(), updatedAt: integer('updated_at').notNull(),
+});
+export const notificationEvents = sqliteTable('notification_events', {
+ revision: integer('revision').primaryKey(), requestId: text('request_id').notNull(), payload: text('payload').notNull(), kind: text('kind').notNull(),
+ createdAt: integer('created_at').notNull(), expiresAt: integer('expires_at').notNull(),
+});
+export const pushOutbox = sqliteTable('push_outbox', {
+ id: text('id').primaryKey(), subscriberId: text('subscriber_id').notNull(), subscriptionVersion: integer('subscription_version').notNull(),
+ revision: integer('revision').notNull(), status: integer('status').notNull().default(0), attempts: integer('attempts').notNull().default(0),
+ nextAttempt: integer('next_attempt').notNull().default(0), lastError: text('last_error').notNull().default(''),
+});

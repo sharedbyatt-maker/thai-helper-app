@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:typed_data';
@@ -87,4 +88,11 @@ void downloadBytes(Uint8List bytes, String filename, String mime) {
   anchor.click();
   anchor.remove();
   Timer(const Duration(seconds: 30), () => web.URL.revokeObjectURL(url));
+}
+
+@JS('bahtzayPush')
+external JSPromise<JSString> _phoneNotifications(JSString action, JSString api);
+Future<Map<String, dynamic>> phoneNotifications(String action, String api) async {
+  final raw = (await _phoneNotifications(action.toJS, api.toJS).toDart).toDart;
+  return jsonDecode(raw) as Map<String, dynamic>;
 }

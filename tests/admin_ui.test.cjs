@@ -18,6 +18,7 @@ function setup(quotes=[],options={}){
   if(endpoint==='draft'){assert.equal(data.expected_version,state.draft_version);state.draft=data.sheet;state.draft_version++;return ok({draft_version:state.draft_version});}
   if(endpoint==='delete-revision'){assert.equal(data.expected_version,state.draft_version);assert.equal(data.expected_revision,state.published.revision);const row=state.history.find(r=>r.id===data.revision);state.trash.unshift({...row,deleted_at:new Date().toISOString()});state.history=state.history.filter(r=>r.id!==data.revision);state.published={...state.history[0],revision:state.published.revision+1};state.draft_version++;return ok({ok:true});}
   if(endpoint==='restore'){assert.equal(data.expected_version,state.draft_version);const row=[...state.history,...state.trash].find(r=>r.id===data.revision);state.draft={notice:'',quotes:row.quotes};state.draft_version++;return ok({ok:true});}
+  if(endpoint==='announcement'){assert.equal(data.expected_version,state.draft_version);assert.equal(data.expected_revision,state.published.revision);state.published={...state.published,notice:data.notice,revision:state.published.revision+1};state.draft_version++;return ok({ok:true});}
   if(endpoint==='publish'){assert.equal(data.expected_version,state.draft_version);state.draft_version++;state.published={...structuredClone(state.draft),revision:state.published.revision+1,published_at:new Date().toISOString()};return ok({published:state.published});}
   throw Error('Unexpected endpoint '+endpoint);
  };
@@ -102,5 +103,12 @@ test('Removing one direction only changes the local draft until an explicit prev
  const {dom,w,state,$,get}=setup();try{await until(()=>$('workspace').hidden===false);$('add').click();$('add-mmk').click();const cards=[...$('editors').children];get(cards[0],'rate').value='748';get(cards[1],'rate').value='724';
  w.confirm=()=>false;cards[0].querySelector('[data-action="remove"]').click();assert.equal($('editors').children.length,2);
  w.confirm=()=>true;cards[0].querySelector('[data-action="remove"]').click();assert.equal($('editors').children.length,1);assert.equal($('editors').firstElementChild.dataset.direction,'mmk_thb');assert.equal(state.published.revision,0);assert.equal($('publish').disabled,true);
+ }finally{dom.window.close();}
+});
+
+test('Admin announcement preview requires confirmation and does not publish a private rate draft',async()=>{
+ const {dom,w,state,$}=setup([],{published:{revision:2,quotes:[],notice:'',published_at:new Date().toISOString()}});try{
+  await until(()=>$('workspace').hidden===false);$('announcement-text').value='မနက်ဖြန် ဈေးအသစ်တင်မယ်';let preview='';w.confirm=text=>{preview=text;return false;};$('announcement-publish').click();await until(()=>$('workspace').inert===false);assert.equal(state.published.revision,2);assert.match(preview,/မနက်ဖြန်/);
+  w.confirm=()=>true;$('announcement-publish').click();await until(()=>state.published.revision===3);await until(()=>$('workspace').inert===false);assert.equal(state.published.notice,'မနက်ဖြန် ဈေးအသစ်တင်မယ်');assert.equal(state.draft.notice,'');assert.equal($('announcement-text').value,'');
  }finally{dom.window.close();}
 });

@@ -120,4 +120,10 @@ $('export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(st
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
 load().catch(e=>{if(!/ပြန်ဝင်/.test(e.message))message(e.message,true);});
 
-$('insights-refresh').addEventListener('click',()=>action(async()=>{const data=await api('insights');const delivered=data.deliveries.find(x=>x.status===1)?.count||0;const pending=data.deliveries.find(x=>x.status===0)?.count||0;$('insights-text').textContent=`အသိပေးမှု ဖွင့်ထားသူ ${data.active_subscribers} ဦး · ပို့ပြီး ${delivered} စောင် · စောင့်နေ ${pending} စောင်`; }));
+$('insights-refresh').addEventListener('click',()=>action(async()=>{const data=await api('insights');const delivered=data.deliveries.find(x=>x.status===1)?.count||0;const pending=data.deliveries.find(x=>x.status===0)?.count||0;const phones=data.phone_subscribers||0,phoneSent=(data.phone_deliveries||[]).find(x=>x.status===1)?.count||0,phonePending=(data.phone_deliveries||[]).find(x=>x.status===0)?.count||0;$('insights-text').textContent=`ဖုန်း noti ဖွင့်ထားသူ ${phones} ဦး · ပို့ပြီး ${phoneSent} စောင် · စောင့်နေ ${phonePending} စောင်\nTelegram အသိပေးမှု ဖွင့်ထားသူ ${data.active_subscribers} ဦး · ပို့ပြီး ${delivered} စောင် · စောင့်နေ ${pending} စောင်`; }));
+
+$('announcement-publish').addEventListener('click',()=>action(async()=>{
+ const notice=$('announcement-text').value.trim();if(!notice){$('announcement-text').focus();throw new Error('ကြေညာစာကို အရင်ဖြည့်ပေးပါ။');}
+ if(!confirm(`ကြေညာချက်ကို စစ်ပေးပါ\n\n${notice}\n\nအတည်ပြုရင် App ပေါ်တင်ပြီး ဖုန်း noti ဖွင့်ထားသူတွေကို အသိပေးမယ်။ ဈေးနှုန်းနဲ့ မူလစစ်ချိန် မပြောင်းပါဘူး။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
+ await api('announcement','POST',{notice,expected_revision:state.published.revision,expected_version:state.draft_version});$('announcement-text').value='';await load();message('ကြေညာချက် တင်ပြီးပြီ။ Noti ဖွင့်ထားသူတွေဆီ ပို့ဖို့ စာရင်းထည့်ထားတယ်။');
+}));
