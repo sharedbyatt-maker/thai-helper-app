@@ -50,11 +50,18 @@ export async function pushApi(req,db,path,data,runtime={}){
  }
  return {status:404,data:{error:'Not found'}};
 }
+function eventCurrent(event,latest){
+ if(!latest)return false;
+ const posted=JSON.parse(event.payload),current=JSON.parse(latest.payload);
+ if(event.kind==='announcement')return current.notice===posted.notice;
+ const a=posted.quotes||[],b=current.quotes||[];
+ return a.length===b.length&&a.every(q=>b.some(x=>x.id===q.id&&x.direction===q.direction&&['rate_micros','flat_fee_minor','fee_bps','observed_at','valid_until'].every(k=>x[k]===q[k])));
+}
 export async function queuePush(db,now=Date.now()){
  const events=(await db.prepare(`SELECT e.* FROM notification_events e JOIN revisions r ON r.id=e.revision WHERE e.expires_at>? AND NOT EXISTS(SELECT 1 FROM notification_events n JOIN revisions nr ON nr.id=n.revision WHERE n.kind=e.kind AND n.revision>e.revision) ORDER BY e.revision`).bind(now).all()).results;
  for(const event of events){
   const payload=pushPayload(event,now);if(!payload)continue;
-  if(event.kind==='announcement'){const latest=await db.prepare('SELECT payload FROM revisions ORDER BY id DESC LIMIT 1').first();if(JSON.parse(latest.payload).notice!==JSON.parse(event.payload).notice)continue;}
+  const latest=await db.prepare('SELECT id,payload FROM revisions ORDER BY id DESC LIMIT 1').first();if(!eventCurrent(event,latest))continue;
   const subscribers=(await db.prepare(`SELECT s.id,s.version FROM push_subscribers s WHERE active=1 AND start_revision<? AND NOT EXISTS(SELECT 1 FROM push_outbox o WHERE o.subscriber_id=s.id AND o.subscription_version=s.version AND o.revision=?) LIMIT 100`).bind(event.revision,event.revision).all()).results;
   if(subscribers.length)await db.batch(subscribers.map(s=>db.prepare(`INSERT OR IGNORE INTO push_outbox(id,subscriber_id,subscription_version,revision,status,attempts,next_attempt) SELECT ?,?,?,?,0,0,0 WHERE EXISTS(SELECT 1 FROM push_subscribers WHERE id=? AND version=? AND active=1)`).bind(`${s.id}:${s.version}:${event.revision}`,s.id,s.version,event.revision,s.id,s.version)));
  }
@@ -69,10 +76,10 @@ export async function deliverPush(db,secret,fetcher=fetch,clock=Date.now){
  for(let start=0;start<rows.length&&clock()<deadline;start+=4){await Promise.all(rows.slice(start,start+4).map(async item=>{
   const time=clock(),payload=pushPayload(item,time);
   const newer=await db.prepare(`SELECT e.revision FROM notification_events e JOIN revisions r ON r.id=e.revision WHERE e.kind=? AND e.revision>? LIMIT 1`).bind(item.kind,item.revision).first();
-  const latest=await db.prepare('SELECT payload FROM revisions ORDER BY id DESC LIMIT 1').first();
-  const obsolete=item.kind==='announcement'&&JSON.parse(latest?.payload||'{}').notice!==JSON.parse(item.payload).notice;
+  const latest=await db.prepare('SELECT id,payload FROM revisions ORDER BY id DESC LIMIT 1').first();
+  const obsolete=!eventCurrent(item,latest);
   if(item.expires_at<=time||!payload||newer||obsolete){await db.prepare('UPDATE push_outbox SET status=2 WHERE id=? AND status=0').bind(item.id).run();return;}
-  const lease=await db.prepare(`UPDATE push_outbox SET attempts=attempts+1,next_attempt=? WHERE id=? AND status=0 AND next_attempt<=? AND EXISTS(SELECT 1 FROM push_subscribers WHERE id=? AND version=? AND active=1) AND EXISTS(SELECT 1 FROM revisions WHERE id=?)`).bind(time+60000,item.id,time,item.subscriber_id,item.subscription_version,item.revision).run();
+  const lease=await db.prepare(`UPDATE push_outbox SET attempts=attempts+1,next_attempt=? WHERE id=? AND status=0 AND next_attempt<=? AND EXISTS(SELECT 1 FROM push_subscribers WHERE id=? AND version=? AND active=1) AND EXISTS(SELECT 1 FROM revisions WHERE id=?) AND (SELECT MAX(id) FROM revisions)=?`).bind(time+60000,item.id,time,item.subscriber_id,item.subscription_version,item.revision,latest.id).run();
   if(!lease.meta.changes)return;
   let status=0,error='',delay=Math.min(1800,60*2**item.attempts);
   try{

@@ -82,3 +82,9 @@ test('Phone endpoints expose CORS preflight but cannot grant admin access or pub
  const res=await handle(new Request('https://rates.example/api/admin/announcement',{method:'POST',headers:{Origin:'https://rates.example','X-Admin-Request':'1'},body:JSON.stringify({notice:'bad',expected_version:0,expected_revision:0})}),db,null,'',{telegramKey:secret});assert.equal(res.status,401);assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM revisions').get().n,0);
  }finally{db.sqlite.close();}
 });
+test('A later undo or administrative rollback without a new notification event cannot deliver a queued obsolete price',async()=>{
+ const db=new D1();try{await subscribe(db);const original=[quote('mmk_thb',724)];await publish(db,original);await publish(db,[quote('mmk_thb',780)]);await queuePush(db,now);
+ db.sqlite.prepare('INSERT INTO revisions(payload,published_at) VALUES(?,?)').run(JSON.stringify({quotes:original,notice:''}),new Date(now).toISOString());
+ let sent=0;await deliverPush(db,secret,async()=>{sent++;return accepted();},()=>now);assert.equal(sent,0);assert.equal(db.sqlite.prepare('SELECT status FROM push_outbox').get().status,2);
+ }finally{db.sqlite.close();}
+});
