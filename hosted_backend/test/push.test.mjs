@@ -88,3 +88,10 @@ test('A later undo or administrative rollback without a new notification event c
  let sent=0;await deliverPush(db,secret,async()=>{sent++;return accepted();},()=>now);assert.equal(sent,0);assert.equal(db.sqlite.prepare('SELECT status FROM push_outbox').get().status,2);
  }finally{db.sqlite.close();}
 });
+test('Each independently entered direction keeps its own observation time in a phone notification',()=>{
+ const older=quote('mmk_thb',724,now-3600000),newer=quote('thb_mmk',748,now);
+ const event={revision:9,kind:'rates',payload:JSON.stringify({quotes:[older,newer],notice:''}),expires_at:now+86400000};
+ const payload=pushPayload(event,now);
+ for(const q of [older,newer])assert.ok(payload.body.includes(new Date(q.observed_at).toLocaleString('en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})));
+ assert.match(payload.body,/724/);assert.match(payload.body,/748/);assert.equal(payload.expires_at,Date.parse(older.valid_until));
+});
