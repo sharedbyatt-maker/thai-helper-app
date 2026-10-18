@@ -126,7 +126,7 @@ class _TrendCardState extends State<TrendCard> {
                 const Padding(
                   padding: EdgeInsets.only(top: 10),
                   child: Text(
-                    'ဒါက အရင်တင်ထားတဲ့ဈေးပါ။ အသစ်ပြန်မစစ်ရသေးလို့ ဒီဈေးနဲ့ မတွက်ပေးသေးပါဘူး။',
+                    'ဈေးအသစ် မတင်ရသေးပါ။ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ကြည့်နိုင်ပါတယ်။',
                     style: TextStyle(color: pale, height: 1.8),
                   ),
                 ),
@@ -362,7 +362,7 @@ class _TrendCardState extends State<TrendCard> {
                   style: TextStyle(color: pale, fontSize: 12),
                 ),
               ),
-            if (q != null && active)
+            if (q != null)
               Padding(
                 padding: EdgeInsets.only(top: compact ? 12 : 18),
                 child: FilledButton.icon(
@@ -381,7 +381,7 @@ class _TrendCardState extends State<TrendCard> {
                         : null,
                   ),
                   icon: const Icon(Icons.calculate_outlined, size: 18),
-                  label: const Text('ဒီနှုန်းနဲ့ တွက်မယ်'),
+                  label: Text(active ? 'ဒီနှုန်းနဲ့ တွက်မယ်' : 'နောက်ဆုံးဈေးနဲ့ တွက်မယ်'),
                 ),
               ),
           ],

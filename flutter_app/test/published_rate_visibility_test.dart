@@ -15,6 +15,7 @@ void main() {
     WidgetTester tester, {
     bool stale = false,
     bool trend = false,
+    ExchangeDirection side = ExchangeDirection.mmkThb,
   }) async {
     tester.view.physicalSize = const Size(390, 1050);
     tester.view.devicePixelRatio = 1;
@@ -56,10 +57,12 @@ void main() {
                     'notice': '',
                     'quotes': [
                       {
-                        'id': 'daily-mmk_thb',
-                        'label': 'ကျပ်ပေး → ဘတ်ယူ',
-                        'direction': 'mmk_thb',
-                        'rate_micros': 137741047,
+                        'id': 'daily-${side.key}',
+                        'label': side.label,
+                        'direction': side.key,
+                        'rate_micros': side == ExchangeDirection.mmkThb
+                            ? 137741047
+                            : 133689840,
                         'source_name': 'Daily reference',
                         'source_url': '',
                         'payout_method': 'မဖော်ပြထားပါ',
@@ -191,12 +194,51 @@ void main() {
     },
   );
   testWidgets(
-    'After 24 hours the last rate stays visible with a stale label and cannot calculate as current',
+    'Expired daily quotes still link to calculation in both directions with their original age visible',
+    (tester) async {
+      for (final side in ExchangeDirection.values) {
+        SharedPreferences.setMockInitialValues({});
+        await start(tester, stale: true, side: side);
+        expect(find.text('ပြန်စစ်ဖို့လိုနေပြီ'), findsOneWidget);
+        expect(find.text('ဒီနှုန်းနဲ့ တွက်မယ်'), findsNothing);
+        final link = find.text('နောက်ဆုံးဈေးနဲ့ တွက်မယ်');
+        await tester.scrollUntilVisible(link, 180, scrollable: find.byType(Scrollable).first);
+        await tester.ensureVisible(link);
+        await tester.pumpAndSettle();
+        await tester.tap(link);
+        await tester.pumpAndSettle();
+        final rate = tester.widget<TextField>(find.byKey(const ValueKey('rate_0')));
+        expect(rate.controller!.text, side == ExchangeDirection.mmkThb ? '726' : '748');
+        expect(find.byKey(const ValueKey('last_rate_notice_0')), findsOneWidget);
+        expect(find.textContaining('ဈေးတင်ချိန်'), findsOneWidget);
+        await tester.enterText(find.byKey(const ValueKey('amount')), side == ExchangeDirection.mmkThb ? '100000' : '748');
+        final calculate = find.byKey(const ValueKey('calculate'));
+        await tester.ensureVisible(calculate);
+        await tester.pumpAndSettle();
+        await tester.tap(calculate);
+        await tester.pumpAndSettle();
+        final expected = side == ExchangeDirection.mmkThb ? 'ရငွေ 726 ဘတ်' : 'ရငွေ 100,000 ကျပ်';
+        expect(find.text(expected), findsOneWidget);
+        expect(find.byKey(const ValueKey('result_last_rate_notice_0')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await close(tester);
+      }
+    },
+  );
+  testWidgets(
+    'Opening calculator directly uses the last quote; editing it removes the published-age label',
     (tester) async {
       await start(tester, stale: true);
-      expect(find.text('ကျပ် ၁ သိန်း = 726 ဘတ်'), findsOneWidget);
-      expect(find.text('ပြန်စစ်ဖို့လိုနေပြီ'), findsOneWidget);
-      expect(find.text('ဒီနှုန်းနဲ့ တွက်မယ်'), findsNothing);
+      await tester.tap(find.text('ငွေတွက်'));
+      await tester.pumpAndSettle();
+      final rate = find.byKey(const ValueKey('rate_0'));
+      expect(tester.widget<TextField>(rate).controller!.text, '726');
+      expect(find.byKey(const ValueKey('last_rate_notice_0')), findsOneWidget);
+      await tester.ensureVisible(rate);
+      await tester.pumpAndSettle();
+      await tester.enterText(rate, '730');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('last_rate_notice_0')), findsNothing);
       expect(tester.takeException(), isNull);
       await close(tester);
     },
