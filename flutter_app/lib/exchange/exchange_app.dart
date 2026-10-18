@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Text;
-import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu;
+import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu, uiText;
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -946,20 +946,20 @@ class _ExchangeHomeState extends State<ExchangeHome>
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.currency_exchange),
-            label: 'ဘတ်ဈေး',
+            label: uiText(context, 'ဘတ်ဈေး'),
           ),
           NavigationDestination(
             icon: Icon(Icons.calculate_outlined),
-            label: 'ငွေတွက်',
+            label: uiText(context, 'ငွေတွက်'),
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-            label: 'ငွေစာရင်း',
+            label: uiText(context, 'ငွေစာရင်း'),
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
-            label: 'မှတ်တမ်း',
+            label: uiText(context, 'မှတ်တမ်း'),
           ),
         ],
       ),
