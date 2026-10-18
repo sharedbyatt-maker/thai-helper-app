@@ -60,7 +60,7 @@ void main(){
   final repo=RatesRepository(client:MockClient((r)async=>http.Response(jsonEncode(r.url.path.endsWith('/history')?{'schema_version':1,'timezone':'Asia/Bangkok','points':[]}:{'schema_version':2,'revision':1,'published_at':DateTime.now().toIso8601String(),'notice':'','quotes':[]}),200)));
   await tester.pumpWidget(CurrencyApp(repository:repo,updates:noNativeUpdates()));await tester.pumpAndSettle();
   expect(find.byType(NavigationDestination),findsNWidgets(4));
-  expect(tester.widgetList<NavigationDestination>(find.byType(NavigationDestination)).map((d)=>d.label).toList(),['နေ့စဉ်ဈေး','ငွေတွက်','ငွေစာရင်း','မှတ်တမ်း']);
+  expect(tester.widgetList<NavigationDestination>(find.byType(NavigationDestination)).map((d)=>d.label).toList(),['ဘတ်ဈေး','ငွေတွက်','ငွေစာရင်း','မှတ်တမ်း']);
   expect(find.byKey(const ValueKey('open_budget')),findsNothing);
   await tester.tap(find.text('ငွေစာရင်း'));await tester.pumpAndSettle();
   expect(tester.widget<Text>(find.byKey(const ValueKey('budget_balance'))).data,'1,234 ဘတ်');
