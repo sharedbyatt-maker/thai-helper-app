@@ -36,11 +36,11 @@ String uiTranslate(String source, UserLanguage language) {
   // currency suffix, rather than substituting short Burmese syllables inside
   // unrelated phrases or user-supplied names.
   result = result.replaceAllMapped(
-    RegExp(r'([0-9][0-9,.]*)\\s+ဘတ်'),
+    RegExp(r'([0-9][0-9,.]*)\s+ဘတ်'),
     (match) => '${match[1]} THB',
   );
   result = result.replaceAllMapped(
-    RegExp(r'([0-9][0-9,.]*)\\s+ကျပ်'),
+    RegExp(r'([0-9][0-9,.]*)\s+ကျပ်'),
     (match) => '${match[1]} MMK',
   );
   return result;
