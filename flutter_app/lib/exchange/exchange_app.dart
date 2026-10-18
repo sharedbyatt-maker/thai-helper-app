@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/material.dart' as raw show Text;
-import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu, uiText;
+import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, uiText;
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +18,8 @@ import 'daily_tools.dart';
 import 'platform_files.dart';
 import 'app_updates.dart';
 import 'budget_page.dart';
+import 'complete_backup_page.dart';
+import 'app_settings.dart';
 
 class CurrencyApp extends StatefulWidget {
   final RatesRepository? repository;
@@ -276,6 +278,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       importingRecords = false;
   String? calcError, loadError, recordError;
   int tab = 0, requestId = 0, recordLoadId = 0;
+  int budgetRefreshSignal = 0;
   Timer? timer;
   Timer? calculationFeedbackTimer;
   bool calculationAcknowledged = false;
@@ -844,88 +847,109 @@ class _ExchangeHomeState extends State<ExchangeHome>
     ),
   );
 
+  Future<void> _openBackup() async {
+    await Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (_) => const CompleteBackupPage(),
+    ));
+    if (!mounted) return;
+    _loadRecords();
+    setState(() => budgetRefreshSignal++);
+  }
+
+  void _showHelp() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('အသုံးပြုနည်း'),
+        content: const SingleChildScrollView(
+          child: Text(
+            'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\\n\\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။\\n\\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\\n\\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။',
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            key: const ValueKey('app_update_check'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              AppUpdateHost.open(context);
+            },
+            icon: const Icon(Icons.system_update_alt),
+            label: const Text('App version / Update စစ်မယ်'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('နားလည်ပါပြီ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSettings() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => AppSettingsSheet(
+        onTheme: widget.onTheme,
+        onHelp: _showHelp,
+        onUpdate: () => AppUpdateHost.open(context),
+        onNotifications: () => showRateAlerts(context, direction),
+        onBackup: _openBackup,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      // BudgetPage already owns its header, actions and expense button.
-      // Keep the shared bottom navigation outside it so there is one header
-      // and the same four destinations throughout the main app.
-      appBar: tab == 2 ? null : AppBar(
+      appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(
-              'assets/branding/bahtzay-icon-bahtzay-v2.png',
-              width: 42,
-              height: 42,
-              excludeFromSemantics: true,
-            ),
-            const SizedBox(width: 11),
+            Image.asset('assets/branding/bahtzay-icon-bahtzay-v2.png',
+                width: 38, height: 38, excludeFromSemantics: true),
+            const SizedBox(width: 9),
             const Flexible(
-              child: Text(
-                'ဘတ်ဈေး',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text('ဘတ်ဈေး',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: uiText(context, 'ဈေးအသစ် ယူမယ်'),
-            onPressed: loading ? null : _refresh,
-            icon: loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh_rounded),
-          ),
-          const LanguageMenu(),
-          IconButton(
-            tooltip: uiText(context, 'အလင်း / အမှောင်'),
-            onPressed: widget.onTheme,
-            icon: const Icon(Icons.contrast),
-          ),
-          IconButton(
-            tooltip: uiText(context, 'အသုံးပြုနည်း'),
-            icon: const Icon(Icons.info_outline),
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('အသုံးပြုနည်း'),
-                content: const SingleChildScrollView(
-                  child: Text(
-                    'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။',
-                  ),
-                ),
-                actions: [
-                  TextButton.icon(
-                    key: const ValueKey('app_update_check'),
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      AppUpdateHost.open(context);
-                    },
-                    icon: const Icon(Icons.system_update_alt),
-                    label: const Text('App version / Update စစ်မယ်'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('နားလည်ပါပြီ'),
-                  ),
-                ],
-              ),
+          if (tab == 0 || tab == 1)
+            IconButton(
+              key: const ValueKey('refresh_rates'),
+              tooltip: uiText(context, 'ဈေးအသစ် ယူမယ်'),
+              onPressed: loading ? null : _refresh,
+              icon: loading
+                  ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.refresh_rounded),
             ),
+          IconButton(
+            key: const ValueKey('settings_button'),
+            tooltip: uiText(context, 'ဆက်တင်'),
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
       body: tab == 2
-          ? BudgetPage(
-              key: const ValueKey('budget_main_tab'),
-              quote: dailyQuote(ExchangeDirection.thbMmk),
+          ? SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: BudgetPage(
+                    key: const ValueKey('budget_main_tab'),
+                    embedded: true,
+                    refreshSignal: budgetRefreshSignal,
+                    quote: dailyQuote(ExchangeDirection.thbMmk),
+                  ),
+                ),
+              ),
             )
           : SafeArea(
               child: Align(
