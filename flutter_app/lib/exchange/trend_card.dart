@@ -1,5 +1,6 @@
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'user_language.dart' show Text, uiText;
 import 'models.dart';
 import 'rate_history.dart';
 
