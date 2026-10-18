@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu, uiText;
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,10 +28,12 @@ class CurrencyApp extends StatefulWidget {
 
 class _CurrencyAppState extends State<CurrencyApp> {
   ThemeMode mode = ThemeMode.system;
+  UserLanguage language = UserLanguage.myanmar;
   @override
   void initState() {
     super.initState();
     _restoreTheme();
+    _restoreLanguage();
   }
 
   Future<void> _restoreTheme() async {
@@ -49,6 +52,34 @@ class _CurrencyAppState extends State<CurrencyApp> {
       );
     } catch (_) {
       // The system theme remains usable when browser storage is blocked.
+    }
+  }
+
+  Future<void> _restoreLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 1),
+      );
+      final raw = prefs.getString('user_language');
+      if (mounted) {
+        setState(() => language =
+            raw == 'en' ? UserLanguage.english : UserLanguage.myanmar);
+      }
+    } catch (_) {
+      // Language still works in memory if private browser storage is blocked.
+    }
+  }
+
+  Future<void> _changeLanguage(UserLanguage next) async {
+    setState(() => language = next);
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(seconds: 1),
+      );
+      await prefs.setString('user_language',
+          next == UserLanguage.english ? 'en' : 'my');
+    } catch (_) {
+      // Keep the selected language available for this session.
     }
   }
 
@@ -131,6 +162,14 @@ class _CurrencyAppState extends State<CurrencyApp> {
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
       themeMode: mode,
+      locale: language == UserLanguage.english
+          ? const Locale('en')
+          : const Locale('my'),
+      builder: (context, child) => UserLanguageScope(
+        language: language,
+        onChanged: _changeLanguage,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: AppUpdateHost(service: widget.updates, child: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository)),
     );
   }
@@ -844,6 +883,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   )
                 : const Icon(Icons.refresh_rounded),
           ),
+          const LanguageMenu(),
           IconButton(
             tooltip: 'အလင်း / အမှောင်',
             onPressed: widget.onTheme,
