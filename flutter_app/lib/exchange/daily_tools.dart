@@ -522,7 +522,7 @@ Future<void> showRateAlerts(
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: uiText(context, 'ကျပ် ၁ သိန်းအတွက် ဘတ်'),
                       hintText: uiText(context, 'ဥပမာ 730'),
                     ),
