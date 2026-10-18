@@ -222,4 +222,23 @@ void main() {
       }
     },
   );
+  testWidgets('A stale visible history cannot overwrite a record saved by another tab', (t) async {
+    final now = DateTime.now().toUtc();
+    final original = record('original', ExchangeDirection.thbMmk, now, completed: false);
+    await start(t, [original]);
+    final store = RecordStore();
+    await store.save([original, record('other-tab', ExchangeDirection.mmkThb, now)],
+      expectedRecords: [original]);
+    final toggle = find.byKey(const ValueKey('record_completed_original'));
+    await reveal(t, toggle);
+    await t.tap(toggle);
+    await t.pumpAndSettle();
+    final kept = await store.load();
+    expect(kept.map((r) => r.id).toSet(), {'original', 'other-tab'});
+    expect(kept.singleWhere((r) => r.id == 'original').completed, false);
+    expect(find.textContaining('စာရင်းပြန်ဖတ်ပြီးမှ'), findsOneWidget);
+    expect(t.takeException(), isNull);
+    await close(t);
+  });
+
 }

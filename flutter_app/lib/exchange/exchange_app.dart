@@ -235,7 +235,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       writingRecord = false,
       importingRecords = false;
   String? calcError, loadError, recordError;
-  int tab = 0, requestId = 0;
+  int tab = 0, requestId = 0, recordLoadId = 0;
   Timer? timer;
   Timer? calculationFeedbackTimer;
   bool calculationAcknowledged = false;
@@ -269,7 +269,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     appVisible = state == AppLifecycleState.resumed;
-    if (appVisible) _refresh(silent: true);
+    if (appVisible) {
+      _refresh(silent: true);
+      if (!writingRecord && !importingRecords) _loadRecords();
+    }
   }
 
   void toast(String message) {
@@ -388,9 +391,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   Future<void> _loadRecords() async {
+    if (writingRecord) return;
+    final id = ++recordLoadId;
     try {
       final saved = await store.load();
-      if (mounted) {
+      if (mounted && id == recordLoadId) {
         setState(() {
           records = saved;
           recordsReady = true;
@@ -398,10 +403,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && id == recordLoadId) {
         setState(
-          () => recordError =
-              'မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ သိမ်းထားတဲ့စာရင်းကို မပြောင်းထားပါဘူး။',
+          () {
+            recordsReady = false;
+            recordError = 'မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ သိမ်းထားတဲ့စာရင်းကို မပြောင်းထားပါဘူး။';
+          },
         );
       }
     }
@@ -808,17 +815,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(9),
-              decoration: BoxDecoration(
-                color: scheme.primary,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(
-                Icons.currency_exchange_rounded,
-                color: scheme.onPrimary,
-                size: 22,
-              ),
+            Image.asset(
+              'assets/branding/bahtzay-icon.png',
+              width: 42,
+              height: 42,
+              excludeFromSemantics: true,
             ),
             const SizedBox(width: 11),
             const Flexible(
@@ -1566,17 +1567,21 @@ class _ExchangeHomeState extends State<ExchangeHome>
 
   Future<void> writeRecords(List<PersonalRecord> next) async {
     if (writingRecord) return;
+    ++recordLoadId;
+    final previous = [...records];
     setState(() => writingRecord = true);
     try {
-      await store.save(next);
+      await store.save(next, expectedRecords: previous);
       if (mounted) {
         setState(() => records = next);
         toast('သိမ်းပြီးပါပြီ');
       }
-    } catch (_) {
+    } catch (e) {
       toast(
-        'မှတ်တမ်း သိမ်းမရသေးဘူး။ စာရင်း ၅၀၀ ပြည့်နေလား၊ ဖုန်းမှာ နေရာရှိသေးလား စစ်ပေးပါ။ အရင်စာရင်းတွေကို မပြောင်းထားပါဘူး။',
+        e is FormatException ? e.message : 'မှတ်တမ်း သိမ်းမရသေးဘူး။ ဖုန်းမှာ နေရာရှိသေးလား စစ်ပေးပါ။ အရင်စာရင်းတွေကို မပြောင်းထားပါဘူး။',
       );
+      if (mounted) setState(() => writingRecord = false);
+      await _loadRecords();
     } finally {
       if (mounted) setState(() => writingRecord = false);
     }

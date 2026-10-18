@@ -82,30 +82,51 @@ class PersonalRecord {
 class RecordStore {
   static const key = 'exchange_records_v2';
   static const limit = 500;
+  String signature(List<PersonalRecord> records) =>
+      jsonEncode(records.map((r) => r.toJson()).toList());
+
+  List<PersonalRecord> _decode(String raw) {
+    try {
+      final list = jsonDecode(raw);
+      if (list is! List || list.length > limit) {
+        throw const FormatException();
+      }
+      final records = list.map((r) => PersonalRecord.fromJson(r as Map<String, dynamic>)).toList();
+      if (records.map((r) => r.id).toSet().length != records.length) {
+        throw const FormatException();
+      }
+      return records;
+    } catch (_) {
+      throw const FormatException('မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ မူရင်းစာရင်းကို မပြောင်းထားပါဘူး။');
+    }
+  }
+
   Future<List<PersonalRecord>> load() async {
     final p = await SharedPreferences.getInstance();
+    await p.reload();
     final raw = p.getString(key);
     if (raw == null) return [];
     // Never overwrite a corrupt/unsupported history silently.
-    final list = jsonDecode(raw) as List;
-    if (list.length > limit) {
-      throw const FormatException('Unsupported history size');
-    }
-    return list
-        .map((r) => PersonalRecord.fromJson(r as Map<String, dynamic>))
-        .toList();
+    return _decode(raw);
   }
 
-  Future<void> save(List<PersonalRecord> records) async {
+  Future<void> save(List<PersonalRecord> records, {List<PersonalRecord>? expectedRecords}) async {
     if (records.length > limit) {
       throw const FormatException(
         'မှတ်တမ်း ၅၀၀ ပြည့်နေပြီ။ အဟောင်းတွေကို ဖိုင်ထုတ်သိမ်းပြီးမှ ရှင်းပေးပါ။',
       );
     }
+    final checked = _decode(signature(records));
     final p = await SharedPreferences.getInstance();
+    await p.reload();
+    final raw = p.getString(key);
+    final current = raw == null ? <PersonalRecord>[] : _decode(raw);
+    if (expectedRecords != null && signature(current) != signature(expectedRecords)) {
+      throw const FormatException('မှတ်တမ်းတွေ ပြောင်းထားပြီ။ စာရင်းပြန်ဖတ်ပြီးမှ ထပ်လုပ်ပေးပါ။');
+    }
     final ok = await p.setString(
       key,
-      jsonEncode(records.map((r) => r.toJson()).toList()),
+      signature(checked),
     );
     if (!ok) throw const FormatException('ဖုန်းထဲ သိမ်းမရပါ။ ပြန်စမ်းပါ။');
   }

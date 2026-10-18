@@ -8,7 +8,7 @@ self.addEventListener('push',event=>{
   const title=typeof data.title==='string'?data.title:'ဘတ်ဈေး · အသိပေးချက်';
   const body=expired?'နောက်ဆုံးဈေးနဲ့ ကြေညာချက်ကို App မှာ ပြန်စစ်ပေးပါ။':typeof data.body==='string'?data.body:'App မှာ အချက်အလက်အသစ် ကြည့်နိုင်ပြီ။';
   // Every received push displays a notification, including a safe expired fallback.
-  await self.registration.showNotification(title,{body,tag:typeof data.tag==='string'?data.tag:'bahtzay-news',icon:new URL('icons/Icon-192.png',self.registration.scope).href,badge:new URL('icons/Icon-192.png',self.registration.scope).href,data:{url:self.registration.scope},renotify:true});
+  await self.registration.showNotification(title,{body,tag:typeof data.tag==='string'?data.tag:'bahtzay-news',icon:new URL('icons/Icon-192-bahtzay-v1.png',self.registration.scope).href,badge:new URL('icons/Icon-192-bahtzay-v1.png',self.registration.scope).href,data:{url:self.registration.scope},renotify:true});
  })());
 });
 self.addEventListener('notificationclick',event=>{

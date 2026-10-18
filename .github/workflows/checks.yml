@@ -23,6 +23,7 @@ jobs:
       - run: node --check backend/admin/app.js
       - run: npm run test:admin
       - run: node --test tests/push_browser.test.cjs
+      - run: node --test tests/branding.test.cjs
       - run: node --check hosted_backend/public/admin/app.js
       - run: node --check hosted_backend/public/admin/telegram.js
       - run: node --check hosted_backend/public/admin/app-release.js

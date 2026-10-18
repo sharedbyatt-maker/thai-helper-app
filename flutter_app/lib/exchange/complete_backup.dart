@@ -131,7 +131,7 @@ class CompleteBackupService {
     }
     final historyChanged = preview.mergedRecords.added > 0;
     if (historyChanged) {
-      await recordStore.save(preview.mergedRecords.records);
+      await recordStore.save(preview.mergedRecords.records, expectedRecords: currentRecords);
     }
     try {
       await budgetStore.save(
@@ -141,9 +141,9 @@ class CompleteBackupService {
     } catch (_) {
       if (historyChanged) {
         try {
-          await recordStore.save(currentRecords);
+          await recordStore.save(currentRecords, expectedRecords: preview.mergedRecords.records);
         } catch (_) {
-          throw const FormatException('ငွေစာရင်းသိမ်းမရခဲ့ပါ။ ငွေလဲမှတ်တမ်းကိုလည်း အရင်အတိုင်း ပြန်မထားနိုင်ခဲ့လို့ Backup နဲ့ စစ်ပေးပါ။');
+          throw const FormatException('ငွေစာရင်းသိမ်းမရခဲ့ပါ။ ငွေလဲမှတ်တမ်းလည်း ပြောင်းထားတာ ဒါမှမဟုတ် သိမ်းမရတာ ရှိလို့ ဖုံးမရေးထားပါဘူး။ လက်ရှိစာရင်းနဲ့ Backup ကို ပြန်စစ်ပေးပါ။');
         }
       }
       throw const FormatException('ငွေစာရင်းသိမ်းမရလို့ ပြန်ထည့်ခြင်းကို ရပ်ထားပါတယ်။ အရင်မှတ်တမ်းတွေ ပြန်ထားပြီးပါပြီ။');

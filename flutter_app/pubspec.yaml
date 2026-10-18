@@ -25,6 +25,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/branding/bahtzay-icon.png
     - assets/data/exchange_snapshot.json
     - assets/fonts/OFL.txt
     - assets/fonts/Symbols-OFL.txt

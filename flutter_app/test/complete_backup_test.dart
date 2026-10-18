@@ -19,6 +19,17 @@ class RejectingBudgetStore extends BudgetStore {
   }
 }
 
+class ConcurrentRejectingBudgetStore extends RejectingBudgetStore {
+  @override
+  Future<BudgetData> save(BudgetData next,
+      {required int expectedRevision, bool replaceCorrupt = false}) async {
+    final store = RecordStore();
+    final current = await store.load();
+    await store.save([...current, exchangeRecord('other-tab')], expectedRecords: current);
+    throw const FormatException('budget failed after another tab saved history');
+  }
+}
+
 PersonalRecord exchangeRecord(String id) {
   final at = DateTime.utc(2026, 10, 17, 3);
   final quote = ExchangeQuote(
@@ -180,5 +191,21 @@ void main() {
     await expectLater(service.preview(incoming), throwsA(isA<Object>()));
     expect((await b.load()).entries.single.id, 'keep');
     expect(prefs.getString(RecordStore.key), 'not a JSON history');
+  });
+
+  test('Failed restore never rolls back over a newer exchange-history edit', () async {
+    final b = BudgetStore(clock: () => fixedDay), r = RecordStore();
+    await b.save(budget('original-budget', 20000), expectedRevision: 0);
+    await r.save([exchangeRecord('keep')]);
+    final service = CompleteBackupService(
+      budgetStore: ConcurrentRejectingBudgetStore(), recordStore: r,
+    );
+    final incoming = service.encode(CompleteBackup(
+      budget: budget('replacement', 70000), records: [exchangeRecord('imported')],
+    ));
+    final preview = await service.preview(incoming);
+    await expectLater(service.restore(preview), throwsFormatException);
+    expect((await r.load()).map((e) => e.id).toSet(), {'keep', 'imported', 'other-tab'});
+    expect((await b.load()).entries.single.id, 'original-budget');
   });
 }
