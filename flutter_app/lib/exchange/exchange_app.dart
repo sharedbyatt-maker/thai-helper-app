@@ -943,22 +943,22 @@ class _ExchangeHomeState extends State<ExchangeHome>
         selectedIndex: tab,
         indicatorColor: scheme.primaryContainer,
         onDestinationSelected: selectTab,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.currency_exchange),
+            icon: const Icon(Icons.currency_exchange),
             label: uiText(context, 'ဘတ်ဈေး'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.calculate_outlined),
+            icon: const Icon(Icons.calculate_outlined),
             label: uiText(context, 'ငွေတွက်'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: const Icon(Icons.account_balance_wallet_rounded),
             label: uiText(context, 'ငွေစာရင်း'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
+            icon: const Icon(Icons.receipt_long_outlined),
             label: uiText(context, 'မှတ်တမ်း'),
           ),
         ],
