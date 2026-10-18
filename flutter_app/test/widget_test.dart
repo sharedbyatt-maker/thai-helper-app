@@ -61,7 +61,7 @@ void main() {
     'Narrow screen with large text has usable empty board and navigation',
     (tester) async {
       await start(tester, width: 320, scale: 1.3);
-      expect(find.text('နေ့စဉ်ဈေး'), findsOneWidget);
+      expect(find.widgetWithText(NavigationDestination, 'ဘတ်ဈေး'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
