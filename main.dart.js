@@ -103078,7 +103078,7 @@ if(a===3)q.nO()},
 H(a){var s,r,q,p,o=this,n=null,m=A.D(a).ax
 if(o.k2===2)s=n
 else{s=t.p
-r=A.dI(A.b([new A.BJ(A.b1F(n,n,new A.zK("assets/branding/bahtzay-icon.png",n,n)),42,42,!0,n),B.a8G,B.JB],s),B.Z,B.z,B.aT,0)
+r=A.dI(A.b([new A.BJ(A.b1F(n,n,new A.zK("assets/branding/bahtzay-icon-bahtzay-v2.png",n,n)),42,42,!0,n),B.a8G,B.JB],s),B.Z,B.z,B.aT,0)
 q=o.dy
 p=q?n:o.gWy()
 s=A.zD(A.b([A.hV(n,n,n,q?B.a8L:B.LE,n,n,p,n,n,n,"\u1008\u1031\u1038\u1021\u101e\u1005\u103a \u101a\u1030\u1019\u101a\u103a"),A.hV(n,n,n,B.LD,n,n,o.a.c,n,n,n,"\u1021\u101c\u1004\u103a\u1038 / \u1021\u1019\u103e\u1031\u102c\u1004\u103a"),A.hV(n,n,n,B.Ls,n,n,new A.avB(a),n,n,n,"\u1021\u101e\u102f\u1036\u1038\u1015\u103c\u102f\u1014\u100a\u103a\u1038")],s),r)}r=o.k2
