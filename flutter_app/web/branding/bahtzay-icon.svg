@@ -1,16 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title desc">
-<title id="title">ဘတ်ဈေး — Thai Baht and exchange arrows</title>
-<desc id="desc">Gold Thai Baht U+0E3F, with one vertical stroke, between white and gold curved exchange arrows on emerald teal.</desc>
-<defs>
-<linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0EA88A"/><stop offset=".58" stop-color="#087F6D"/><stop offset="1" stop-color="#065F46"/></linearGradient>
-<linearGradient id="gold" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#FFE89B"/><stop offset=".5" stop-color="#F4C430"/><stop offset="1" stop-color="#E8B52C"/></linearGradient>
-</defs>
-<rect id="background" width="512" height="512" rx="112" fill="url(#teal)"/>
-<g id="symbol">
-<path d="M 94 239 A 164 164 0 0 1 359 128" fill="none" stroke="#FFF9ED" stroke-width="24" stroke-linecap="round"/>
-<path d="M 336 102 L 376 144 L 320 155 Z" fill="#FFF9ED"/>
-<path d="M 418 273 A 164 164 0 0 1 153 384" fill="none" stroke="#F4C430" stroke-width="24" stroke-linecap="round"/>
-<path d="M 176 410 L 136 368 L 192 357 Z" fill="#F4C430"/>
-<path id="thai-baht-u0e3f" d="M755 -301H593V0H127V1314H593V1556H755V1313Q997 1303 1114 1231Q1248 1148 1248 966Q1248 870 1199.0 803.0Q1150 736 1057 703Q1176 671 1242 586Q1307 501 1307 377Q1307 187 1167 93Q1030 2 755 0ZM593 221V565H484V221ZM755 562V224Q827 232 869 264Q925 307 925 394Q925 480 869 522Q828 554 755 562ZM593 796V1074H484V796ZM755 1067V802Q795 810 821 831Q866 866 866 935Q866 1002 821 1038Q795 1059 755 1067Z" transform="translate(161.017771 339.126010) scale(0.13247173 -0.13247173)" fill="url(#gold)"/>
-</g>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="title desc">
+<title id="title">ဘတ်ဈေး — approved reference artwork</title>
+<desc id="desc">Unchanged PNG export cropped from the owner-approved Concept A board, preserving the original serif symbol, arrows, colors and shading.</desc>
+<image xlink:href="bahtzay-icon-1024.png" width="1024" height="1024"/>
 </svg>

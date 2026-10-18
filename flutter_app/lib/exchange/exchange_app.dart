@@ -816,7 +816,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/branding/bahtzay-icon.png',
+              'assets/branding/bahtzay-icon-bahtzay-v2.png',
               width: 42,
               height: 42,
               excludeFromSemantics: true,

@@ -23,11 +23,11 @@ function png(file){
 test('Manifest sizes match every real versioned PNG without changing installed-app identity',()=>{
  const manifest=JSON.parse(read('manifest.json'));assert.equal(manifest.name,'ဘတ်ဈေး');assert.equal(manifest.short_name,'ဘတ်ဈေး');assert.equal(manifest.id,'.');assert.equal(manifest.scope,'.');assert.equal(manifest.start_url,'.');
  assert.equal(manifest.icons.length,4);
- for(const icon of manifest.icons){const p=png(icon.src);assert.equal(icon.sizes,`${p.width}x${p.height}`);assert.equal(p.width,p.height);assert.match(icon.src,/-bahtzay-v1\.png$/);assert.deepEqual(read(icon.src),read(icon.src.replace('-bahtzay-v1','')));assert.ok(['maskable','any'].includes(icon.purpose));}
+ for(const icon of manifest.icons){const p=png(icon.src);assert.equal(icon.sizes,`${p.width}x${p.height}`);assert.equal(p.width,p.height);assert.match(icon.src,/-bahtzay-v2\.png$/);assert.deepEqual(read(icon.src),read(icon.src.replace('-bahtzay-v2','')));assert.ok(['maskable','any'].includes(icon.purpose));}
 });
 
 test('Maskable foreground stays inside safe circle, backgrounds are opaque, small icon retains all three colors',()=>{
- for(const file of ['icons/Icon-maskable-192-bahtzay-v1.png','icons/Icon-maskable-512-bahtzay-v1.png','favicon-bahtzay-v1.png']){
+ for(const file of ['icons/Icon-maskable-192-bahtzay-v2.png','icons/Icon-maskable-512-bahtzay-v2.png','favicon-bahtzay-v2.png']){
   const p=png(file);let gold=0,cream=0,teal=0;
   for(let y=0;y<p.height;y++)for(let x=0;x<p.width;x++){
    const offset=(y*p.width+x)*p.channels,[r,g,b]=p.pixels.subarray(offset,offset+3),alpha=p.channels===4?p.pixels[offset+3]:255;
@@ -41,10 +41,17 @@ test('Maskable foreground stays inside safe circle, backgrounds are opaque, smal
 
 test('Apple, favicon, social and in-app references use actual finished brand assets',()=>{
  const html=read('index.html').toString();assert.match(html,/<title>ဘတ်ဈေး<\/title>/);assert.match(html,/name="theme-color" content="#087F6D"/);
- for(const asset of ['icons/apple-touch-icon-bahtzay-v1.png','favicon-bahtzay-v1.png','og-image-bahtzay-v1.png']){assert.ok(html.includes(asset));assert.ok(read(asset).length>100);}
- assert.equal(png('icons/apple-touch-icon-bahtzay-v1.png').width,180);assert.equal(png('favicon-bahtzay-v1.png').width,32);
- const og=png('og-image-bahtzay-v1.png');assert.equal(og.width,1200);assert.equal(og.height,630);
+ for(const asset of ['icons/apple-touch-icon-bahtzay-v2.png','favicon-bahtzay-v2.png','og-image-bahtzay-v2.png']){assert.ok(html.includes(asset));assert.ok(read(asset).length>100);}
+ assert.equal(png('icons/apple-touch-icon-bahtzay-v2.png').width,180);assert.equal(png('favicon-bahtzay-v2.png').width,32);
+ const og=png('og-image-bahtzay-v2.png');assert.equal(og.width,1200);assert.equal(og.height,630);
  assert.deepEqual(read('icons/Icon-192.png'),fs.readFileSync(path.join(root,'../assets/branding/bahtzay-icon.png')));
- const svg=read('branding/bahtzay-icon.svg').toString();assert.ok(svg.includes('thai-baht-u0e3f'));assert.ok(!/<text[\s>]/.test(svg),'glyph is outlined, never depends on device fonts');
- assert.match(read('bahtzay-push-sw.js').toString(),/Icon-192-bahtzay-v1\.png/);
+ const svg=read('branding/bahtzay-icon.svg').toString();assert.ok(svg.includes('bahtzay-icon-1024.png'));assert.ok(!/<text[\s>]/.test(svg),'artwork never depends on device fonts');
+ assert.match(read('bahtzay-push-sw.js').toString(),/Icon-192-bahtzay-v2\.png/);
+});
+
+// Pin the unchanged export from the exact owner-approved board.
+test('Reference export remains byte-for-byte identical to the approved local commit',()=>{
+ const {createHash}=require('node:crypto');
+ assert.equal(createHash('sha256').update(read('branding/bahtzay-icon-1024.png')).digest('hex'),'41251af70aac9f4ce9a2cd79f1581c1b2cf991aea4fd93d52dae6762e267fd05');
+ assert.deepEqual(read('icons/Icon-192.png'),fs.readFileSync(path.join(root,'../assets/branding/bahtzay-icon-bahtzay-v2.png')));
 });

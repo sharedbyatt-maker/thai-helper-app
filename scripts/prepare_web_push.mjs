@@ -11,7 +11,7 @@ let source=existsSync(worker)?readFileSync(worker,'utf8'):'';
 if(/registration\s*\.\s*unregister\s*\(/.test(source))source='';
 if(!source.includes(marker))source+='\n// Phone notifications share the same worker and scope as Flutter.\n'+marker+'\n';
 // Asset URLs are versioned without changing the app identity or worker scope.
-const brand='// Web identity: bahtzay-v1';
+const brand='// Web identity: bahtzay-v2';
 if(!source.includes(brand))source+='\n'+brand+'\n';
 writeFileSync(worker,source);
 console.log('Phone push handler installed in the app service worker.');
