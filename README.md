@@ -16,6 +16,14 @@ Enter separate THB→MMK and MMK→THB prices in baht per 100,000 MMK, confirm t
 
 The GitHub Pages workflow uses this hosted API by default. Set the optional repository Actions variable `RATES_API` to a different origin when migrating. The Flutter client itself retains same-origin API behavior when built without that define, suitable for the optional Python/Docker deployment below.
 
+## Optional complete backup (Phase 1)
+
+In **ကိုယ့်ငွေစာရင်း → Backup / အကူအညီ → မှတ်တမ်းအားလုံး Backup**, users can export their private budget and exchange history into one versioned JSON file. Existing separate budget and exchange backups still work. The combined file contains private personal finance details, so store it securely; it does **not** include published rate sheets, admin access, or any server data. No automatic sync or backup uploads occur.
+
+Before importing, the app validates the complete file and previews the budget replacement and new/skipped exchange-history records. A separate checkbox is required to confirm replacing **only** the private budget; existing exchange history is merged by ID, not deleted. If the budget save fails, the app attempts to roll back the added history. Browser local storage is not an atomic transactional database, so users should always export their current data before restoring, and avoid editing the same records in multiple tabs during restore.
+
+Web users can download a JSON file and select it for restoration; clipboard copy/paste is also available. On native devices, combined-backup text can be copied and pasted, but native file export/import needs a separate release review. This change does not produce or test a new signed Android APK.
+
 ## Simple daily workflow
 
 The public calculator starts with amount and rate only. Comparison and target-payout options are collapsed. The public app has no source-details drawer or editable deduction inputs. Legacy nonzero published deductions remain a read-only notice and stay included in results; editing a rate clears legacy deductions so manual prices never silently retain them. The calculator uses a compact centered layout, large numeric entry and highlighted results. The rate board preserves a real chart marker or an explicit empty chart frame when history is limited.
