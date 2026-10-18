@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/material.dart' as raw show Text;
 import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, LanguageMenu, uiText;
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -987,7 +988,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           if (loading) const LinearProgressIndicator(),
           if (loadError != null) panel(Text(loadError!)),
           if (data?.sheet.notice.isNotEmpty == true)
-            panel(Text(data!.sheet.notice)),
+            panel(raw.Text(data!.sheet.notice)),
           directionPicker(showRates: true),
           const SizedBox(height: 16),
           TrendCard(
@@ -1895,7 +1896,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ),
                 if (r.note.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text(r.note),
+                  raw.Text(r.note),
                 ],
               ],
             ),
