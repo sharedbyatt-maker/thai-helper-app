@@ -122,7 +122,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
     final before=data,wasReady=ready;
     await Navigator.of(context).push<void>(MaterialPageRoute(builder:(_)=>BudgetRestorePage(
       store:store,currentCount:before.entries.length,
-      onRestore:(value)async{await persist(value.copy(revision:before.revision),recovery:!wasReady);},
+      onRestore:(value)async{await persist(value.copy(revision:before.revision),recovery:!wasReady);message('Backup မှတ်တမ်း ${value.entries.length} ခု ပြန်ထည့်ပြီးပြီ။');},
     )));
     editing=false;
   }

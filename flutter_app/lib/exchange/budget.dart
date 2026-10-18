@@ -92,7 +92,14 @@ class BudgetSummary {
   late final BudgetPlan? plan=data.planAt(today);
   BudgetSummary(this.data,this.today);
   int get balance => data.opening + data.entries.fold<int>(0,(sum,e)=>sum+(e.kind==BudgetKind.income?e.amount:-e.amount));
-  int paid(BudgetKind kind,{bool fixed=false})=>plan==null?0:data.entries.where((e)=>e.kind==kind && plan!.contains(e.day) && (!fixed || e.fromFixed)).fold<int>(0,(sum,e)=>sum+e.amount);
+  int paid(BudgetKind kind,{bool fixed=false}) {
+    if(plan==null)return 0;
+    // Outstanding bills can still be paid after a payday is missed. Carry the
+    // latest expired plan through today until another period takes effect.
+    final day=budgetDay(today);
+    final end=plan!.end.compareTo(day)<=0?budgetDay(today.add(const Duration(days:1))):plan!.end;
+    return data.entries.where((e)=>e.kind==kind && e.day.compareTo(plan!.start)>=0 && e.day.compareTo(end)<0 && (!fixed || e.fromFixed)).fold<int>(0,(sum,e)=>sum+e.amount);
+  }
   int get fixedLeft => ((plan?.fixed ?? 0)-paid(BudgetKind.expense,fixed:true)).clamp(0,maxMoneyMinor).toInt();
   int get homeLeft => ((plan?.home ?? 0)-paid(BudgetKind.remittance)).clamp(0,maxMoneyMinor).toInt();
   int get protected => fixedLeft+homeLeft+(plan?.savings ?? 0);

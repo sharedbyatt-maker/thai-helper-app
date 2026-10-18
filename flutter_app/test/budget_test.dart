@@ -33,6 +33,7 @@ void main(){
  test('Expired periods keep reserves protected until a new plan takes effect; older payments do not consume a new plan',(){
   const old=BudgetPlan(id:'old',start:'2026-09-01',end:'2026-10-01',fixed:10000,savings:20000);
   const data=BudgetData(opening:100000,plans:[old]);expect(BudgetSummary(data,today).protected,30000);expect(BudgetSummary(data,today).daily,isNull);
+  final late=BudgetSummary(data.copy(entries:[row('late-bill',BudgetKind.expense,10000,fixed:true)]),today);expect(late.fixedLeft,0);expect(late.protected,20000);
   final next=data.copy(plans:[old,period],entries:[row('past',BudgetKind.expense,10000,day:'2026-09-30',fixed:true)]);
   expect(BudgetSummary(next,today).fixedLeft,300000);
  });
