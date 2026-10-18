@@ -524,9 +524,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
       await Future<void>.delayed(const Duration(milliseconds: 280));
       await WidgetsBinding.instance.endOfFrame;
     }
-    if (!mounted || tab != 1 || results.isEmpty || generation != calculationGeneration) return;
+    if (!mounted ||
+        tab != 1 ||
+        results.isEmpty ||
+        generation != calculationGeneration) {
+      return;
+    }
     final resultContext = calculationResultKey.currentContext;
-    if (resultContext == null) return;
+    if (resultContext == null || !resultContext.mounted) return;
     await Scrollable.ensureVisible(
       resultContext,
       alignment: .05,
@@ -1080,162 +1085,162 @@ class _ExchangeHomeState extends State<ExchangeHome>
     key: const PageStorageKey('calculator'),
     padding: const EdgeInsets.all(14),
     child: Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      pageHeading(
-        'ငွေလဲတွက်မယ်',
-        'ပေးမယ့်ငွေနဲ့ ဈေးထည့်လိုက်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။',
-        Icons.calculate_outlined,
-      ),
-      directionPicker(),
-      const SizedBox(height: 14),
-      panel(
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            stepHeading(
-              '၁',
-              targetMode ? 'ဘယ်လောက် ရချင်လဲ?' : 'ဘယ်လောက် ပေးမလဲ?',
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              key: const ValueKey('amount'),
-              controller: amount,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              onChanged: (_) => invalidate(),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => calculate(),
-              decoration: InputDecoration(
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 20,
-                ),
-                labelText: targetMode
-                    ? 'ရချင်တဲ့ပမာဏ (${direction.to})'
-                    : 'ပေးမယ့်စုစုပေါင်းငွေ (${direction.from})',
-                hintText: (targetMode ? direction.to : direction.from) == 'ကျပ်'
-                    ? 'ဥပမာ 100000'
-                    : 'ဥပမာ 10000',
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children:
-                  ((targetMode ? direction.to : direction.from) == 'ကျပ်'
-                          ? [100000, 500000, 1000000]
-                          : [1000, 5000, 10000])
-                      .map(
-                        (n) => ActionChip(
-                          label: Text(money(n * 100)),
-                          onPressed: () {
-                            amount.text = '$n';
-                            invalidate();
-                          },
-                        ),
-                      )
-                      .toList(),
-            ),
-            if (targetMode)
-              TextButton(
-                onPressed: () => setTargetMode(false),
-                child: const Text('ပေးမယ့်ငွေနဲ့ ပြန်တွက်မယ်'),
-              ),
-          ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        pageHeading(
+          'ငွေလဲတွက်မယ်',
+          'ပေးမယ့်ငွေနဲ့ ဈေးထည့်လိုက်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။',
+          Icons.calculate_outlined,
         ),
-      ),
-      for (var i = 0; i < lines.length; i++) lineEditor(lines[i], i),
-      FilledButton.icon(
-        key: const ValueKey('calculate'),
-        onPressed: calculate,
-        style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-          elevation: 2,
-          shadowColor: Theme.of(
-            context,
-          ).colorScheme.primary.withValues(alpha: .25),
-        ),
-        icon: Icon(calculationAcknowledged && results.isNotEmpty
-            ? Icons.check_circle_outline
-            : Icons.calculate_outlined),
-        label: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Text(
-            calculationAcknowledged && results.isNotEmpty
-                ? '✓ တွက်ပြီးပြီ'
-                : targetMode
-                ? 'လိုအပ်မယ့်ငွေ တွက်မယ်'
-                : lines.length > 1
-                ? 'တွက်ပြီး နှိုင်းမယ်'
-                : 'ရမယ့်ငွေ တွက်မယ်',
-          ),
-        ),
-      ),
-      const SizedBox(height: 10),
-      if (calcError != null)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Text(
-            calcError!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ),
-      if (results.length > 1)
+        directionPicker(),
+        const SizedBox(height: 14),
         panel(
-          Text(
-            targetMode
-                ? 'အနည်းဆုံးနဲ့ အများဆုံး ကွာခြားချက် ${money(results.last.budget - results.first.budget)} ${direction.from}'
-                : 'အများဆုံးနဲ့ အနည်းဆုံး ကွာခြားချက် ${money(results.first.received - results.last.received)} ${direction.to}',
-          ),
-        ),
-      for (var i = 0; i < results.length; i++)
-        if (i == 0)
-          KeyedSubtree(key: calculationResultKey, child: resultCard(results[i], i))
-        else
-          resultCard(results[i], i),
-      const SizedBox(height: 10),
-      Card(
-        child: ExpansionTile(
-          key: const PageStorageKey('calculator_options'),
-          title: const Text(
-            'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်',
-            style: TextStyle(fontSize: 14),
-          ),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-          childrenPadding: const EdgeInsets.all(12),
-          children: [
-            const Text(
-              'တခြားလူပေးတဲ့ဈေးနဲ့ နှိုင်းချင်မှ နှုန်းအသစ် ထပ်ထည့်ပါ။ အများဆုံး ၃ ခု နှိုင်းနိုင်ပါတယ်။',
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: lines.length < 3
-                  ? () => setState(() {
-                      lines.add(CalcLine(label: 'ဈေး ${lines.length + 1}'));
-                      results = [];
-                    })
-                  : null,
-              icon: const Icon(Icons.add),
-              label: const Text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'),
-            ),
-            TextButton(
-              onPressed: () => setTargetMode(!targetMode),
-              child: Text(
-                targetMode
-                    ? 'ပေးမယ့်ငွေနဲ့ တွက်မယ်'
-                    : 'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              stepHeading(
+                '၁',
+                targetMode ? 'ဘယ်လောက် ရချင်လဲ?' : 'ဘယ်လောက် ပေးမလဲ?',
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              TextField(
+                key: const ValueKey('amount'),
+                controller: amount,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                onChanged: (_) => invalidate(),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => calculate(),
+                decoration: InputDecoration(
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 20,
+                  ),
+                  labelText: targetMode
+                      ? 'ရချင်တဲ့ပမာဏ (${direction.to})'
+                      : 'ပေးမယ့်စုစုပေါင်းငွေ (${direction.from})',
+                  hintText: (targetMode ? direction.to : direction.from) == 'ကျပ်'
+                      ? 'ဥပမာ 100000'
+                      : 'ဥပမာ 10000',
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children:
+                    ((targetMode ? direction.to : direction.from) == 'ကျပ်'
+                            ? [100000, 500000, 1000000]
+                            : [1000, 5000, 10000])
+                        .map(
+                          (n) => ActionChip(
+                            label: Text(money(n * 100)),
+                            onPressed: () {
+                              amount.text = '$n';
+                              invalidate();
+                            },
+                          ),
+                        )
+                        .toList(),
+              ),
+              if (targetMode)
+                TextButton(
+                  onPressed: () => setTargetMode(false),
+                  child: const Text('ပေးမယ့်ငွေနဲ့ ပြန်တွက်မယ်'),
+                ),
+            ],
+          ),
         ),
-      ),
-      const SizedBox(height: 18),
-    ],
+        for (var i = 0; i < lines.length; i++) lineEditor(lines[i], i),
+        FilledButton.icon(
+          key: const ValueKey('calculate'),
+          onPressed: calculate,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+            elevation: 2,
+            shadowColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: .25),
+          ),
+          icon: Icon(calculationAcknowledged && results.isNotEmpty
+              ? Icons.check_circle_outline
+              : Icons.calculate_outlined),
+          label: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(
+              calculationAcknowledged && results.isNotEmpty
+                  ? '✓ တွက်ပြီးပြီ'
+                  : targetMode
+                  ? 'လိုအပ်မယ့်ငွေ တွက်မယ်'
+                  : lines.length > 1
+                  ? 'တွက်ပြီး နှိုင်းမယ်'
+                  : 'ရမယ့်ငွေ တွက်မယ်',
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (calcError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Text(
+              calcError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        if (results.length > 1)
+          panel(
+            Text(
+              targetMode
+                  ? 'အနည်းဆုံးနဲ့ အများဆုံး ကွာခြားချက် ${money(results.last.budget - results.first.budget)} ${direction.from}'
+                  : 'အများဆုံးနဲ့ အနည်းဆုံး ကွာခြားချက် ${money(results.first.received - results.last.received)} ${direction.to}',
+            ),
+          ),
+        for (var i = 0; i < results.length; i++)
+          if (i == 0)
+            KeyedSubtree(key: calculationResultKey, child: resultCard(results[i], i))
+          else
+            resultCard(results[i], i),
+        const SizedBox(height: 10),
+        Card(
+          child: ExpansionTile(
+            key: const PageStorageKey('calculator_options'),
+            title: const Text(
+              'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်',
+              style: TextStyle(fontSize: 14),
+            ),
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+            childrenPadding: const EdgeInsets.all(12),
+            children: [
+              const Text(
+                'တခြားလူပေးတဲ့ဈေးနဲ့ နှိုင်းချင်မှ နှုန်းအသစ် ထပ်ထည့်ပါ။ အများဆုံး ၃ ခု နှိုင်းနိုင်ပါတယ်။',
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: lines.length < 3
+                    ? () => setState(() {
+                        lines.add(CalcLine(label: 'ဈေး ${lines.length + 1}'));
+                        results = [];
+                      })
+                    : null,
+                icon: const Icon(Icons.add),
+                label: const Text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'),
+              ),
+              TextButton(
+                onPressed: () => setTargetMode(!targetMode),
+                child: Text(
+                  targetMode
+                      ? 'ပေးမယ့်ငွေနဲ့ တွက်မယ်'
+                      : 'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+      ],
     ),
   );
 
@@ -1376,73 +1381,73 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ? Duration.zero
         : const Duration(milliseconds: 1500),
     builder: (context, highlight, child) => Container(
-    margin: const EdgeInsets.symmetric(vertical: 10),
-    padding: const EdgeInsets.all(24),
-    decoration: BoxDecoration(
-      color: Color.lerp(
-        Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .45),
-        Theme.of(context).colorScheme.primaryContainer,
-        highlight,
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Color.lerp(
+          Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .45),
+          Theme.of(context).colorScheme.primaryContainer,
+          highlight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: .2 + .5 * highlight),
+          width: 1 + highlight,
+        ),
       ),
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: .2 + .5 * highlight),
-        width: 1 + highlight,
-      ),
-    ),
-    child: child,
+      child: child,
     ),
     child: Semantics(
-    liveRegion: index == 0,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          results.length > 1
-              ? '${index + 1}. ${result.quote.label}'
-              : 'ရမယ့်ငွေ',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        if (results.length > 1 && index == 0)
+      liveRegion: index == 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            targetMode
-                ? 'ဒီဈေးနဲ့ဆို ပေးရမယ့်ငွေ အနည်းဆုံးပါ'
-                : 'ဒီဈေးနဲ့ဆို ရမယ့်ငွေ အများဆုံးပါ',
+            results.length > 1
+                ? '${index + 1}. ${result.quote.label}'
+                : 'ရမယ့်ငွေ',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-        const SizedBox(height: 12),
-        Text('${money(result.budget)} ${result.quote.direction.from} ပေးရင်'),
-        Text(
-          'ရငွေ ${money(result.received)} ${result.quote.direction.to}',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: schemeColor(context),
-            height: 1.7,
-          ),
-        ),
-        if (result.quote.feeFor(result.budget) > 0)
+          if (results.length > 1 && index == 0)
+            Text(
+              targetMode
+                  ? 'ဒီဈေးနဲ့ဆို ပေးရမယ့်ငွေ အနည်းဆုံးပါ'
+                  : 'ဒီဈေးနဲ့ဆို ရမယ့်ငွေ အများဆုံးပါ',
+            ),
+          const SizedBox(height: 12),
+          Text('${money(result.budget)} ${result.quote.direction.from} ပေးရင်'),
           Text(
-            'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသားပါ။',
+            'ရငွေ ${money(result.received)} ${result.quote.direction.to}',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: schemeColor(context),
+              height: 1.7,
+            ),
           ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            FilledButton.tonalIcon(
-              onPressed: recordsReady && !writingRecord
-                  ? () => saveResult(result)
-                  : null,
-              icon: const Icon(Icons.bookmark_add_outlined),
-              label: const Text('မှတ်တမ်းသိမ်း'),
+          if (result.quote.feeFor(result.budget) > 0)
+            Text(
+              'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသားပါ။',
             ),
-            TextButton.icon(
-              onPressed: () => shareResult(result),
-              icon: const Icon(Icons.share_outlined),
-              label: const Text('မျှဝေမယ်'),
-            ),
-          ],
-        ),
-      ],
-    ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: recordsReady && !writingRecord
+                    ? () => saveResult(result)
+                    : null,
+                icon: const Icon(Icons.bookmark_add_outlined),
+                label: const Text('မှတ်တမ်းသိမ်း'),
+              ),
+              TextButton.icon(
+                onPressed: () => shareResult(result),
+                icon: const Icon(Icons.share_outlined),
+                label: const Text('မျှဝေမယ်'),
+              ),
+            ],
+          ),
+        ],
+      ),
     ),
   );
 
