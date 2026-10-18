@@ -301,8 +301,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 .where(
                   (q) =>
                       q.id == original.id &&
-                      q.direction == original.direction &&
-                      q.activeAt(DateTime.now()),
+                      q.direction == original.direction,
                 )
                 .firstOrNull;
             final same =
@@ -454,7 +453,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       lines
         ..clear()
         ..add(
-          CalcLine(quote: dailyQuote(next, onlyActive: true), label: 'ဈေး A'),
+          CalcLine(quote: dailyQuote(next), label: 'ဈေး A'),
         );
     });
   }
@@ -471,15 +470,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
           '0 ထက်ကြီးတဲ့ ပမာဏထည့်ပေးပါ။ ဒသမဆို ၂ နေရာအထိ ရပါတယ်။',
         );
       }
-      final now = DateTime.now();
       final calculated = <Calculation>[];
       for (var i = 0; i < lines.length; i++) {
         final q = lines[i].quote(direction, i);
-        if (q.sourceChecked && !q.activeAt(now)) {
-          throw const FormatException(
-            'ဒီဈေးကို ပြန်စစ်ဖို့လိုပြီ။ အပေါ်က refresh ကိုနှိပ်ပြီး ဈေးအသစ်ယူပေးပါ။',
-          );
-        }
         final budget = targetMode ? q.requiredBudget(value) : value;
         if (budget == null) {
           throw const FormatException(
@@ -568,12 +561,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
     avatar: Icon(warning ? Icons.schedule : Icons.info_outline, size: 16),
     label: Text(text),
   );
-  ExchangeQuote? dailyQuote(ExchangeDirection d, {bool onlyActive = false}) {
+  ExchangeQuote? dailyQuote(ExchangeDirection d) {
     final quotes =
         loaded?.sheet.quotes.where((q) => q.direction == d).toList() ?? [];
     quotes.sort((a, b) => b.observedAt.compareTo(a.observedAt));
     return quotes.where((q) => q.activeAt(DateTime.now())).firstOrNull ??
-        (onlyActive ? null : quotes.firstOrNull);
+        quotes.firstOrNull;
   }
 
   Widget pageHeading(String title, String subtitle, IconData icon) => Padding(
@@ -759,7 +752,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
     if (value == 1 &&
         lines.length == 1 &&
         lines.first.rate.text.trim().isEmpty) {
-      final q = dailyQuote(direction, onlyActive: true);
+      final q = dailyQuote(direction);
       if (q != null) {
         lines.first.dispose();
         lines[0] = CalcLine(quote: q);
@@ -1340,6 +1333,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
               helperMaxLines: 2,
             ),
           ),
+          if (line.original != null &&
+              line.original!.sourceChecked &&
+              !line.original!.activeAt(DateTime.now()))
+            lastRateNotice(line.original!, key: ValueKey('last_rate_notice_$index')),
           if (hasDeduction)
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -1373,6 +1370,15 @@ class _ExchangeHomeState extends State<ExchangeHome>
       ),
     );
   }
+
+  Widget lastRateNotice(ExchangeQuote quote, {Key? key}) => Padding(
+    key: key,
+    padding: const EdgeInsets.only(top: 12),
+    child: Text(
+      'ဈေးအသစ် မတင်ရသေးလို့ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်။\nဈေးတင်ချိန် ${when(quote.observedAt)} · ထိုင်းအချိန်',
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.8),
+    ),
+  );
 
   Widget resultCard(Calculation result, int index) => TweenAnimationBuilder<double>(
     key: ValueKey('calculation_result_${calculationGeneration}_$index'),
@@ -1424,6 +1430,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
               height: 1.7,
             ),
           ),
+          if (result.quote.sourceChecked && !result.quote.activeAt(DateTime.now()))
+            lastRateNotice(result.quote, key: ValueKey('result_last_rate_notice_$index')),
           if (result.quote.feeFor(result.budget) > 0)
             Text(
               'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသားပါ။',
@@ -1468,8 +1476,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
 
   void shareResult(Calculation result) {
     final q = result.quote;
+    final ageNotice = q.sourceChecked && !q.activeAt(DateTime.now())
+        ? 'နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်။ ဈေးအသစ် မတင်ရသေးပါ။\n'
+        : '';
     shareText(
-      'ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
+      '$ageNoticeဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
     );
   }
 
