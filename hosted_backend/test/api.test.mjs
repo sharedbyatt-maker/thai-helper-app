@@ -104,3 +104,17 @@ test('Removal cancels stale Telegram previews and queued alerts, and a transacti
   assert.equal(db.sqlite.prepare('SELECT used FROM telegram_pending').get().used,1);assert.equal(db.sqlite.prepare('SELECT status FROM alert_outbox').get().status,2);
  }finally{db.sqlite.close();}
 });
+test('Admin announcements publish with an independent draft, retain old quote timestamps and atomically queue a single event',async()=>{
+ const db=await setup();try{
+ await enroll(db);const q=sheet();await call(db,'admin/draft','PUT',{sheet:q,expected_version:0});await call(db,'admin/publish','POST',{expected_version:1});
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM notification_events').get().n,1);
+ await call(db,'admin/draft','PUT',{sheet:{notice:'private draft',quotes:[]},expected_version:2});
+ assert.equal((await call(db,'admin/announcement','POST',{notice:'အချက်အလက်အသစ်',expected_revision:1,expected_version:2})).status,409);
+ const posted=await call(db,'admin/announcement','POST',{notice:'အချက်အလက်အသစ်',expected_revision:1,expected_version:3});assert.equal(posted.status,200);
+ const state=(await call(db,'admin/state')).data;assert.equal(state.published.notice,'အချက်အလက်အသစ်');assert.deepEqual(state.published.quotes,q.quotes);assert.equal(state.draft.notice,'private draft');assert.equal(state.draft_version,4);
+ assert.equal(db.sqlite.prepare("SELECT COUNT(*) AS n FROM notification_events WHERE kind='announcement' AND revision=?").get(state.published.revision).n,1);assert.equal(db.sqlite.prepare("SELECT COUNT(*) AS n FROM notification_events").get().n,2);
+ }finally{db.sqlite.close();}
+});
+test('Notification event insert failure rolls back a publication and cannot leave a publicly visible unqueued price',async()=>{
+ const db=await setup();try{await enroll(db);await call(db,'admin/draft','PUT',{sheet:sheet(),expected_version:0});db.sqlite.exec("CREATE TRIGGER fail_event BEFORE INSERT ON notification_events BEGIN SELECT RAISE(ABORT,'test error'); END;");assert.equal((await call(db,'admin/publish','POST',{expected_version:1})).status,500);assert.equal((await call(db,'v2/rates')).data.revision,0);assert.equal((await call(db,'admin/state')).data.draft_version,1);}finally{db.sqlite.close();}
+});

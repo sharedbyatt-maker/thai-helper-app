@@ -212,3 +212,17 @@ test('Concurrent duplicate public opt-ins and stop commands atomically share one
   assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
  }finally{f.db.sqlite.close();}
 });
+test('Owner announcements require a preview confirmation, retain each rate timestamp and create exactly one notification event',async()=>{
+ const f=fixture();try{
+  const secret=await setup(f);await pair(f,secret);
+  await message(f,secret,100,'ကျပ်ပေး ဘတ်ယူ 724');const step=await message(f,secret,101,'ကျပ်ပေး ဘတ်ယူ 724');const skip=button(step,'review:');const preview=await message(f,secret,102,null,42,skip);await confirm(f,secret,103,preview);
+  const before=(await call(f,'/api/v2/rates')).data;
+  const hidden=await message(f,secret,104,'/announce မနက်ဖြန် ဈေးအသစ်တင်မယ်',99);assert.equal(hidden.data.ok,true);
+  const notice=await message(f,secret,105,'/announce မနက်ဖြန် ဈေးအသစ်တင်မယ်');assert.match(notice.data.text,/မတင်ရသေး/);assert.equal((await call(f,'/api/v2/rates')).data.revision,before.revision);
+  const action=button(notice,'announce:');assert.ok(action);const sent=await message(f,secret,106,null,42,action);assert.match(sent.data.text,/ကြေညာချက် တင်ပြီး/);
+  const after=(await call(f,'/api/v2/rates')).data;assert.equal(after.notice,'မနက်ဖြန် ဈေးအသစ်တင်မယ်');assert.deepEqual(after.quotes,before.quotes);
+  await message(f,secret,106,null,42,action);assert.equal((await call(f,'/api/v2/rates')).data.revision,after.revision);
+  assert.equal(f.db.sqlite.prepare("SELECT COUNT(*) AS n FROM notification_events WHERE kind='announcement'").get().n,1);
+  const canceled=await message(f,secret,107,'/announce မတင်ချင်တော့ဘူး');await message(f,secret,108,null,42,button(canceled,'cancel:'));await message(f,secret,109,null,42,button(canceled,'announce:'));assert.equal((await call(f,'/api/v2/rates')).data.revision,after.revision);
+ }finally{f.db.sqlite.close();}
+});

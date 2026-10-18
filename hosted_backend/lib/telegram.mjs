@@ -1,3 +1,6 @@
+import { eventInsert } from './notification-events.mjs';
+import { seal,unseal } from './secrets.mjs';
+export { seal,unseal } from './secrets.mjs';
 import { validate, Invalid } from './validate.mjs';
 import { subscriberCommand,queueAlerts,deliverAlerts } from './alerts.mjs';
 const enc = new TextEncoder();
@@ -33,19 +36,6 @@ export function parseRates(input, defaultDirection = 'mmk_thb') {
  found=found.filter(q=>q.rate>=1&&q.rate<=100000);
  found=found.filter((q,i,a)=>a.findIndex(x=>x.rate===q.rate&&x.direction===q.direction)===i).slice(0,12);
  return {candidates:found,range};
-}
-async function aesKey(secret) {
- if(!/^[a-f0-9]{64}$/.test(secret||'')) throw new Error('Telegram encryption unavailable');
- return crypto.subtle.importKey('raw',unhex(secret),'AES-GCM',false,['encrypt','decrypt']);
-}
-export async function seal(value, secret) {
- const iv=crypto.getRandomValues(new Uint8Array(12));
- const data=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode('bahtzay.telegram.v1')},await aesKey(secret),enc.encode(JSON.stringify(value)));
- return hex(iv)+'.'+hex(new Uint8Array(data));
-}
-export async function unseal(value, secret) {
- const [iv,data]=value.split('.');
- return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unhex(iv),additionalData:enc.encode('bahtzay.telegram.v1')},await aesKey(secret),unhex(data))));
 }
 async function telegram(token, method, body, fetcher) {
  let result;
@@ -178,16 +168,16 @@ async function previewRates(db,row,updateId,chat,candidates,source,previousId=nu
  const text=`Public မတင်ရသေးပါ — စစ်ပေးပါ\n\n${summaries}\n\nပြမည့်အမည်: ${source}\n${retained}\n\nမှန်လျှင် အောက်က Public ခလုတ်ကို နှိပ်ပါ။\nတင်ချိန်ကို အတည်ပြုချိန်အဖြစ် မှတ်မည်။ ၁ ရက်ကျော်လျှင် ပြန်မစစ်ရသေးဟု ပြမည်။\nအတည်ပြုရန် ၁၀ မိနစ်အတွင်း။ စာအသစ်ပို့လျှင် ခလုတ်ဟောင်းကို သုံးမရတော့ပါ။`;
  return pendingReply(db,row,updateId,chat,{stage:'confirm',candidates,source,base_revision:current?.id||0},pendingId=>reply(chat,text,{reply_markup:{inline_keyboard:[[{text:'မှန်တယ်၊ Public တင်မယ်',callback_data:'publish:'+pendingId}],[{text:'မတင်တော့ဘူး',callback_data:'cancel:'+pendingId}]]}}),previousId);
 }
-async function publish(db,row,c,updateId,chat,candidates,source,pendingId,expectedRevision) {
+async function publish(db,row,c,updateId,chat,candidates,source,pendingId,expectedRevision,notice) {
  for(let attempt=0;attempt<3;attempt++) {
   const previous=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
   if((previous?.id||0)!==expectedRevision)return receipt(db,updateId,reply(chat,'Public နှုန်းပြောင်းသွားပါပြီ။ ဤနမူနာဟောင်းကို မတင်ထားပါ။ နှုန်းစာကို ပြန်ပို့ပြီး နမူနာအသစ်ကို စစ်ပါ။'));
   const old=previous?JSON.parse(previous.payload):{notice:'',quotes:[]};
   const now=new Date().toISOString();
   const updates=candidates.map(candidate=>({id:old.quotes.find(q=>q.direction===candidate.direction)?.id||'daily-'+candidate.direction,label:directionName(candidate.direction),direction:candidate.direction,rate_micros:Math.round(100000/candidate.rate*1e6),flat_fee_minor:0,fee_bps:0,source_name:source,source_url:source===c.source_name?c.source_url:'',payout_method:'မဖော်ပြထားပါ',note:'Telegram မှ စစ်ပြီးတင်သော ရည်ညွှန်းနှုန်း။ အမှန်တကယ်လဲမည့်နှုန်းကို ငွေလဲသူထံ ပြန်စစ်ပါ။',observed_at:now,valid_until:new Date(Date.now()+86400000).toISOString(),source_checked:true}));
-  const sheet=validate({...old,quotes:[...old.quotes.filter(q=>!updates.some(u=>u.direction===q.direction)),...updates]});
+  const sheet=validate({...old,...(notice!==undefined?{notice}:{}),quotes:[...old.quotes.filter(q=>!updates.some(u=>u.direction===q.direction)),...updates]});
   const payload=JSON.stringify(sheet),requestId=random();
-  const response=reply(chat,`တင်ပြီးပါပြီ ✓\n${source}\n${candidates.map(rateMeaning).join('\n')}\nတင်ချိန် ${new Date().toLocaleString('en-GB',{timeZone:'Asia/Bangkok'})} (ထိုင်း)\n၁ ရက်ကျော်လျှင် ပြန်မစစ်ရသေးဟု ပြမည်။ မှတ်တမ်း မပျောက်ပါ။\n/undo ဖြင့် နောက်ဆုံး Telegram တင်ချက်ကို ပြန်ဖျက်နိုင်သည်။`,{reply_markup:{inline_keyboard:[[{text:'User app ကြည့်မယ်',url:APP_URL}]]}});
+  const response=reply(chat,notice!==undefined?`ကြေညာချက် တင်ပြီးပြီ ✓\n${notice}\nApp noti ဖွင့်ထားသူတွေကို အသိပေးမယ်။`:`တင်ပြီးပါပြီ ✓\n${source}\n${candidates.map(rateMeaning).join('\n')}\nတင်ချိန် ${new Date().toLocaleString('en-GB',{timeZone:'Asia/Bangkok'})} (ထိုင်း)\n၁ ရက်ကျော်လျှင် ပြန်မစစ်ရသေးဟု ပြမည်။ မှတ်တမ်း မပျောက်ပါ။\n/undo ဖြင့် နောက်ဆုံး Telegram တင်ချက်ကို ပြန်ဖျက်နိုင်သည်။`,{reply_markup:{inline_keyboard:[[{text:'User app ကြည့်မယ်',url:APP_URL}]]}});
   // The receipt, both explicitly provided prices, and draft version commit together.
   const result=await db.batch([
    db.prepare('INSERT OR IGNORE INTO telegram_receipts(id,request_id,response,created_at) SELECT ?,?,?,? WHERE COALESCE((SELECT MAX(id) FROM revisions),0)=? AND EXISTS(SELECT 1 FROM telegram_settings WHERE id=1 AND generation=? AND owner_id=?) AND EXISTS(SELECT 1 FROM telegram_pending WHERE id=? AND owner_id=? AND used=0 AND expires>?)').bind(updateId,requestId,JSON.stringify(response),Date.now(),previous?.id||0,row.generation,chat,pendingId,chat,Date.now()),
@@ -196,6 +186,7 @@ async function publish(db,row,c,updateId,chat,candidates,source,pendingId,expect
    db.prepare('INSERT OR IGNORE INTO draft(id,payload,version) VALUES(1,?,0)').bind(previous?.payload||JSON.stringify({notice:'',quotes:[]})),
    db.prepare('UPDATE draft SET payload=CASE WHEN payload=? THEN ? ELSE payload END,version=version+1 WHERE id=1 AND EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=? AND revision IS NOT NULL)').bind(previous?.payload||JSON.stringify({notice:'',quotes:[]}),payload,updateId,requestId),
    db.prepare('UPDATE telegram_pending SET used=1 WHERE owner_id=? AND EXISTS(SELECT 1 FROM telegram_receipts WHERE id=? AND request_id=? AND revision IS NOT NULL)').bind(chat,updateId,requestId),
+   eventInsert(db,notice!==undefined?'announcement':'rates',requestId,Date.now(),'id=(SELECT revision FROM telegram_receipts WHERE id=? AND request_id=?)',[updateId,requestId]),
   ]);
   if(result[0].meta.changes)return response;
   const cached=await db.prepare('SELECT response FROM telegram_receipts WHERE id=?').bind(updateId).first();if(cached)return JSON.parse(cached.response);
@@ -249,7 +240,7 @@ export async function webhook(req,db,raw,runtime={}) {
  // Keep transient records bounded; revision history remains immutable.
  await db.batch([db.prepare('DELETE FROM telegram_pending WHERE expires<?').bind(Date.now()-86400000),db.prepare('DELETE FROM telegram_receipts WHERE created_at<? AND revision IS NULL').bind(Date.now()-7*86400000)]);
  const say=async s=>Response.json(await receipt(db,id,reply(chat,s)));
- if(/^\/(help|start)(?:@\w+)?$/.test(text))return say(`အသုံးပြုပုံ\nChannel ရွေးစရာမလိုပါ။ ဘယ် channel ကစာမဆို Copy/Paste လုပ်နိုင်သည်။\n\nကျပ်ပေး ဘတ်ယူ 726\nသို့မဟုတ် 726 တစ်ခုတည်း ပို့ပါ။\nကျပ် ၁ သိန်းအတွက် ဘတ်နှုန်းဖြစ်သည်။\nနံပါတ်တစ်ခုတည်းဆို ${directionName(c.direction)} ကို သုံးမည်။\nနှုန်းများပါလျှင် တစ်ခုရွေးခိုင်းမည်။ တစ်ဘက်ပို့လျှင် အခြားဘက်နှုန်း ထည့်ဦးမလား မေးမည်။ ထည့်မယ်ဆို သီးခြားနှုန်းကို ပို့ပါ။ မထည့်သေးလည်း ရသည်။ နမူနာကို စစ်ပြီး “မှန်တယ်၊ Public တင်မယ်” နှိပ်မှ App ပေါ်တင်မည်။ မတင်တော့ဘူးကို နှိပ်လျှင် နှုန်းမပြောင်းပါ။ ပုံဖတ်ခြင်း မပါသေးပါ။\n\n/status — လက်ရှိနှုန်း\n/cancel — နမူနာရပ်မယ်\n/undo — နောက်ဆုံး Telegram တင်ချက် ပြန်ဖျက်\n\nUser app: ${APP_URL}`);
+ if(/^\/(help|start)(?:@\w+)?$/.test(text))return say(`အသုံးပြုပုံ\nChannel ရွေးစရာမလိုပါ။ ဘယ် channel ကစာမဆို Copy/Paste လုပ်နိုင်သည်။\n\nကျပ်ပေး ဘတ်ယူ 726\nသို့မဟုတ် 726 တစ်ခုတည်း ပို့ပါ။\nကျပ် ၁ သိန်းအတွက် ဘတ်နှုန်းဖြစ်သည်။\nနံပါတ်တစ်ခုတည်းဆို ${directionName(c.direction)} ကို သုံးမည်။\nနှုန်းများပါလျှင် တစ်ခုရွေးခိုင်းမည်။ တစ်ဘက်ပို့လျှင် အခြားဘက်နှုန်း ထည့်ဦးမလား မေးမည်။ ထည့်မယ်ဆို သီးခြားနှုန်းကို ပို့ပါ။ မထည့်သေးလည်း ရသည်။ နမူနာကို စစ်ပြီး “မှန်တယ်၊ Public တင်မယ်” နှိပ်မှ App ပေါ်တင်မည်။ မတင်တော့ဘူးကို နှိပ်လျှင် နှုန်းမပြောင်းပါ။ ပုံဖတ်ခြင်း မပါသေးပါ။\n\n/announce ကြေညာစာ — ကြေညာချက် တင်ရန်\n/status — လက်ရှိနှုန်း\n/cancel — နမူနာရပ်မယ်\n/undo — နောက်ဆုံး Telegram တင်ချက် ပြန်ဖျက်\n\nUser app: ${APP_URL}`);
  if(text==='/status') {
   const current=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
   if(!current)return say('နှုန်းမတင်ရသေးပါ။');
@@ -258,10 +249,15 @@ export async function webhook(req,db,raw,runtime={}) {
  if(text==='/undo')return Response.json(await undo(db,row,c,id,chat));
  const source=c.source_name||DEFAULT_SOURCE;
  if(text==='/cancel') {await db.prepare('UPDATE telegram_pending SET used=1 WHERE owner_id=?').bind(chat).run();return say('စောင့်ဆိုင်းနေသော နမူနာများကို ပိတ်ပြီးပါပြီ။ Public တင်ပြီးသားကို ပြန်ဖျက်ရန် /undo ကို သုံးပါ။');}
+ if(!u.callback_query&&/^\/announce(?:\s|$)/.test(text)){
+  const notice=text.replace(/^\/announce\s*/, '').trim();if(!notice||notice.length>500)return say('/announce ကြေညာစာ လို့ ပို့ပေးပါ။ စာလုံး ၅၀၀ အတွင်း ရေးနိုင်တယ်။');
+  const current=await db.prepare('SELECT id FROM revisions ORDER BY id DESC LIMIT 1').first();
+  return Response.json(await pendingReply(db,row,id,chat,{stage:'confirm_notice',notice,base_revision:current?.id||0},pendingId=>reply(chat,`မတင်ရသေးပါ — ကြေညာချက် စစ်ပေးပါ\n\n${notice}\n\nအတည်ပြုမှ App ပေါ်တင်ပြီး ဖုန်း noti ဖွင့်ထားသူတွေကို အသိပေးမယ်။`,{reply_markup:{inline_keyboard:[[{text:'မှန်တယ်၊ ကြေညာချက် တင်မယ်',callback_data:'announce:'+pendingId}],[{text:'မတင်တော့ဘူး',callback_data:'cancel:'+pendingId}]]}})));
+ }
  if(u.callback_query) {
   const input=u.callback_query.data||'';
   const choice=/^(rate|other_rate):([a-f0-9]{48}):(\d{1,2})$/.exec(input);
-  const action=/^(publish|cancel|other|review):([a-f0-9]{48})$/.exec(input);
+  const action=/^(publish|announce|cancel|other|review):([a-f0-9]{48})$/.exec(input);
   if(!choice&&!action)return say('ရွေးချယ်မှု မမှန်ပါ။');
   const pendingId=choice?choice[2]:action[2];
   const pending=await db.prepare('SELECT * FROM telegram_pending WHERE id=? AND owner_id=? AND used=0 AND expires>?').bind(pendingId,chat,Date.now()).first();
@@ -269,6 +265,7 @@ export async function webhook(req,db,raw,runtime={}) {
   const payload=JSON.parse(pending.payload);
   if(payload.config_generation!==undefined&&payload.config_generation!==row.generation)return say('Bot settings ပြောင်းသွားပါပြီ။ စာအသစ်ပို့ပါ။');
   if(action?.[1]==='cancel')return Response.json(await cancelPending(db,id,chat,pendingId));
+  if(action?.[1]==='announce'){if(payload.stage!=='confirm_notice'||typeof payload.notice!=='string'||!payload.notice.trim()||payload.notice.length>500||!Number.isSafeInteger(payload.base_revision))return say('ကြေညာချက်နမူနာ မမှန်ပါ။ /announce နဲ့ ပြန်ပို့ပေးပါ။');return Response.json(await publish(db,row,c,id,chat,[],source,pendingId,payload.base_revision,payload.notice));}
   if(choice) {
    if(choice[1]==='other_rate') {
     if(!['await_other','choose_other'].includes(payload.stage))return say('ဒီခလုတ်ကို သုံးမရပါ။');

@@ -1,3 +1,5 @@
+import { pushApi,schedulePush } from './push.mjs';
+import { eventInsert,publishAnnouncement } from './notification-events.mjs';
 import { deletePublishedRevision } from './revision-management.mjs';
 import { repairPath, repairTestPublication } from './restore-six-days.mjs';
 import { Invalid, validate } from './validate.mjs';
@@ -17,13 +19,19 @@ const EMPTY={schema_version:2,revision:0,published_at:null,notice:'နှုန�
 const conflict={error:'Draft ပြောင်းထားပါသည်။ Reload လုပ်ပါ။'};
 export async function handle(req, db, user, bootstrapEmail, runtime={}) {
  const path=new URL(req.url).pathname;
+ const phoneRoute=path.startsWith('/api/v2/push/');
  const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history','/api/v2/alerts'].includes(path);
- const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...(publicRoute?{'Access-Control-Allow-Origin':'*'}:{})}});
+ const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...((publicRoute||phoneRoute)?{'Access-Control-Allow-Origin':'*'}:{})}});
  const publicSheet=async()=>{
   const row=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
   return row?{...JSON.parse(row.payload),schema_version:2,revision:row.id,published_at:row.published_at}:EMPTY;
  };
  try {
+  if(phoneRoute){
+   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'600'}});
+   let input={};if(req.method==='POST'){try{input=JSON.parse(await bodyText(req,8192));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON required'},400);}}
+   const result=await pushApi(req,db,path,input,runtime);return json(result.data,result.status);
+  }
   if(path===repairPath){if(req.method!=='POST')return json({error:'Not found'},404);const result=await repairTestPublication(req,db);return json(result.data,result.status);}
   if(path===replacementPath){
    if(req.method!=='POST')return json({error:'Not found'},404);
@@ -32,14 +40,14 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const result=await replaceConfirmedHistory(db,input?.expected_revision);
    return json(result.data,result.status);
   }
-  if(path==='/api/telegram/webhook'&&req.method==='POST'){const response=await webhook(req,db,await bodyText(req,32768),runtime);scheduleAlerts(db,runtime,true);return response;}
+  if(path==='/api/telegram/webhook'&&req.method==='POST'){const response=await webhook(req,db,await bodyText(req,32768),runtime);scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);return response;}
   if(path==='/api/v2/alerts'&&req.method==='GET')return json(await publicTelegramInfo(db,runtime));
   if(path==='/api/v2/history'&&req.method==='GET'){
    const since=new Date(Date.now()-31*86400000).toISOString();
    const rows=await db.prepare('SELECT id,payload,published_at FROM revisions WHERE published_at>=? ORDER BY id DESC LIMIT 400').bind(since).all();
    return json(publicHistory(rows.results));
   }
-  if(publicRoute&&req.method==='GET'){scheduleAlerts(db,runtime);return json(await publicSheet());}
+  if(publicRoute&&req.method==='GET'){scheduleAlerts(db,runtime);schedulePush(db,runtime);return json(await publicSheet());}
   if(path==='/api/health'&&req.method==='GET'){await db.prepare('SELECT 1').first();return json({ok:true,storage:'D1'});}
   if(!path.startsWith('/api/admin/'))return json({error:'Not found'},404);
   if(req.method!=='GET'&&(req.headers.get('X-Admin-Request')!=='1'||!req.headers.get('Origin')||req.headers.get('Origin')!==new URL(req.url).origin))return json({error:'Same-origin admin request လိုပါသည်'},403);
@@ -57,10 +65,12 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   if(!owner)return json({error:'Admin အကောင့်ဖြင့် ဝင်ပါ',bootstrap_ready:canBootstrap},403);
   if(owner.user_id!==user.userId)return json({error:'ဤအကောင့်တွင် Admin ခွင့်မရှိပါ'},403);
   if(path==='/api/admin/insights'&&req.method==='GET'){
-   scheduleAlerts(db,runtime,true);
+   scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);
    const subscribers=await db.prepare('SELECT COUNT(*) AS count FROM alert_subscribers WHERE active=1').first();
    const deliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM alert_outbox GROUP BY status').all();
-   return json({active_subscribers:subscribers.count,deliveries:deliveries.results});
+   const phones=await db.prepare('SELECT COUNT(*) AS count FROM push_subscribers WHERE active=1').first();
+   const phoneDeliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM push_outbox GROUP BY status').all();
+   return json({active_subscribers:subscribers.count,deliveries:deliveries.results,phone_subscribers:phones.count,phone_deliveries:phoneDeliveries.results});
   }
   if(path==='/api/admin/state'&&req.method==='GET'){
    // Bound seed is idempotent, outside schema migrations.
@@ -91,8 +101,9 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    if(!row||row.version!==version)return json(conflict,409);
    const sheet=validate(JSON.parse(row.payload));
    const previous=await publicSheet();
+   const noticeChanged=!!sheet.notice&&sheet.notice!==previous.notice;
    const fresh=sheet.quotes.filter(q=>Date.parse(q.valid_until)>Date.now());
-   if(sheet.quotes.length&&fresh.length===0)return json({error:'သက်တမ်းကုန်သောနှုန်း ပါနေပါသည်'},400);
+   if(sheet.quotes.length&&fresh.length===0&&!noticeChanged)return json({error:'သက်တမ်းကုန်သောနှုန်း ပါနေပါသည်'},400);
    for(const q of sheet.quotes.filter(q=>Date.parse(q.valid_until)<=Date.now())) {
     const retained=previous.quotes.find(x=>x.id===q.id&&x.direction===q.direction);
     if(!retained||Object.keys(q).some(k=>retained[k]!==q[k]))return json({error:'အဟောင်းနှုန်းကို ပြင်ထားပါသည်။ ပြန်စစ်ထားသော အချိန် သတ်မှတ်ပါ။'},400);
@@ -102,10 +113,12 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const result=await db.batch([
     db.prepare('INSERT INTO revisions(payload,published_at) SELECT payload,? FROM draft WHERE id=1 AND version=?').bind(now,version),
     db.prepare('UPDATE draft SET version=version+1 WHERE id=1 AND version=?').bind(version),
+    eventInsert(db,noticeChanged?'announcement':'rates',crypto.randomUUID(),Date.now(),'id=last_insert_rowid() AND changes()=1'),
    ]);
-   if(result[0].meta.changes)scheduleAlerts(db,runtime,true);
+   if(result[0].meta.changes){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}
    return result[0].meta.changes?json({ok:true,draft_version:version+1,published:await publicSheet()}):json(conflict,409);
   }
+  if(path==='/api/admin/announcement'&&req.method==='POST'){const result=await publishAnnouncement(db,data.notice,data.expected_revision,version);if(result.status===200){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}return json(result.data,result.status);}
   if(path==='/api/admin/delete-revision'&&req.method==='POST'){const result=await deletePublishedRevision(db,data.revision,data.expected_revision,version);return json(result.data,result.status);}
   if(path==='/api/admin/restore'&&req.method==='POST'){
    if(!Number.isSafeInteger(data.revision))return json({error:'Revision လိုပါသည်'},400);

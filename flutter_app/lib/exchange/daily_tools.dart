@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'models.dart';
+import 'phone_notifications.dart';
 import 'rate_history.dart';
 import 'rates_repository.dart';
 import 'platform_files.dart';
@@ -484,7 +485,7 @@ Future<void> showRateAlerts(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, update) => AlertDialog(
-        title: const Text('ကိုယ်လိုချင်တဲ့ဈေးကို စောင့်မယ်'),
+        title: const Text('ဈေးနဲ့ ကြေညာချက် အသိပေးမယ်'),
         content: SizedBox(
           width: 430,
           child: SingleChildScrollView(
@@ -492,6 +493,10 @@ Future<void> showRateAlerts(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const PhoneNotifications(),
+                const Divider(height: 28),
+                const Text('Telegram နဲ့ စောင့်မယ်', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
                 Text(
                   direction.label,
                   style: const TextStyle(fontWeight: FontWeight.w700),
