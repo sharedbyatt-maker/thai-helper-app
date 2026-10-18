@@ -124,7 +124,7 @@ void main() {
     futureBudget['budget'] = {
       ...budget('future', 90000).toJson(),
       'entries': [
-        BudgetEntry(id: 'future', day: '2026-10-19',
+        const BudgetEntry(id: 'future', day: '2026-10-19',
           kind: BudgetKind.expense, amount: 200, category: 'food').toJson(),
       ],
     };
