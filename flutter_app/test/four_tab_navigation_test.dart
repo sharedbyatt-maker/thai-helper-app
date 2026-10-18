@@ -55,11 +55,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    const names = ['နေ့စဉ်ဈေး', 'ငွေတွက်', 'ငွေစာရင်း', 'မှတ်တမ်း'];
+    const names = ['ဘတ်ဈေး', 'ငွေတွက်', 'ငွေစာရင်း', 'မှတ်တမ်း'];
     final navItems = find.byType(NavigationDestination);
     expect(navItems, findsNWidgets(4));
     for (var index = 0; index < names.length; index++) {
-      final label = find.text(names[index]);
+      final label = find.widgetWithText(NavigationDestination, names[index]);
       expect(label, findsOneWidget);
       final bounds = tester.getRect(navItems.at(index));
       expect(bounds.left, greaterThanOrEqualTo(0));
