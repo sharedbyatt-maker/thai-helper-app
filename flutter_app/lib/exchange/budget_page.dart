@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'budget.dart';
+import 'complete_backup_page.dart';
 import 'models.dart';
 import 'platform_files.dart';
 import 'trend_card.dart' show bangkokLabel;
@@ -136,8 +137,9 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
     return Scaffold(
       appBar:AppBar(title:const Text('ကိုယ့်ငွေစာရင်း'),actions:[
         IconButton(tooltip:'စာရင်းပြန်ဖတ်မယ်',onPressed:loading||busy?null:reload,icon:const Icon(Icons.refresh)),
-        PopupMenuButton<String>(tooltip:'Backup / အကူအညီ',onSelected:(v){if(v=='export')backup();if(v=='import')restore();if(v=='help')showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('ကိုယ့်ငွေကို စီမံမယ်'),content:const SingleChildScrollView(child:Text('ရပြီးသားဝင်ငွေနဲ့ တကယ်သုံးပြီးတဲ့ငွေကို ဘတ်နဲ့ မှတ်ပါ။ အိမ်မှာတကယ်ရတဲ့ ကျပ်ပမာဏကိုလည်း တွဲမှတ်နိုင်တယ်။\n\nအခန်းခ/မီတာခ ပေးတဲ့အခါ “ဖယ်ထားငွေထဲက ပေးတာ” ကို ရွေးရင် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။ အိမ်ပို့ပြီးငွေကိုတော့ အိမ်ပို့ရန်ကျန်ငွေထဲက အလိုအလျောက် လျှော့ပေးမယ်။\n\nစုငွေကို အစီအစဉ်မှာ ဖယ်ထားနိုင်တယ်။ ရက်ကျော်နေတဲ့အစီအစဉ်ရဲ့ ဖယ်ထားငွေကိုလည်း အသစ်စီမံတဲ့အထိ ဆက်ဖယ်ထားပေးမယ်။\n\nဒီစာရင်းကို ဖုန်း/Browser ထဲမှာပဲ သိမ်းတယ်။ Admin ကို မပို့ပါဘူး။ Backup ဖိုင်ကို ကိုယ်တိုင် ထုတ်သိမ်းထားပါ။')),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('နားလည်ပြီ'))]));},itemBuilder:(_)=>[
+        PopupMenuButton<String>(tooltip:'Backup / အကူအညီ',onSelected:(v){if(v=='export')backup();if(v=='import')restore();if(v=='complete'){Navigator.of(context).push<void>(MaterialPageRoute(builder:(_)=>const CompleteBackupPage())).then((_){if(mounted)reload();});}if(v=='help')showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('ကိုယ့်ငွေကို စီမံမယ်'),content:const SingleChildScrollView(child:Text('ရပြီးသားဝင်ငွေနဲ့ တကယ်သုံးပြီးတဲ့ငွေကို ဘတ်နဲ့ မှတ်ပါ။ အိမ်မှာတကယ်ရတဲ့ ကျပ်ပမာဏကိုလည်း တွဲမှတ်နိုင်တယ်။\n\nအခန်းခ/မီတာခ ပေးတဲ့အခါ “ဖယ်ထားငွေထဲက ပေးတာ” ကို ရွေးရင် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။ အိမ်ပို့ပြီးငွေကိုတော့ အိမ်ပို့ရန်ကျန်ငွေထဲက အလိုအလျောက် လျှော့ပေးမယ်။\n\nစုငွေကို အစီအစဉ်မှာ ဖယ်ထားနိုင်တယ်။ ရက်ကျော်နေတဲ့အစီအစဉ်ရဲ့ ဖယ်ထားငွေကိုလည်း အသစ်စီမံတဲ့အထိ ဆက်ဖယ်ထားပေးမယ်။\n\nဒီစာရင်းကို ဖုန်း/Browser ထဲမှာပဲ သိမ်းတယ်။ Admin ကို မပို့ပါဘူး။ Backup ဖိုင်ကို ကိုယ်တိုင် ထုတ်သိမ်းထားပါ။')),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('နားလည်ပြီ'))]));},itemBuilder:(_)=>[
           PopupMenuItem(value:'export',enabled:ready,child:const Text('Backup သိမ်းမယ်')),
+          const PopupMenuItem(value:'complete',child:Text('မှတ်တမ်းအားလုံး Backup')),
           const PopupMenuItem(value:'import',child:Text('Backup ပြန်ထည့်မယ်')),
           const PopupMenuItem(value:'help',child:Text('အသုံးပြုနည်း / ကိုယ်ရေးအချက်အလက်')),
         ]),
