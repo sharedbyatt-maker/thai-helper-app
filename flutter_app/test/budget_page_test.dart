@@ -55,16 +55,23 @@ void main(){
   final restore=find.byKey(const ValueKey('budget_restore'));await reveal(tester,restore);expect(tester.widget<FilledButton>(restore).onPressed,isNull);expect((await store.load()).opening,50000);
   await reveal(tester,find.byKey(const ValueKey('budget_confirm_restore')));await tester.tap(find.byKey(const ValueKey('budget_confirm_restore')));await tester.pumpAndSettle();await reveal(tester,restore);await tester.tap(restore);await tester.pumpAndSettle();expect((await store.load()).opening,100000);expect((await store.load()).entries.single.id,'restored');expect(tester.takeException(),isNull);
  });
- testWidgets('Daily and exchange-history shortcuts open the same local wallet while preserving three main tabs',(tester)async{
+ testWidgets('Four bottom tabs show the budget third, exchange history fourth, and preserve local wallet data',(tester)async{
   await BudgetStore().save(const BudgetData(opening:123400),expectedRevision:0);
   final repo=RatesRepository(client:MockClient((r)async=>http.Response(jsonEncode(r.url.path.endsWith('/history')?{'schema_version':1,'timezone':'Asia/Bangkok','points':[]}:{'schema_version':2,'revision':1,'published_at':DateTime.now().toIso8601String(),'notice':'','quotes':[]}),200)));
   await tester.pumpWidget(CurrencyApp(repository:repo,updates:noNativeUpdates()));await tester.pumpAndSettle();
-  expect(find.byType(NavigationDestination),findsNWidgets(3));
-  await reveal(tester,find.byKey(const ValueKey('open_budget')));await tester.tap(find.byKey(const ValueKey('open_budget')));await tester.pumpAndSettle();
+  expect(find.byType(NavigationDestination),findsNWidgets(4));
+  expect(tester.widgetList<NavigationDestination>(find.byType(NavigationDestination)).map((d)=>d.label).toList(),['နေ့စဉ်ဈေး','ငွေတွက်','ငွေစာရင်း','မှတ်တမ်း']);
+  expect(find.byKey(const ValueKey('open_budget')),findsNothing);
+  await tester.tap(find.text('ငွေစာရင်း'));await tester.pumpAndSettle();
   expect(tester.widget<Text>(find.byKey(const ValueKey('budget_balance'))).data,'1,234 ဘတ်');
-  await tester.pageBack();await tester.pumpAndSettle();await tester.tap(find.text('မှတ်တမ်း'));await tester.pumpAndSettle();
-  await reveal(tester,find.byKey(const ValueKey('open_budget')));await tester.tap(find.byKey(const ValueKey('open_budget')));await tester.pumpAndSettle();
-  expect(tester.widget<Text>(find.byKey(const ValueKey('budget_balance'))).data,'1,234 ဘတ်');expect(tester.takeException(),isNull);
+  expect(find.byType(AppBar),findsOneWidget);
+  expect(find.byType(NavigationBar),findsOneWidget);
+  await tester.tap(find.text('မှတ်တမ်း'));await tester.pumpAndSettle();
+  expect(find.text('ကိုယ့်ငွေလဲမှတ်တမ်း'),findsOneWidget);
+  expect(find.byKey(const ValueKey('open_budget')),findsNothing);
+  await tester.tap(find.text('ငွေစာရင်း'));await tester.pumpAndSettle();
+  expect(tester.widget<Text>(find.byKey(const ValueKey('budget_balance'))).data,'1,234 ဘတ်');
+  expect(tester.takeException(),isNull);
  });
  testWidgets('Budget page, monthly category bars and entry editor fit 320px with large real Myanmar text',(tester)async{
   tester.view.physicalSize=const Size(320,800);tester.view.devicePixelRatio=1;addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
