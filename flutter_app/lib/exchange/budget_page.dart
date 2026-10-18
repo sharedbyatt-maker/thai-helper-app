@@ -23,7 +23,9 @@ class BudgetPage extends StatefulWidget {
   final BudgetStore? store;
   final ExchangeQuote? quote;
   final DateTime? today;
-  const BudgetPage({super.key,this.store,this.quote,this.today});
+  final bool embedded;
+  final int refreshSignal;
+  const BudgetPage({super.key,this.store,this.quote,this.today,this.embedded=false,this.refreshSignal=0});
   @override
   State<BudgetPage> createState()=>_BudgetPageState();
 }
@@ -38,6 +40,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   ExchangeQuote? get quote=>widget.quote?.direction==ExchangeDirection.thbMmk?widget.quote:null;
   @override
   void initState(){super.initState();WidgetsBinding.instance.addObserver(this);reload();}
+  @override
+  void didUpdateWidget(covariant BudgetPage oldWidget){super.didUpdateWidget(oldWidget);if(oldWidget.refreshSignal != widget.refreshSignal)reload();}
   @override
   void dispose(){WidgetsBinding.instance.removeObserver(this);super.dispose();}
   @override
@@ -131,13 +135,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   }
   Widget card(Widget child)=>Card(child:Padding(padding:const EdgeInsets.all(18),child:child));
   Widget line(String label,int amount)=>Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Wrap(spacing:10,runSpacing:4,alignment:WrapAlignment.spaceBetween,children:[Text(label),Text('${budgetMoney(amount)} ဘတ်',style:const TextStyle(fontWeight:FontWeight.w700))]));
-  @override
-  Widget build(BuildContext context){
-    final scheme=Theme.of(context).colorScheme,summary=BudgetSummary(data,today),report=BudgetMonth(data,month);
-    final current=summary.plan;
-    final estimate=quote==null||summary.homeLeft<=0?0:quote!.payout(summary.homeLeft);
-    return Scaffold(
-      appBar:AppBar(title:const Text('ကိုယ့်ငွေစာရင်း'),actions:[
+  List<Widget> budgetActions()=>[
         IconButton(tooltip: uiText(context, 'စာရင်းပြန်ဖတ်မယ်'),onPressed:loading||busy?null:reload,icon:const Icon(Icons.refresh)),
         PopupMenuButton<String>(tooltip: uiText(context, 'Backup / အကူအညီ'),onSelected:(v){if(v=='export')backup();if(v=='import')restore();if(v=='complete'){Navigator.of(context).push<void>(MaterialPageRoute(builder:(_)=>const CompleteBackupPage())).then((_){if(mounted)reload();});}if(v=='help')showDialog<void>(context:context,builder:(ctx)=>AlertDialog(title:const Text('ကိုယ့်ငွေကို စီမံမယ်'),content:const SingleChildScrollView(child:Text('ရပြီးသားဝင်ငွေနဲ့ တကယ်သုံးပြီးတဲ့ငွေကို ဘတ်နဲ့ မှတ်ပါ။ အိမ်မှာတကယ်ရတဲ့ ကျပ်ပမာဏကိုလည်း တွဲမှတ်နိုင်တယ်။\n\nအခန်းခ/မီတာခ ပေးတဲ့အခါ “ဖယ်ထားငွေထဲက ပေးတာ” ကို ရွေးရင် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။ အိမ်ပို့ပြီးငွေကိုတော့ အိမ်ပို့ရန်ကျန်ငွေထဲက အလိုအလျောက် လျှော့ပေးမယ်။\n\nစုငွေကို အစီအစဉ်မှာ ဖယ်ထားနိုင်တယ်။ ရက်ကျော်နေတဲ့အစီအစဉ်ရဲ့ ဖယ်ထားငွေကိုလည်း အသစ်စီမံတဲ့အထိ ဆက်ဖယ်ထားပေးမယ်။\n\nဒီစာရင်းကို ဖုန်း/Browser ထဲမှာပဲ သိမ်းတယ်။ Admin ကို မပို့ပါဘူး။ Backup ဖိုင်ကို ကိုယ်တိုင် ထုတ်သိမ်းထားပါ။')),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('နားလည်ပြီ'))]));},itemBuilder:(_)=>[
           PopupMenuItem(value:'export',enabled:ready,child:const Text('Backup သိမ်းမယ်')),
@@ -145,9 +143,23 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
           const PopupMenuItem(value:'import',child:Text('Backup ပြန်ထည့်မယ်')),
           const PopupMenuItem(value:'help',child:Text('အသုံးပြုနည်း / ကိုယ်ရေးအချက်အလက်')),
         ]),
-      ]),
+      ];
+  @override
+  Widget build(BuildContext context){
+    final scheme=Theme.of(context).colorScheme,summary=BudgetSummary(data,today),report=BudgetMonth(data,month);
+    final current=summary.plan;
+    final estimate=quote==null||summary.homeLeft<=0?0:quote!.payout(summary.homeLeft);
+    return Scaffold(
+      appBar:widget.embedded?null:AppBar(title:const Text('ကိုယ့်ငွေစာရင်း'),actions:budgetActions()),
       floatingActionButton:ready?FloatingActionButton.extended(key:const ValueKey('budget_add_expense'),onPressed:busy?null:()=>entry(BudgetKind.expense),icon:const Icon(Icons.add),label:const Text('သုံးငွေမှတ်မယ်')):null,
       body:RefreshIndicator(onRefresh:reload,child:ListView(padding:const EdgeInsets.fromLTRB(14,8,14,110),children:[
+        if(widget.embedded) Padding(
+          padding:const EdgeInsets.fromLTRB(4,0,4,6),
+          child:Row(children:[
+            Expanded(child:Text('ကိုယ့်ငွေစာရင်း',style:Theme.of(context).textTheme.titleLarge)),
+            ...budgetActions(),
+          ]),
+        ),
         if(loading)const LinearProgressIndicator(),
         if(error!=null)card(Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(error!),const Text('အရင်ငွေစာရင်းကို အစားမထိုးထားပါဘူး။'),Wrap(spacing:8,children:[TextButton(onPressed:reload,child:const Text('ပြန်ဖတ်မယ်')),TextButton(onPressed:restore,child:const Text('Backup ပြန်ထည့်မယ်'))])])),
         if(ready)...[
