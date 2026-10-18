@@ -159,7 +159,7 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
           minLines: 3,
           maxLines: 5,
           decoration: InputDecoration(
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
             labelText: uiText(context, 'ဒါမှမဟုတ် Backup စာကို ကူးထည့်ပါ'),
           ),
           onChanged: (_) => setState(() {
