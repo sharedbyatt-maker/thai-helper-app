@@ -15,6 +15,7 @@ import 'trend_card.dart';
 import 'daily_tools.dart';
 import 'platform_files.dart';
 import 'app_updates.dart';
+import 'budget_page.dart';
 
 class CurrencyApp extends StatefulWidget {
   final RatesRepository? repository;
@@ -940,6 +941,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             onCalculate: useQuote,
           ),
           const SizedBox(height: 14),
+          budgetShortcut(),
           DailyTools(
             quote: dailyQuote(direction),
             history: rateHistory,
@@ -1075,6 +1077,28 @@ class _ExchangeHomeState extends State<ExchangeHome>
       calcError = null;
     });
   }
+
+  Widget budgetShortcut() => Card(
+    child: InkWell(
+      key: const ValueKey('open_budget'),
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => Navigator.of(context).push<void>(MaterialPageRoute(
+        builder: (_) => BudgetPage(quote: dailyQuote(ExchangeDirection.thbMmk)),
+      )),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          Icon(Icons.account_balance_wallet_outlined, color: schemeColor(context)),
+          const SizedBox(width: 12),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('ကိုယ့်ငွေစာရင်း', style: TextStyle(fontWeight: FontWeight.w700)),
+            Text('ဝင်ငွေ၊ သုံးငွေနဲ့ အိမ်ပို့ငွေ စီမံမယ်', style: TextStyle(fontSize: 12, height: 1.8)),
+          ])),
+          const Icon(Icons.chevron_right),
+        ]),
+      ),
+    ),
+  );
 
   void setTargetMode(bool value) {
     setState(() {
@@ -1596,6 +1620,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           'တွက်ထားတာနဲ့ လဲပြီးတာကို ဒီမှာ မှတ်ထားလို့ရတယ်။ ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားတာပါ။',
           Icons.receipt_long_outlined,
         ),
+        budgetShortcut(),
         if (recordError != null)
           panel(
             Column(
