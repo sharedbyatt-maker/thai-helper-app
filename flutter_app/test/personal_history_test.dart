@@ -70,7 +70,7 @@ Future<void> start(
   t.view.devicePixelRatio = 1;
   t.platformDispatcher.textScaleFactorTestValue = scale;
   await t.pumpWidget(
-    CurrencyApp(updates: noNativeUpdates(), 
+    CurrencyApp(updates: noNativeUpdates(),
       repository: RatesRepository(
         client: MockClient(
           (_) async => http.Response(
