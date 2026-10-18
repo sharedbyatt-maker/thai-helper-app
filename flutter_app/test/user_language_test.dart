@@ -85,4 +85,33 @@ void main() {
     expect(language.uiTranslate('ဘတ်ဈေး', language.UserLanguage.myanmar), 'ဘတ်ဈေး');
     expect(language.uiTranslate('THB/MMK 750', language.UserLanguage.english), 'THB/MMK 750');
   });
+
+  testWidgets('English navigation remains usable at 320px and 1.4x text scale',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.4;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    SharedPreferences.setMockInitialValues({'user_language': 'en'});
+    await tester.pumpWidget(CurrencyApp(
+      repository: _repo(), updates: noNativeUpdates(),
+    ));
+    await tester.pumpAndSettle();
+    final labels = ['BahtZay', 'Calculator', 'My money', 'History'];
+    for (var i = 0; i < labels.length; i++) {
+      final destination = find.widgetWithText(NavigationDestination, labels[i]);
+      expect(destination, findsOneWidget);
+      final rect = tester.getRect(destination);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+      await tester.tap(destination);
+      await tester.pumpAndSettle();
+      expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, i);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
 }
