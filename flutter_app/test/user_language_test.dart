@@ -80,6 +80,26 @@ void main() {
     expect((await SharedPreferences.getInstance()).getString('user_language'), 'my');
   });
 
+
+  testWidgets('English budget labels do not change a user-written Burmese note',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'user_language': 'en'});
+    await BudgetStore().save(const BudgetData(entries: [
+      BudgetEntry(
+        id: 'my-note', day: '2026-10-17', kind: BudgetKind.income,
+        category: 'salary', amount: 10000, note: 'လစာ',
+      ),
+    ]), expectedRevision: 0);
+    await tester.pumpWidget(CurrencyApp(repository: _repo(), updates: noNativeUpdates()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('My money'));
+    await tester.pumpAndSettle();
+    expect(find.text('Salary'), findsWidgets);
+    expect(find.text('လစာ'), findsOneWidget);
+    expect((await BudgetStore().load()).entries.single.note, 'လစာ');
+    expect(tester.takeException(), isNull);
+  });
+
   test('Translations do not modify original strings or numerical fields', () {
     expect(language.uiTranslate('ဘတ်ဈေး', language.UserLanguage.english), 'BahtZay');
     expect(language.uiTranslate('ဘတ်ဈေး', language.UserLanguage.myanmar), 'ဘတ်ဈေး');
