@@ -20,10 +20,11 @@ function setup(quotes=[],options={}){
   if(endpoint==='restore'){assert.equal(data.expected_version,state.draft_version);const row=[...state.history,...state.trash].find(r=>r.id===data.revision);state.draft={notice:'',quotes:row.quotes};state.draft_version++;return ok({ok:true});}
   if(endpoint==='announcement'){assert.equal(data.expected_version,state.draft_version);assert.equal(data.expected_revision,state.published.revision);state.published={...state.published,notice:data.notice,revision:state.published.revision+1};state.draft_version++;return ok({ok:true});}
   if(endpoint==='publish'){assert.equal(data.expected_version,state.draft_version);state.draft_version++;state.published={...structuredClone(state.draft),revision:state.published.revision+1,published_at:new Date().toISOString()};return ok({published:state.published});}
+  if(endpoint==='app-release'){state.app_release={release:data.release,release_version:(state.app_release?.release_version||0)+1};return ok(state.app_release);}
   throw Error('Unexpected endpoint '+endpoint);
  };
  // Strict eval has its own declaration scope; expose the classic-script API as a browser would.
- w.eval(fs.readFileSync(path.join(root,'app.js'),'utf8')+'\nwindow.api=api;');
+ w.eval(fs.readFileSync(path.join(root,'app.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app-release.js'),'utf8')+'\nwindow.api=api;');
  return {dom,w,state,$:id=>w.document.getElementById(id),get:(card,key)=>card.querySelector(`[data-key="${key}"]`)};
 }
 test('Daily form uses lakh units, generic provenance, no provider or fee inputs, and requires explicit publish',async()=>{
@@ -110,5 +111,20 @@ test('Admin announcement preview requires confirmation and does not publish a pr
  const {dom,w,state,$}=setup([],{published:{revision:2,quotes:[],notice:'',published_at:new Date().toISOString()}});try{
   await until(()=>$('workspace').hidden===false);$('announcement-text').value='မနက်ဖြန် ဈေးအသစ်တင်မယ်';let preview='';w.confirm=text=>{preview=text;return false;};$('announcement-publish').click();await until(()=>$('workspace').inert===false);assert.equal(state.published.revision,2);assert.match(preview,/မနက်ဖြန်/);
   w.confirm=()=>true;$('announcement-publish').click();await until(()=>state.published.revision===3);await until(()=>$('workspace').inert===false);assert.equal(state.published.notice,'မနက်ဖြန် ဈေးအသစ်တင်မယ်');assert.equal(state.draft.notice,'');assert.equal($('announcement-text').value,'');
+ }finally{dom.window.close();}
+});
+
+test('Android release form keeps channels separate, confirms publication and preserves unsaved rate edits',async()=>{
+ const {dom,w,state,$}=setup();try{
+  await until(()=>$('workspace').hidden===false);
+  $('notice').value='Private unsaved rates note';$('notice').dispatchEvent(new w.Event('input'));
+  $('release-package').value='com.test.bahtzay';$('release-version').value='1.0.1';$('release-build').value='2';$('release-url').value='https://github.com/test/app/releases/download/v1/app.apk';$('release-notes').value='Calculator fix';$('release-enabled').checked=true;
+  $('release-save').click();await until(()=>$('message').textContent.includes('App update အသိပေးမှု သိမ်းပြီးပြီ'));
+  assert.equal(state.app_release.release.apk.build,2);assert.equal(state.app_release.release.play.enabled,false);
+  assert.equal($('notice').value,'Private unsaved rates note');assert.equal(state.draft_version,0);assert.equal(state.published.revision,0);
+  $('release-channel').value='play';$('release-channel').dispatchEvent(new w.Event('change'));
+  assert.equal($('release-version').value,'');assert.match($('release-url').placeholder,/play.google.com/);
+  $('release-channel').value='apk';$('release-channel').dispatchEvent(new w.Event('change'));
+  assert.equal($('release-version').value,'1.0.1');
  }finally{dom.window.close();}
 });

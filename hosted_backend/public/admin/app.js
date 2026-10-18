@@ -62,6 +62,7 @@ function addDirection(direction) {
 }
 function readSheet(){return {notice:$('notice').value.trim(),quotes:[...$('editors').children].map(card=>card.readQuote())};}
 function render() {
+  if(typeof renderAppRelease==='function')renderAppRelease(state.app_release);
   $('login-panel').hidden=true;$('workspace').hidden=false;$('logout').hidden=false;
   $('notice').value=state.draft.notice;$('editors').replaceChildren();state.draft.quotes.forEach(editor);
   $('published-version').textContent='Version '+state.published.revision;

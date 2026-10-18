@@ -25,6 +25,7 @@ jobs:
       - run: node --test tests/push_browser.test.cjs
       - run: node --check hosted_backend/public/admin/app.js
       - run: node --check hosted_backend/public/admin/telegram.js
+      - run: node --check hosted_backend/public/admin/app-release.js
       - run: node --test hosted_backend/test/*.test.mjs
   flutter:
     runs-on: ubuntu-latest

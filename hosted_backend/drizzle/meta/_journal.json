@@ -43,6 +43,13 @@
       "when": 1792299262324,
       "tag": "0005_petite_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792303493564,
+      "tag": "0006_lowly_dazzler",
+      "breakpoints": true
     }
   ]
 }
