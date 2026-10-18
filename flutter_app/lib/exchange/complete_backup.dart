@@ -44,7 +44,7 @@ class CompleteBackupService {
         'exchange_records': backup.records.map((r) => r.toJson()).toList(),
       });
 
-  Future<String> export() async {
+  Future<String> exportAll() async {
     // Never export an empty replacement when either existing store is corrupt.
     final budget = await budgetStore.load();
     final records = await recordStore.load();
