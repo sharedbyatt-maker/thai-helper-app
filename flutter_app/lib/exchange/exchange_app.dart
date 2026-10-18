@@ -1082,9 +1082,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
     child: InkWell(
       key: const ValueKey('open_budget'),
       borderRadius: BorderRadius.circular(22),
-      onTap: () => Navigator.of(context).push<void>(MaterialPageRoute(
-        builder: (_) => BudgetPage(quote: dailyQuote(ExchangeDirection.thbMmk)),
-      )),
+      onTap: () async {
+        await Navigator.of(context).push<void>(MaterialPageRoute(
+          builder: (_) => BudgetPage(quote: dailyQuote(ExchangeDirection.thbMmk)),
+        ));
+        // Returning from a combined restore should refresh exchange history.
+        if (mounted) await _loadRecords();
+      },
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(children: [
