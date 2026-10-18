@@ -1480,7 +1480,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ? 'နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်။ ဈေးအသစ် မတင်ရသေးပါ။\n'
         : '';
     shareText(
-      '${ageNotice}ဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
+      '$ageNoticeဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
     );
   }
 
