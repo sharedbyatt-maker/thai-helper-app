@@ -212,6 +212,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   late final repo = widget.repository ?? RatesRepository();
   final store = RecordStore();
   final amount = TextEditingController();
+  final calculationResultKey = GlobalKey();
   final lines = <CalcLine>[CalcLine(label: 'ဈေး A')];
   List<Calculation> results = [];
   List<PersonalRecord> records = [];
@@ -233,6 +234,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
   String? calcError, loadError, recordError;
   int tab = 0, requestId = 0;
   Timer? timer;
+  Timer? calculationFeedbackTimer;
+  bool calculationAcknowledged = false;
+  int calculationGeneration = 0;
 
   @override
   void initState() {
@@ -250,6 +254,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     timer?.cancel();
+    calculationFeedbackTimer?.cancel();
     repo.close();
     amount.dispose();
     for (final line in lines) {
@@ -455,7 +460,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   void calculate() {
+    final keyboardWasOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     FocusScope.of(context).unfocus();
+    calculationFeedbackTimer?.cancel();
+    final generation = ++calculationGeneration;
     try {
       final value = parseMoney(amount.text);
       if (value == null) {
@@ -494,13 +502,39 @@ class _ExchangeHomeState extends State<ExchangeHome>
       setState(() {
         results = calculated;
         calcError = null;
+        calculationAcknowledged = true;
       });
+      calculationFeedbackTimer = Timer(const Duration(milliseconds: 2200), () {
+        if (mounted) setState(() => calculationAcknowledged = false);
+      });
+      revealCalculation(generation, keyboardWasOpen);
     } on FormatException catch (e) {
       setState(() {
         calcError = e.message;
         results = [];
+        calculationAcknowledged = false;
       });
     }
+  }
+
+  Future<void> revealCalculation(int generation, bool keyboardWasOpen) async {
+    // Wait for the result layout and the keyboard's closing animation.
+    await WidgetsBinding.instance.endOfFrame;
+    if (keyboardWasOpen) {
+      await Future<void>.delayed(const Duration(milliseconds: 280));
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (!mounted || tab != 1 || results.isEmpty || generation != calculationGeneration) return;
+    final resultContext = calculationResultKey.currentContext;
+    if (resultContext == null) return;
+    await Scrollable.ensureVisible(
+      resultContext,
+      alignment: .05,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> openSource(String url) async {
@@ -1042,9 +1076,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
     });
   }
 
-  Widget calculator() => ListView(
+  Widget calculator() => SingleChildScrollView(
     key: const PageStorageKey('calculator'),
     padding: const EdgeInsets.all(14),
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       pageHeading(
         'ငွေလဲတွက်မယ်',
@@ -1124,11 +1160,15 @@ class _ExchangeHomeState extends State<ExchangeHome>
             context,
           ).colorScheme.primary.withValues(alpha: .25),
         ),
-        icon: const Icon(Icons.calculate_outlined),
+        icon: Icon(calculationAcknowledged && results.isNotEmpty
+            ? Icons.check_circle_outline
+            : Icons.calculate_outlined),
         label: Padding(
           padding: const EdgeInsets.all(8),
           child: Text(
-            targetMode
+            calculationAcknowledged && results.isNotEmpty
+                ? '✓ တွက်ပြီးပြီ'
+                : targetMode
                 ? 'လိုအပ်မယ့်ငွေ တွက်မယ်'
                 : lines.length > 1
                 ? 'တွက်ပြီး နှိုင်းမယ်'
@@ -1153,7 +1193,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 : 'အများဆုံးနဲ့ အနည်းဆုံး ကွာခြားချက် ${money(results.first.received - results.last.received)} ${direction.to}',
           ),
         ),
-      for (var i = 0; i < results.length; i++) resultCard(results[i], i),
+      for (var i = 0; i < results.length; i++)
+        if (i == 0)
+          KeyedSubtree(key: calculationResultKey, child: resultCard(results[i], i))
+        else
+          resultCard(results[i], i),
       const SizedBox(height: 10),
       Card(
         child: ExpansionTile(
@@ -1192,6 +1236,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       ),
       const SizedBox(height: 18),
     ],
+    ),
   );
 
   Widget lineEditor(CalcLine line, int index) {
@@ -1324,25 +1369,38 @@ class _ExchangeHomeState extends State<ExchangeHome>
     );
   }
 
-  Widget resultCard(Calculation result, int index) => Container(
+  Widget resultCard(Calculation result, int index) => TweenAnimationBuilder<double>(
+    key: ValueKey('calculation_result_${calculationGeneration}_$index'),
+    tween: Tween(begin: index == 0 ? 1.0 : 0.0, end: 0.0),
+    duration: MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 1500),
+    builder: (context, highlight, child) => Container(
     margin: const EdgeInsets.symmetric(vertical: 10),
     padding: const EdgeInsets.all(24),
     decoration: BoxDecoration(
-      color: Theme.of(
-        context,
-      ).colorScheme.primaryContainer.withValues(alpha: .45),
+      color: Color.lerp(
+        Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .45),
+        Theme.of(context).colorScheme.primaryContainer,
+        highlight,
+      ),
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: .2),
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: .2 + .5 * highlight),
+        width: 1 + highlight,
       ),
     ),
+    child: child,
+    ),
+    child: Semantics(
+    liveRegion: index == 0,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           results.length > 1
               ? '${index + 1}. ${result.quote.label}'
-              : 'တွက်ထားတဲ့ရလဒ်',
+              : 'ရမယ့်ငွေ',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         if (results.length > 1 && index == 0)
@@ -1352,10 +1410,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 : 'ဒီဈေးနဲ့ဆို ရမယ့်ငွေ အများဆုံးပါ',
           ),
         const SizedBox(height: 12),
-        Text('ပေးငွေ ${money(result.budget)} ${result.quote.direction.from}'),
+        Text('${money(result.budget)} ${result.quote.direction.from} ပေးရင်'),
         Text(
           'ရငွေ ${money(result.received)} ${result.quote.direction.to}',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.w700,
             color: schemeColor(context),
             height: 1.7,
@@ -1384,6 +1442,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ],
         ),
       ],
+    ),
     ),
   );
 
