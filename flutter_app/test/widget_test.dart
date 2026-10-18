@@ -22,10 +22,11 @@ void main() {
   Future<void> start(
     WidgetTester tester, {
     double width = 390,
+    double height = 1000,
     bool dark = false,
     double scale = 1,
   }) async {
-    tester.view.physicalSize = Size(width, 1000);
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     final repository = RatesRepository(
       client: MockClient(
@@ -99,6 +100,74 @@ void main() {
       await tester.pumpAndSettle();
       await reveal(tester, find.text('10,000 ဘတ် → 1,250,000 ကျပ်'), 200);
       expect(find.text('10,000 ဘတ် → 1,250,000 ကျပ်'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    },
+  );
+
+  testWidgets(
+    'Calculate dismisses input, acknowledges success and reveals the result on a small screen',
+    (tester) async {
+      await start(tester, width: 360, height: 700, scale: 1.3);
+      await tester.tap(find.text('ငွေတွက်'));
+      await tester.pumpAndSettle();
+      final amount = find.byKey(const ValueKey('amount'));
+      final rate = find.byKey(const ValueKey('rate_0'));
+      final button = find.byKey(const ValueKey('calculate'));
+      await tester.enterText(amount, '1000');
+      await reveal(tester, rate, 180);
+      await tester.enterText(rate, '125');
+      await reveal(tester, button, 180);
+      await tester.tap(button);
+      await tester.pump();
+      expect(find.text('✓ တွက်ပြီးပြီ'), findsOneWidget);
+      expect(tester.testTextInput.isVisible, isFalse);
+      await tester.pumpAndSettle();
+      // Do not manually scroll to the result: that is the behavior under test.
+      final result = find.text('ရငွေ 125,000 ကျပ်');
+      final rect = tester.getRect(result);
+      expect(rect.top, greaterThanOrEqualTo(0));
+      expect(rect.bottom, lessThan(630));
+      expect(find.text('1,000 ဘတ် ပေးရင်'), findsOneWidget);
+
+      await reveal(tester, amount, -250);
+      await tester.enterText(amount, '2000');
+      await tester.pump();
+      expect(find.text('✓ တွက်ပြီးပြီ'), findsNothing);
+      expect(result, findsNothing);
+      await reveal(tester, button, 180);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.text('ရငွေ 250,000 ကျပ်')).bottom, lessThan(630));
+      await reveal(tester, rate, -180);
+      await tester.enterText(rate, '130');
+      await tester.pump();
+      expect(find.text('✓ တွက်ပြီးပြီ'), findsNothing);
+      expect(find.text('ရငွေ 250,000 ကျပ်'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    },
+  );
+
+  testWidgets(
+    'Invalid amounts never acknowledge a successful calculation',
+    (tester) async {
+      await start(tester);
+      await tester.tap(find.text('ငွေတွက်'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('amount')), '0');
+      await reveal(tester, find.byKey(const ValueKey('rate_0')), 180);
+      await tester.enterText(find.byKey(const ValueKey('rate_0')), '125');
+      await reveal(tester, find.byKey(const ValueKey('calculate')), 180);
+      await tester.tap(find.byKey(const ValueKey('calculate')));
+      await tester.pumpAndSettle();
+      expect(find.text('✓ တွက်ပြီးပြီ'), findsNothing);
+      expect(find.textContaining('0 ထက်ကြီးတဲ့ ပမာဏ'), findsOneWidget);
+      expect(find.text('ရမယ့်ငွေ'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       tester.view.resetPhysicalSize();
