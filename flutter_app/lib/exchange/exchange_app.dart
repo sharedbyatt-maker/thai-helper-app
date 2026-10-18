@@ -863,7 +863,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         title: const Text('အသုံးပြုနည်း'),
         content: const SingleChildScrollView(
           child: Text(
-            'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\\n\\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။\\n\\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\\n\\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။',
+            'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။',
           ),
         ),
         actions: [
@@ -1206,12 +1206,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                     horizontal: 18,
                     vertical: 20,
                   ),
-                  labelText: targetMode
-                      ? 'ရချင်တဲ့ပမာဏ (${direction.to})'
-                      : 'ပေးမယ့်စုစုပေါင်းငွေ (${direction.from})',
-                  hintText: (targetMode ? direction.to : direction.from) == 'ကျပ်'
-                      ? 'ဥပမာ 100000'
-                      : 'ဥပမာ 10000',
+                  labelText: '${uiText(context, targetMode ? 'ရချင်တဲ့ပမာဏ' : 'ပေးမယ့်စုစုပေါင်းငွေ')} (${uiText(context, targetMode ? direction.to : direction.from)})',
+                  hintText: uiText(context, (targetMode ? direction.to : direction.from) == 'ကျပ်' ? 'ဥပမာ 100000' : 'ဥပမာ 10000'),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1419,10 +1415,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 horizontal: 18,
                 vertical: 18,
               ),
-              labelText: line.perLakh
-                  ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်'
-                  : '၁ ဘတ်အတွက် ကျပ်',
-              hintText: line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
+              labelText: uiText(context, line.perLakh ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်' : '၁ ဘတ်အတွက် ကျပ်'),
+              hintText: uiText(context, line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125'),
               helperText: uiText(context, '${direction.label} ဈေးကို ထည့်ပေးပါ။'),
               helperMaxLines: 2,
             ),
@@ -2057,7 +2051,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       initialDate: initial.isAfter(now) ? now : initial,
       firstDate: DateTime(2000),
       lastDate: now,
-      helpText: 'တကယ်ငွေလဲပြီးတဲ့ရက်',
+      helpText: uiText(context, 'တကယ်ငွေလဲပြီးတဲ့ရက်'),
     );
     if (chosen != null && mounted) {
       await writeRecords(
