@@ -47,7 +47,7 @@ void main() {
     tester.view.physicalSize = const Size(320, 740);tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);addTearDown(tester.view.resetDevicePixelRatio);
     Uri? opened;
-    await tester.pumpWidget(MaterialApp(builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(1.4)), child: child!), home: Scaffold(body: AppUpdateDialog(initial: AppUpdateCheck(apk, AvailableAppUpdate.parse(manifest(), apk)), openUrl: (url) async {opened = url;return true;}))));
+    await tester.pumpWidget(MaterialApp(builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.4)), child: child!), home: Scaffold(body: AppUpdateDialog(initial: AppUpdateCheck(apk, AvailableAppUpdate.parse(manifest(), apk)), openUrl: (url) async {opened = url;return true;}))));
     await tester.pumpAndSettle();
     expect(find.text('Version အသစ်ရပြီ'), findsOneWidget);
     expect(find.text('ငွေတွက်ရလဒ် ပြင်ထားတယ်။'), findsOneWidget);
