@@ -905,7 +905,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.currency_exchange),
-            label: 'နေ့စဉ်ဈေး',
+            label: 'ဘတ်ဈေး',
           ),
           NavigationDestination(
             icon: Icon(Icons.calculate_outlined),
