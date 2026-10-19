@@ -1,0 +1,62 @@
+name: Native platform previews (unsigned)
+
+# Optional manual proof-of-build. This does NOT sign a release or publish to stores.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: python3 scripts/fetch_fonts.py
+      - name: Create temporary Android and iOS Flutter runners
+        working-directory: flutter_app
+        run: flutter create --platforms=android,ios --project-name=thai_helper .
+      - name: Get dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+      - name: Build debug Android APK (not store-signed)
+        working-directory: flutter_app
+        run: flutter build apk --debug --dart-define=RATES_API=https://bahtzay-rates.muddyhinny2048.chatgpt.site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bahtzay-android-debug-preview
+          path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
+  ios-simulator-preview:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: python3 scripts/fetch_fonts.py
+      - name: Create temporary Android and iOS Flutter runners
+        working-directory: flutter_app
+        run: flutter create --platforms=android,ios --project-name=thai_helper .
+      - working-directory: flutter_app
+        run: flutter pub get
+      - name: Build iOS Simulator app without Apple account
+        working-directory: flutter_app
+        run: flutter build ios --simulator --debug --dart-define=RATES_API=https://bahtzay-rates.muddyhinny2048.chatgpt.site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bahtzay-ios-simulator-preview
+          path: flutter_app/build/ios/iphonesimulator/Runner.app
+          retention-days: 7
