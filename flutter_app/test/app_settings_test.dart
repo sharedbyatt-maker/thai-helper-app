@@ -95,7 +95,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CompleteBackupPage), findsOneWidget);
     expect(find.byKey(const ValueKey('complete_backup_export')), findsOneWidget);
-    await tester.pageBack();
+    await tester.tap(find.byType(BackButton).first);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('budget_balance')), findsOneWidget);
     expect((await BudgetStore().load()).opening, 123400);

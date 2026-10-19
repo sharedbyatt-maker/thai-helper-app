@@ -6,6 +6,9 @@ on:
   push:
     branches: [master]
     paths: ['flutter_app/**', '.github/workflows/daily-rates.yml', 'scripts/prepare_web_push.mjs']
+env:
+  FLUTTER_SUPPRESS_ANALYTICS: "true"
+  DART_SUPPRESS_ANALYTICS: "true"
 permissions:
   contents: write
 concurrency:

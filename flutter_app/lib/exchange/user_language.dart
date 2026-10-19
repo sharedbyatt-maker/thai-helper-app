@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart' as material;
-import 'package:flutter/widgets.dart' show BuildContext, InheritedWidget, Key, Widget, ValueChanged;
+import 'models.dart';
+import 'package:flutter/widgets.dart'
+    show BuildContext, InheritedWidget, Key, Widget, ValueChanged;
 
 /// User-facing language. Administrative records and money data stay unchanged.
 enum UserLanguage { myanmar, english }
@@ -30,7 +32,9 @@ String uiTranslate(String source, UserLanguage language) {
   // Translate longer UI phrases before shared shorter units so dynamic totals
   // and interpolated dates remain readable. Preserve unknown/user-entered data.
   for (final entry in _ordered) {
-    if (result.contains(entry.key)) result = result.replaceAll(entry.key, entry.value);
+    if (result.contains(entry.key)) {
+      result = result.replaceAll(entry.key, entry.value);
+    }
   }
   // Interpolated monetary amounts have Arabic digits; replace only their
   // currency suffix, rather than substituting short Burmese syllables inside
@@ -47,16 +51,94 @@ String uiTranslate(String source, UserLanguage language) {
 }
 
 const _nonComposable = <String>{
-  'မှ', 'ခု', 'ရက်', 'နေ့', 'ဘတ်', 'ကျပ်', 'လက်ရှိ',
-  'စာရင်း', 'အားလုံး', 'အရင်', 'မှတ်တမ်း', 'ပြင်မယ်',
+  'မှ',
+  'ခု',
+  'ရက်',
+  'နေ့',
+  'ဘတ်',
+  'ကျပ်',
+  'လက်ရှိ',
+  'စာရင်း',
+  'အားလုံး',
+  'အရင်',
+  'မှတ်တမ်း',
+  'ပြင်မယ်',
 };
-final _ordered = _en.entries
-    .where((item) => item.key.length > 4 && !_nonComposable.contains(item.key))
-    .toList()
-  ..sort((a, b) => b.key.length.compareTo(a.key.length));
+final _ordered =
+    _en.entries
+        .where(
+          (item) => item.key.length > 4 && !_nonComposable.contains(item.key),
+        )
+        .toList()
+      ..sort((a, b) => b.key.length.compareTo(a.key.length));
 
-String uiText(BuildContext context, String source) =>
-    uiTranslate(source, UserLanguageScope.maybeOf(context)?.language ?? UserLanguage.myanmar);
+String uiText(BuildContext context, String source) => uiTranslate(
+  source,
+  UserLanguageScope.maybeOf(context)?.language ?? UserLanguage.myanmar,
+);
+
+bool uiIsEnglish(BuildContext context) =>
+    UserLanguageScope.maybeOf(context)?.language == UserLanguage.english;
+
+String uiRateLabel(BuildContext context, ExchangeQuote quote) {
+  if (!uiIsEnglish(context)) return quoteRateLabel(quote);
+  final rate = referenceRateText(quote.rateMicros);
+  return quote.direction == ExchangeDirection.thbMmk
+      ? '$rate THB = 100,000 MMK'
+      : '100,000 MMK = $rate THB';
+}
+
+String uiPerBahtLabel(BuildContext context, ExchangeQuote quote) =>
+    uiIsEnglish(context)
+    ? quotePerBahtLabel(
+        quote,
+      ).replaceFirst('၁ ဘတ်', '1 THB').replaceFirst('ကျပ်', 'MMK')
+    : quotePerBahtLabel(quote);
+
+// Explicit templates for dynamic UI copy. Values are inserted after selecting
+// the language, so notes, names and financial values are never translated.
+const _messages = <String, (String, String)>{
+  'planRange': ('{start} မှ {end} မတိုင်မီ', 'From {start} until {end}'),
+  'remittanceEstimate': (
+    'အိမ်ပို့ရန်ကျန်ငွေနဲ့ ကျပ် {amount} ခန့် ရနိုင်တယ်။',
+    'Your remaining remittance reserve could provide about {amount} MMK.',
+  ),
+  'savedPlans': (
+    'သိမ်းထားတဲ့အစီအစဉ်များ · {count} ခု',
+    'Saved plans · {count}',
+  ),
+  'days': ('{count} ရက်', '{count} days'),
+  'updates': ('{count} ခု', '{count} updates'),
+  'budgetGap': (
+    'ဖယ်ထားဖို့ {amount} ဘတ် လိုနေသေးတယ်။',
+    'You need {amount} THB more to cover your reserves.',
+  ),
+  'budgetDaily': (
+    'နောက်ဝင်ငွေရမယ့်ရက်အထိ တစ်ရက် {amount} ဘတ်ခန့် သုံးနိုင်တယ်။',
+    'About {amount} THB per day until your next payday.',
+  ),
+  'historyCount': ('မှတ်တမ်း {count} ခု', '{count} records'),
+  'monthlyDirections': (
+    'ဘတ်ပေး {thb} ကြိမ် · ကျပ်ပေး {mmk} ကြိမ်',
+    'Paid THB: {thb} · Paid MMK: {mmk}',
+  ),
+  'publishedAt': ('ဈေးတင်ချိန် {date}', 'Rate published: {date}'),
+  'budgetEntries': ('ဒီလ မှတ်တမ်း {count} ခု', '{count} entries this month'),
+  'monthReport': ('{year} / {month} စာရင်း', '{year} / {month} report'),
+};
+
+String uiFormat(BuildContext context, String key, Map<String, Object> values) {
+  final pair = _messages[key];
+  assert(pair != null, 'Unknown UI message: $key');
+  if (pair == null) return '';
+  final english =
+      UserLanguageScope.maybeOf(context)?.language == UserLanguage.english;
+  final template = english ? pair.$2 : pair.$1;
+  return template.replaceAllMapped(
+    RegExp(r'\{([a-zA-Z]+)\}'),
+    (match) => values[match[1]]?.toString() ?? '—',
+  );
+}
 
 /// Retains the Flutter Text API and const call sites while translating
 /// visible copy when English is selected. No currency data is modified.
@@ -81,8 +163,11 @@ class Text extends material.Text {
 
   @override
   Widget build(BuildContext context) {
-    final lang = UserLanguageScope.maybeOf(context)?.language ?? UserLanguage.myanmar;
-    if (lang == UserLanguage.myanmar || data == null) return super.build(context);
+    final lang =
+        UserLanguageScope.maybeOf(context)?.language ?? UserLanguage.myanmar;
+    if (lang == UserLanguage.myanmar || data == null) {
+      return super.build(context);
+    }
     return material.Text(
       uiTranslate(data!, lang),
       style: style,
@@ -94,7 +179,9 @@ class Text extends material.Text {
       overflow: overflow,
       textScaler: textScaler,
       maxLines: maxLines,
-      semanticsLabel: semanticsLabel == null ? null : uiTranslate(semanticsLabel!, lang),
+      semanticsLabel: semanticsLabel == null
+          ? null
+          : uiTranslate(semanticsLabel!, lang),
       textWidthBasis: textWidthBasis,
       textHeightBehavior: textHeightBehavior,
       selectionColor: selectionColor,
@@ -131,255 +218,328 @@ class LanguageMenu extends material.StatelessWidget {
 }
 
 const _en = <String, String>{
+  "ဥပမာ အခန်းခ / မီတာခ 3000": "e.g. rent and utility bills: 3000",
+  "ဥပမာ 4000": "e.g. 4000",
+
+  'ပေးငွေ': 'Paid',
+
+  "ဥပမာ 800": "e.g. 800",
+  "ဥပမာ 125": "e.g. 125",
+  "ဥပမာ 2000": "e.g. 2000",
+  "ဥပမာ 0": "e.g. 0",
+  "ဥပမာ 1000": "e.g. 1000",
+  "ဥပမာ 5000": "e.g. 5000",
+  "ဥပမာ 1000000": "e.g. 1000000",
+
+  '၁': '1', '၂': '2',
+  'ရချင်တဲ့ပမာဏ': 'Amount to receive',
+  'ပေးမယ့်စုစုပေါင်းငွေ': 'Total amount to pay',
+
+  "သုံးလို့ရမယ့်ငွေ": "Available to spend",
+  "ဖယ်ထားငွေ နုတ်ပြီးနောက် သုံးနိုင်တဲ့ငွေပါ။":
+      "What remains after your reserved money.",
+  "ကိုယ့်ငွေစာရင်း စမှတ်ကြမယ်": "Start your money record",
+  "လက်ရှိရှိငွေကို အရင်ထည့်နိုင်တယ်။ ဝင်ငွေနဲ့ သုံးငွေ မှတ်တဲ့အခါ လက်ကျန်ကို တွက်ပေးမယ်။":
+      "Add your opening balance, then log income and spending to track what remains.",
+  "စာရင်းစငွေ သတ်မှတ်မယ်": "Set opening balance",
+  "မသိမ်းရသေးတာတွေ ရှိတယ်": "You have unsaved changes",
+  "ပြန်ထွက်ရင် အခုဖြည့်ထားတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။":
+      "Leaving will discard the changes you have entered.",
+  "ဆက်ဖြည့်မယ်": "Keep editing",
+  "မသိမ်းဘဲ ထွက်မယ်": "Discard changes",
+  "သိမ်းနေပါတယ်။ ခဏစောင့်ပေးပါ။": "Saving. Please wait.",
+  "နှုန်းပြင်မယ်": "Edit rate",
+  "နှုန်းပြင်တာ ပိတ်မယ်": "Close rate editor",
+  "ပြန်စမယ်": "Reset calculation",
+  "အသိပေးချက် / မျှဝေ / ရက်မှတ်": "Alerts, sharing and plans",
+  "မှတ်တမ်း ပြန်ဖတ်မယ်": "Refresh records",
+  "မှတ်တမ်း ရှာမယ်": "Search records",
+  "မှတ်ချက် / ဈေးနာမည်": "Note or rate name",
+  "ရှာထားတာ ဖယ်မယ်": "Clear search",
+  "မှတ်တမ်း အခြေအနေ": "Record status",
+  "တွက်ထားတာ": "Calculated only",
+  "စစ်ထုတ်ထားတာနဲ့ ကိုက်ညီတဲ့ မှတ်တမ်း မရှိဘူး":
+      "No records match these filters",
+  "မှတ်တမ်းအားလုံး ပြန်ကြည့်မယ်": "Show all records",
+  "ရက်ကာလနဲ့ စစ်ထုတ်မယ်": "Filter by date",
+  "မှတ်တမ်း ရက်ကာလ ရွေးမယ်": "Choose record dates",
+  "ရက်ကာလ ရွေးမယ်": "Choose dates",
+  "ရက်အားလုံး": "All dates",
+  "လဲပြီးတဲ့မှတ်တမ်းကို လဲပြီးရက်၊ တွက်ထားတာကို သိမ်းတဲ့ရက်နဲ့ စစ်ထားပါတယ်။":
+      "Completed records use the completion date. Calculations use the saved date.",
+  "Backup စာ ကူးထည့်မယ် (အပိုရွေးချယ်မှု)": "Paste backup text (advanced)",
+  "သိမ်းထားတဲ့ဈေး": "Cached rate",
+  "0 ထက်ကြီးတဲ့ ပမာဏထည့်ပေးပါ။ ဒသမ ၂ နေရာအထိ ရပါတယ်။":
+      "Enter an amount above zero, with up to two decimal places.",
+  "ပေးမယ့်ငွေက နုတ်ငွေထက် နည်းနေပါတယ်။":
+      "The amount is too small to cover the deduction.",
+
   // Main navigation and basic directions.
-  'ဘတ်ဈေး':'BahtZay',
-  'နေ့စဉ်ဈေး':'Daily rates',
-  'ငွေတွက်':'Calculator',
-  'ငွေစာရင်း':'My money',
-  'မှတ်တမ်း':'History',
-  'ဘတ်ပေး → ကျပ်ယူ':'Pay THB → Receive MMK',
-  'ကျပ်ပေး → ဘတ်ယူ':'Pay MMK → Receive THB',
-  'ဘတ်ပေး':'Pay THB',
-  'ကျပ်ပေး':'Pay MMK',
-  'ကျပ်ယူ':'Receive MMK',
-  'ဘတ်ယူ':'Receive THB',
-  'ဘတ်':'THB',
-  'ကျပ်':'MMK',
-  'ထိုင်းအချိန်':'Thailand time',
-  'ထိုင်း':'Thailand',
-  'ဒီနေ့':'Today',
-  'မနေ့က':'Yesterday',
-  'မနက်ဖြန်':'Tomorrow',
-  'ကြည့်မယ်':'View',
-  'တင်ထားပါတယ်':'published',
-  'ခု':'',
-  'ရက်':'days',
+  'ဘတ်ဈေး': 'BahtZay',
+  'နေ့စဉ်ဈေး': 'Daily rates',
+  'ငွေတွက်': 'Calculator',
+  'ငွေစာရင်း': 'My money',
+  'မှတ်တမ်း': 'History',
+  'ဘတ်ပေး → ကျပ်ယူ': 'Pay THB → Receive MMK',
+  'ကျပ်ပေး → ဘတ်ယူ': 'Pay MMK → Receive THB',
+  'ဘတ်ပေး': 'Pay THB',
+  'ကျပ်ပေး': 'Pay MMK',
+  'ကျပ်ယူ': 'Receive MMK',
+  'ဘတ်ယူ': 'Receive THB',
+  'ဘတ်': 'THB',
+  'ကျပ်': 'MMK',
+  'ထိုင်းအချိန်': 'Thailand time',
+  'ထိုင်း': 'Thailand',
+  'ဒီနေ့': 'Today',
+  'မနေ့က': 'Yesterday',
+  'မနက်ဖြန်': 'Tomorrow',
+  'ကြည့်မယ်': 'View',
+  'တင်ထားပါတယ်': 'published',
+  'ခု': '',
+  'ရက်': 'days',
   // Rates, navigation, charts and help.
-  'ဒီနေ့ ဘတ်–ကျပ်ဈေး':'Today’s THB / MMK rates',
-  'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။':'Choose a direction to view its latest rate.',
-  'နောက်ဆုံးဈေး':'Latest rate',
-  'စစ်ထားပြီး':'Recently checked',
-  'ပြန်စစ်ဖို့လိုနေပြီ':'Needs rechecking',
-  'ပြန်မစစ်ရသေး':'Not recently checked',
-  'မတင်ရသေးပါ':'Not published yet',
-  'မတင်ရသေးဘူး':'Not published yet',
-  'ဒီဘက်ဈေး မတင်ရသေးဘူး':'No rate has been published for this direction.',
-  'ဒီဘက်ဈေး မတင်ရသေးပါ':'No rate has been published for this direction.',
-  'ဒီဘက်ဈေး တင်လာရင် တွက်ပြပေးမယ်။':'A result will appear when a rate is published.',
-  'ဈေးအသစ် မတင်ရသေးပါ။ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ကြည့်နိုင်ပါတယ်။':'No new rate yet. You can calculate with the last published rate.',
-  'ဈေးအသစ် ယူမရသေးဘူး။ ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်လို့ရပါတယ်။':'Could not get a new rate. You can still use your saved rate.',
-  'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်':'Offline: showing the last cached rates.',
-  'ဈေးအသစ် မရသေးပါဘူး':'No new rate available.',
-  'နောက်ဆုံးချိတ်ဆက်ချိန်':'Last connected',
-  'နောက်ဆုံးစစ်ချိန်':'Last checked',
-  'ဈေးစစ်ချိန်':'Checked at',
-  'ဈေးတင်ချိန်':'Published at',
-  'အဟောင်းဈေး · ပြန်မစစ်ရသေးပါ':'Older rate · not recently checked',
-  'ဈေးအသစ်တင်ရင် ဒီနေရာမှာ ပြပေးမယ်။':'New published rates will appear here.',
-  'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်':'Loading rate history…',
-  'ဈေးမှတ်တမ်း မရှိသေးဘူး':'No rate history yet',
-  'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။':'No rate history for these dates.',
-  'ဈေးဘယ်လို ပြောင်းသွားလဲ?':'How have rates changed?',
-  'ကြည့်ချင်တဲ့ဈေး':'Select a rate',
-  'အနိမ့်':'Lowest',
-  'အမြင့်':'Highest',
-  'ဈေးတင်ထားတဲ့ရက်':'Days with published rates',
-  'ဈေးတင်ထားတာ':'Published quotes',
-  'မှတ်တမ်းကာလ':'Selected period',
-  'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်':'Tap a chart point to see the rate and time',
-  'အမှတ်လေးကို ထိကြည့်ပါ။':'Tap the point to inspect it.',
-  'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။':'Only one rate has been published.',
-  'အရင်ဈေးတွေ ယူမရသေးဘူး။ နောက်ဆုံးရထားတဲ့ဈေးကိုတော့ ပြထားပါတယ်။':'Could not load earlier rates. The latest available rate is shown.',
-  'ရယူနေပါတယ်…':'Loading…',
-  'သိမ်းထားတဲ့မှတ်တမ်း':'Cached history',
-  '၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်':'THB needed for 100,000 MMK',
-  '၁ သိန်းပေးရင် ရမယ့်ဘတ်':'THB received for 100,000 MMK',
-  'ကျပ် ၁ သိန်းအတွက် ဘတ်':'THB per 100,000 MMK',
-  'ကျပ် ၁ သိန်း':'100,000 MMK',
-  '၁ ဘတ်အတွက် ကျပ်':'MMK per 1 THB',
-  'ဒီနှုန်းနဲ့ တွက်မယ်':'Calculate with this rate',
-  'နောက်ဆုံးဈေးနဲ့ တွက်မယ်':'Calculate with the latest rate',
-  'ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်မယ်':'Calculate using my rate',
-  'ငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပေးပါ။':'Confirm the latest rate with your exchange provider before exchanging.',
-  'ဈေးအသစ် ယူမယ်':'Refresh rates',
-  'အလင်း / အမှောင်':'Light / dark mode',
-  'အသုံးပြုနည်း':'How to use',
-  'နားလည်ပါပြီ':'Got it',
-  'နားလည်ပြီ':'Got it',
-  'App version / Update စစ်မယ်':'Check app version / updates',
+  'ဒီနေ့ ဘတ်–ကျပ်ဈေး': 'Today’s THB / MMK rates',
+  'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။':
+      'Choose a direction to view its latest rate.',
+  'နောက်ဆုံးဈေး': 'Latest rate',
+  'စစ်ထားပြီး': 'Recently checked',
+  'ပြန်စစ်ဖို့လိုနေပြီ': 'Needs rechecking',
+  'ပြန်မစစ်ရသေး': 'Not recently checked',
+  'မတင်ရသေးပါ': 'Not published yet',
+  'မတင်ရသေးဘူး': 'Not published yet',
+  'ဒီဘက်ဈေး မတင်ရသေးဘူး': 'No rate has been published for this direction.',
+  'ဒီဘက်ဈေး မတင်ရသေးပါ': 'No rate has been published for this direction.',
+  'ဒီဘက်ဈေး တင်လာရင် တွက်ပြပေးမယ်။':
+      'A result will appear when a rate is published.',
+  'ဈေးအသစ် မတင်ရသေးပါ။ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ကြည့်နိုင်ပါတယ်။':
+      'No new rate yet. You can calculate with the last published rate.',
+  'ဈေးအသစ် ယူမရသေးဘူး။ ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်လို့ရပါတယ်။':
+      'Could not get a new rate. You can still use your saved rate.',
+  'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်':
+      'Offline: showing the last cached rates.',
+  'ဈေးအသစ် မရသေးပါဘူး': 'No new rate available.',
+  'နောက်ဆုံးချိတ်ဆက်ချိန်': 'Last connected',
+  'နောက်ဆုံးစစ်ချိန်': 'Last checked',
+  'ဈေးစစ်ချိန်': 'Checked at',
+  'ဈေးတင်ချိန်': 'Published at',
+  'အဟောင်းဈေး · ပြန်မစစ်ရသေးပါ': 'Older rate · not recently checked',
+  'ဈေးအသစ်တင်ရင် ဒီနေရာမှာ ပြပေးမယ်။': 'New published rates will appear here.',
+  'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်': 'Loading rate history…',
+  'ဈေးမှတ်တမ်း မရှိသေးဘူး': 'No rate history yet',
+  'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။': 'No rate history for these dates.',
+  'ဈေးဘယ်လို ပြောင်းသွားလဲ?': 'How have rates changed?',
+  'ကြည့်ချင်တဲ့ဈေး': 'Select a rate',
+  'အနိမ့်': 'Lowest',
+  'အမြင့်': 'Highest',
+  'ဈေးတင်ထားတဲ့ရက်': 'Days with published rates',
+  'ဈေးတင်ထားတာ': 'Published quotes',
+  'မှတ်တမ်းကာလ': 'Selected period',
+  'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်':
+      'Tap a chart point to see the rate and time',
+  'အမှတ်လေးကို ထိကြည့်ပါ။': 'Tap the point to inspect it.',
+  'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။': 'Only one rate has been published.',
+  'အရင်ဈေးတွေ ယူမရသေးဘူး။ နောက်ဆုံးရထားတဲ့ဈေးကိုတော့ ပြထားပါတယ်။':
+      'Could not load earlier rates. The latest available rate is shown.',
+  'ရယူနေပါတယ်…': 'Loading…',
+  'သိမ်းထားတဲ့မှတ်တမ်း': 'Cached history',
+  '၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်': 'THB needed for 100,000 MMK',
+  '၁ သိန်းပေးရင် ရမယ့်ဘတ်': 'THB received for 100,000 MMK',
+  'ကျပ် ၁ သိန်းအတွက် ဘတ်': 'THB per 100,000 MMK',
+  'ကျပ် ၁ သိန်း': '100,000 MMK',
+  '၁ ဘတ်အတွက် ကျပ်': 'MMK per 1 THB',
+  'ဒီနှုန်းနဲ့ တွက်မယ်': 'Calculate with this rate',
+  'နောက်ဆုံးဈေးနဲ့ တွက်မယ်': 'Calculate with the latest rate',
+  'ကိုယ်ရထားတဲ့ဈေးနဲ့ တွက်မယ်': 'Calculate using my rate',
+  'ငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပေးပါ။':
+      'Confirm the latest rate with your exchange provider before exchanging.',
+  'ဈေးအသစ် ယူမယ်': 'Refresh rates',
+  'အလင်း / အမှောင်': 'Light / dark mode',
+  'အသုံးပြုနည်း': 'How to use',
+  'နားလည်ပါပြီ': 'Got it',
+  'နားလည်ပြီ': 'Got it',
+  'App version / Update စစ်မယ်': 'Check app version / updates',
   // Calculator.
-  'ငွေလဲတွက်မယ်':'Currency calculator',
-  'ပေးမယ့်ငွေနဲ့ ဈေးထည့်လိုက်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။':'Enter the amount and the rate to calculate the result.',
-  'ဘယ်လောက် ရချင်လဲ?':'How much do you want to receive?',
-  'ဘယ်လောက် ပေးမလဲ?':'How much will you pay?',
-  'ရချင်တဲ့ပမာဏ':'Desired amount',
-  'ပေးမယ့်စုစုပေါင်းငွေ':'Amount to pay',
-  'ပေးမယ့်ငွေ':'Amount to pay',
-  'ကိုယ့်ငွေနဲ့ဆို':'With your money',
-  'ဒီနေ့ရမယ့်ငွေ':'Amount you’ll receive today',
-  'နောက်ဆုံးစစ်ထားတဲ့ဈေးနဲ့ဆို':'Using the last checked rate',
-  'ပေးမယ့်ငွေနဲ့ ပြန်တွက်မယ်':'Calculate from amount paid',
-  '✓ တွက်ပြီးပြီ':'✓ Calculated',
-  'လိုအပ်မယ့်ငွေ တွက်မယ်':'Calculate required amount',
-  'တွက်ပြီး နှိုင်းမယ်':'Calculate and compare',
-  'ရမယ့်ငွေ တွက်မယ်':'Calculate received amount',
-  'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်':'Compare rates / calculate target amount',
-  'နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်':'Add a rate to compare',
-  'ပေးမယ့်ငွေနဲ့ တွက်မယ်':'Calculate from payment',
-  'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်':'Calculate required payment',
-  'ရထားတဲ့ ငွေလဲနှုန်း':'Saved exchange rate',
-  'နှိုင်းမယ့်ဈေး':'Comparison rate',
-  'ဒီဈေးကို ဖယ်မယ်':'Remove this rate',
-  'ဈေးရေးပုံ':'Rate format',
-  'ဒီဈေးကို နာမည်ပေးထားချင်လား?':'Give this rate a name?',
-  'မှတ်ထားမယ့်နာမည်':'Name for this rate',
-  'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး':'e.g. rate from a friend',
-  'ဥပမာ':'e.g.',
-  'အနည်းဆုံးနဲ့ အများဆုံး ကွာခြားချက်':'Difference between lowest and highest',
-  'အများဆုံးနဲ့ အနည်းဆုံး ကွာခြားချက်':'Difference between highest and lowest',
-  'ရမယ့်ငွေ':'Amount received',
-  'ရငွေ':'Received',
-  'လိုအပ်မယ့်ငွေ':'Required amount',
-  'အနည်းဆုံးပါ':'the lowest',
-  'အများဆုံးပါ':'the highest',
-  'သီးသန့်နုတ်ငွေ':'Deduction',
-  'မှတ်တမ်းသိမ်း':'Save record',
-  'မျှဝေမယ်':'Share',
-  'တွက်ထားတာကို သိမ်းမယ်':'Save calculation',
-  'အခုတွက်ထားတာကို သိမ်းပေးမယ်။ တကယ်ငွေလဲပြီးရင် မှတ်တမ်းထဲမှာ အမှန်ခြစ်ထားလို့ရပါတယ်။':'This calculation will be saved. Mark it completed after the actual exchange.',
-  'မှတ်ချက် (ရေးချင်မှ)':'Note (optional)',
-  'မသိမ်းတော့':'Cancel',
-  'သိမ်းမယ်':'Save',
-  'သိမ်းပြီးပါပြီ':'Saved successfully',
-  'ပြန်တွက်မယ်':'Recalculate',
-  'နှိုင်းဖို့ အရင်ရက်ဈေး မရှိသေးဘူး။':'No previous rate available for comparison.',
-  'ပမာဏကို ဒီဖုန်းထဲမှာပဲ မှတ်ထားပေးမယ်။':'This amount is saved only on this device.',
+  'ငွေလဲတွက်မယ်': 'Currency calculator',
+  'ပေးမယ့်ငွေနဲ့ ဈေးထည့်လိုက်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။':
+      'Enter the amount and the rate to calculate the result.',
+  'ဘယ်လောက် ရချင်လဲ?': 'How much do you want to receive?',
+  'ဘယ်လောက် ပေးမလဲ?': 'How much will you pay?',
+  'ပေးမယ့်ငွေ': 'Amount to pay',
+  'ကိုယ့်ငွေနဲ့ဆို': 'With your money',
+  'ဒီနေ့ရမယ့်ငွေ': 'Amount you’ll receive today',
+  'နောက်ဆုံးစစ်ထားတဲ့ဈေးနဲ့ဆို': 'Using the last checked rate',
+  'ပေးမယ့်ငွေနဲ့ ပြန်တွက်မယ်': 'Calculate from amount paid',
+  '✓ တွက်ပြီးပြီ': '✓ Calculated',
+  'လိုအပ်မယ့်ငွေ တွက်မယ်': 'Calculate required amount',
+  'တွက်ပြီး နှိုင်းမယ်': 'Calculate and compare',
+  'ရမယ့်ငွေ တွက်မယ်': 'Calculate received amount',
+  'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်':
+      'Compare rates / calculate target amount',
+  'နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်': 'Add a rate to compare',
+  'ပေးမယ့်ငွေနဲ့ တွက်မယ်': 'Calculate from payment',
+  'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်': 'Calculate required payment',
+  'ရထားတဲ့ ငွေလဲနှုန်း': 'Saved exchange rate',
+  'နှိုင်းမယ့်ဈေး': 'Comparison rate',
+  'ဒီဈေးကို ဖယ်မယ်': 'Remove this rate',
+  'ဈေးရေးပုံ': 'Rate format',
+  'ဒီဈေးကို နာမည်ပေးထားချင်လား?': 'Give this rate a name?',
+  'မှတ်ထားမယ့်နာမည်': 'Name for this rate',
+  'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး': 'e.g. rate from a friend',
+  'ဥပမာ': 'e.g.',
+  'အနည်းဆုံးနဲ့ အများဆုံး ကွာခြားချက်': 'Difference between lowest and highest',
+  'အများဆုံးနဲ့ အနည်းဆုံး ကွာခြားချက်': 'Difference between highest and lowest',
+  'ရမယ့်ငွေ': 'Amount received',
+  'ရငွေ': 'Received',
+  'လိုအပ်မယ့်ငွေ': 'Required amount',
+  'အနည်းဆုံးပါ': 'the lowest',
+  'အများဆုံးပါ': 'the highest',
+  'သီးသန့်နုတ်ငွေ': 'Deduction',
+  'မှတ်တမ်းသိမ်း': 'Save record',
+  'မျှဝေမယ်': 'Share',
+  'တွက်ထားတာကို သိမ်းမယ်': 'Save calculation',
+  'အခုတွက်ထားတာကို သိမ်းပေးမယ်။ တကယ်ငွေလဲပြီးရင် မှတ်တမ်းထဲမှာ အမှန်ခြစ်ထားလို့ရပါတယ်။':
+      'This calculation will be saved. Mark it completed after the actual exchange.',
+  'မှတ်ချက် (ရေးချင်မှ)': 'Note (optional)',
+  'မသိမ်းတော့': 'Cancel',
+  'သိမ်းမယ်': 'Save',
+  'သိမ်းပြီးပါပြီ': 'Saved successfully',
+  'ပြန်တွက်မယ်': 'Recalculate',
+  'နှိုင်းဖို့ အရင်ရက်ဈေး မရှိသေးဘူး။':
+      'No previous rate available for comparison.',
+  'ပမာဏကို ဒီဖုန်းထဲမှာပဲ မှတ်ထားပေးမယ်။':
+      'This amount is saved only on this device.',
   // Exchange history.
-  'ကိုယ့်ငွေလဲမှတ်တမ်း':'My exchange history',
-  'တွက်ထားတာနဲ့ လဲပြီးတာကို ဒီမှာ မှတ်ထားလို့ရတယ်။ ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားတာပါ။':'Keep calculations and completed exchanges here, stored only in this browser.',
-  'မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ သိမ်းထားတဲ့စာရင်းကို မပြောင်းထားပါဘူး။':'Cannot read your records; your stored data was not changed.',
-  'ပြန်ဖတ်မယ်':'Reload',
-  'ဒီလ ငွေလဲပြီးသမျှ':'Exchanges completed this month',
-  'ကြိမ်':'times',
-  'အားလုံး':'All',
-  'မှတ်တမ်း မရှိသေးဘူး':'No records yet',
-  'ဒီဘက်အတွက် မှတ်တမ်း မရှိသေးဘူး':'No records for this direction',
-  'မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်':'Import history backup',
-  'မှတ်တမ်းဖိုင် သိမ်းမယ်':'Export history backup',
-  'အားလုံးရှင်းမယ်':'Clear all',
-  'ငွေတွက်မယ်':'Open calculator',
-  'စုစုပေါင်းပေးငွေ':'Total paid',
-  'စုစုပေါင်းရငွေ':'Total received',
-  'ငွေလဲပြီးပြီ':'Exchange completed',
-  'တွက်ထားတာပဲ ရှိသေးတယ်':'Calculated only',
-  'ကိုယ်တိုင် မှတ်ထားတာပါ':'Saved manually',
-  'လဲပြီးတဲ့ရက်':'Date exchanged',
-  'ဒီဈေးနဲ့ ပြန်တွက်မယ်':'Recalculate with this rate',
-  'ဖျက်မယ်':'Delete',
-  'မဖျက်တော့':'Cancel',
-  'တကယ်ဖျက်မလား?':'Confirm deletion?',
-  'မှတ်တမ်းကို ဖျက်မလား?':'Delete this record?',
-  'ဖိုင်ထုတ်သိမ်းပြီးပြီလား?':'Have you exported a backup?',
-  'ပေါင်းထည့်မယ်':'Import and merge',
-  'မသွင်းတော့':'Cancel',
-  'တကယ်ငွေလဲပြီးတဲ့ရက်':'Actual exchange date',
+  'ကိုယ့်ငွေလဲမှတ်တမ်း': 'My exchange history',
+  'တွက်ထားတာနဲ့ လဲပြီးတာကို ဒီမှာ မှတ်ထားလို့ရတယ်။ ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားတာပါ။':
+      'Keep calculations and completed exchanges here, stored only in this browser.',
+  'မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ သိမ်းထားတဲ့စာရင်းကို မပြောင်းထားပါဘူး။':
+      'Cannot read your records; your stored data was not changed.',
+  'ပြန်ဖတ်မယ်': 'Reload',
+  'ဒီလ ငွေလဲပြီးသမျှ': 'Exchanges completed this month',
+  'ကြိမ်': 'times',
+  'အားလုံး': 'All',
+  'မှတ်တမ်း မရှိသေးဘူး': 'No records yet',
+  'ဒီဘက်အတွက် မှတ်တမ်း မရှိသေးဘူး': 'No records for this direction',
+  'မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်': 'Import history backup',
+  'မှတ်တမ်းဖိုင် သိမ်းမယ်': 'Export history backup',
+  'အားလုံးရှင်းမယ်': 'Clear all',
+  'ငွေတွက်မယ်': 'Open calculator',
+  'စုစုပေါင်းပေးငွေ': 'Total paid',
+  'စုစုပေါင်းရငွေ': 'Total received',
+  'ငွေလဲပြီးပြီ': 'Exchange completed',
+  'တွက်ထားတာပဲ ရှိသေးတယ်': 'Calculated only',
+  'ကိုယ်တိုင် မှတ်ထားတာပါ': 'Saved manually',
+  'လဲပြီးတဲ့ရက်': 'Date exchanged',
+  'ဒီဈေးနဲ့ ပြန်တွက်မယ်': 'Recalculate with this rate',
+  'ဖျက်မယ်': 'Delete',
+  'မဖျက်တော့': 'Cancel',
+  'တကယ်ဖျက်မလား?': 'Confirm deletion?',
+  'မှတ်တမ်းကို ဖျက်မလား?': 'Delete this record?',
+  'ဖိုင်ထုတ်သိမ်းပြီးပြီလား?': 'Have you exported a backup?',
+  'ပေါင်းထည့်မယ်': 'Import and merge',
+  'မသွင်းတော့': 'Cancel',
+  'တကယ်ငွေလဲပြီးတဲ့ရက်': 'Actual exchange date',
   // Budget.
-  'ကိုယ့်ငွေစာရင်း':'My money',
-  'ကိုယ့်ငွေကို စီမံမယ်':'Manage your money',
-  'စာရင်းပြန်ဖတ်မယ်':'Refresh records',
-  'Backup / အကူအညီ':'Backup / Help',
-  'ဝင်ငွေ':'Income',
-  'သုံးငွေ':'Expenses',
-  'အိမ်ပို့ပြီးငွေ':'Money sent home',
-  'လစာ':'Salary',
-  'နေ့စား':'Daily wages',
-  'စားသောက်':'Food',
-  'အခန်းခ / အိမ်စရိတ်':'Rent / household',
-  'သွားလာရေး':'Transport',
-  'ကျောင်း / သင်တန်း':'School / training',
-  'ဖုန်း / မီတာခ':'Phone / utilities',
-  'ကျန်းမာရေး':'Health',
-  'အခြား':'Other',
-  'မုန့်ဖိုး / ထောက်ပံ့ငွေ':'Allowance',
-  'Tip / အပိုရငွေ':'Tips / other income',
-  'နေ့လယ်စာ':'Lunch',
-  'ဖယ်ထားငွေ':'Reserved money',
-  'ဖယ်ထားပြီး သုံးလို့ရမယ့်ငွေ':'Available after reserves',
-  'လက်ကျန်':'Balance',
-  'ယနေ့ လက်ကျန်':'Current balance',
-  'အိမ်ပို့ရန်':'To send home',
-  'စုငွေ':'Savings',
-  'အိမ်ပို့ငွေ':'Remittance',
-  'စာရင်းမစခင်ရှိငွေ':'Starting balance',
-  'ဒီလ':'This month',
-  'နေ့':'days',
-  'သုံးငွေမှတ်မယ်':'Add expense',
-  'ဝင်ငွေမှတ်မယ်':'Add income',
-  'အိမ်ပို့ပြီးတာ မှတ်မယ်':'Record remittance',
-  'အစီအစဉ်':'Plan',
-  'အစီအစဉ် သိမ်းမယ်':'Save plan',
-  'အစီအစဉ် အသစ်':'New plan',
-  'အလုပ်ရမယ့်ရက်':'Next payday',
-  'ရပြီးသား':'Received',
-  'ပြင်မယ်':'Edit',
-  'လက်ရှိ':'Current',
-  'လက်ရှိမှတ်တမ်း':'Current entries',
-  'အရင်':'Previous',
-  'လက်ရှိ ကိုယ့်ငွေစာရင်းကို အစားထိုးဖို့ အတည်ပြုတယ်':'I confirm replacing my existing budget data',
-  'အတည်ပြုပြီး ပြန်ထည့်မယ်':'Confirm and restore',
-  'ဖိုင်ကို အရင်စစ်မယ်':'Validate backup first',
-  'ဖိုင် ဖတ်မရသေးဘူး။':'Cannot read the selected file.',
-  'Backup ဖိုင် ရွေးမယ်':'Choose backup file',
-  'Backup ဖိုင်ယူမယ်':'Download backup',
-  'Backup ပြန်ထည့်မယ်':'Restore backup',
-  'ငွေစာရင်း Backup သိမ်းမယ်':'Back up money records',
-  'မှတ်တမ်းအားလုံး Backup':'Full backup',
-  'မှတ်တမ်းအားလုံး သိမ်းမယ်':'Back up all records',
-  'Backup စာ ကူးမယ်':'Copy backup text',
-  'Backup ဖိုင်ကို အရင်စစ်မယ်':'Check backup first',
-  'Backup စာကို ကူးထည့်ပါ':'Paste backup text',
-  'အတည်ပြုတယ်':'I confirm',
-  'ပိတ်မယ်':'Close',
-  'ပြန်စမ်းပေးပါ။':'Please try again.',
-  'သိမ်းနေတယ်…':'Saving…',
-  'သိမ်းနေပါတယ်။':'Saving…',
-  'မရသေးဘူး':'Not available yet',
+  'ကိုယ့်ငွေစာရင်း': 'My money',
+  'ကိုယ့်ငွေကို စီမံမယ်': 'Manage your money',
+  'စာရင်းပြန်ဖတ်မယ်': 'Refresh records',
+  'Backup / အကူအညီ': 'Backup / Help',
+  'ဝင်ငွေ': 'Income',
+  'သုံးငွေ': 'Expenses',
+  'အိမ်ပို့ပြီးငွေ': 'Money sent home',
+  'လစာ': 'Salary',
+  'နေ့စား': 'Daily wages',
+  'စားသောက်': 'Food',
+  'အခန်းခ / အိမ်စရိတ်': 'Rent / household',
+  'သွားလာရေး': 'Transport',
+  'ကျောင်း / သင်တန်း': 'School / training',
+  'ဖုန်း / မီတာခ': 'Phone / utilities',
+  'ကျန်းမာရေး': 'Health',
+  'အခြား': 'Other',
+  'မုန့်ဖိုး / ထောက်ပံ့ငွေ': 'Allowance',
+  'Tip / အပိုရငွေ': 'Tips / other income',
+  'နေ့လယ်စာ': 'Lunch',
+  'ဖယ်ထားငွေ': 'Reserved money',
+  'ဖယ်ထားပြီး သုံးလို့ရမယ့်ငွေ': 'Available after reserves',
+  'လက်ကျန်': 'Balance',
+  'ယနေ့ လက်ကျန်': 'Current balance',
+  'အိမ်ပို့ရန်': 'To send home',
+  'စုငွေ': 'Savings',
+  'အိမ်ပို့ငွေ': 'Remittance',
+  'စာရင်းမစခင်ရှိငွေ': 'Starting balance',
+  'ဒီလ': 'This month',
+  'နေ့': 'days',
+  'သုံးငွေမှတ်မယ်': 'Add expense',
+  'ဝင်ငွေမှတ်မယ်': 'Add income',
+  'အိမ်ပို့ပြီးတာ မှတ်မယ်': 'Record remittance',
+  'အစီအစဉ်': 'Plan',
+  'အစီအစဉ် သိမ်းမယ်': 'Save plan',
+  'အစီအစဉ် အသစ်': 'New plan',
+  'အလုပ်ရမယ့်ရက်': 'Next payday',
+  'ရပြီးသား': 'Received',
+  'ပြင်မယ်': 'Edit',
+  'လက်ရှိ': 'Current',
+  'လက်ရှိမှတ်တမ်း': 'Current entries',
+  'အရင်': 'Previous',
+  'လက်ရှိ ကိုယ့်ငွေစာရင်းကို အစားထိုးဖို့ အတည်ပြုတယ်':
+      'I confirm replacing my existing budget data',
+  'အတည်ပြုပြီး ပြန်ထည့်မယ်': 'Confirm and restore',
+  'ဖိုင်ကို အရင်စစ်မယ်': 'Validate backup first',
+  'ဖိုင် ဖတ်မရသေးဘူး။': 'Cannot read the selected file.',
+  'Backup ဖိုင် ရွေးမယ်': 'Choose backup file',
+  'Backup ဖိုင်ယူမယ်': 'Download backup',
+  'Backup ပြန်ထည့်မယ်': 'Restore backup',
+  'ငွေစာရင်း Backup သိမ်းမယ်': 'Back up money records',
+  'မှတ်တမ်းအားလုံး Backup': 'Full backup',
+  'မှတ်တမ်းအားလုံး သိမ်းမယ်': 'Back up all records',
+  'Backup စာ ကူးမယ်': 'Copy backup text',
+  'Backup ဖိုင်ကို အရင်စစ်မယ်': 'Check backup first',
+  'Backup စာကို ကူးထည့်ပါ': 'Paste backup text',
+  'အတည်ပြုတယ်': 'I confirm',
+  'ပိတ်မယ်': 'Close',
+  'ပြန်စမ်းပေးပါ။': 'Please try again.',
+  'သိမ်းနေတယ်…': 'Saving…',
+  'သိမ်းနေပါတယ်။': 'Saving…',
+  'မရသေးဘူး': 'Not available yet',
   // Tools, alerts, mobile.
-  'ဈေးအသိပေးမယ်':'Set a price alert',
-  'ဈေးနှုန်း မျှဝေမယ်':'Share rates',
-  'လဲဖို့ရက် မှတ်ထားမယ်':'Plan an exchange date',
-  'ရက်မှတ်ထားတာ ဖယ်မယ်':'Remove planned date',
-  'စဉ်းစားထားတဲ့ရက်':'Planned date',
-  'ဖုန်းမျက်နှာပြင်ပေါ် ထည့်ထားမယ်':'Add to Home Screen',
-  'ဈေးနဲ့ ကြေညာချက် အသိပေးမယ်':'Rate and announcement alerts',
-  'Telegram နဲ့ စောင့်မယ်':'Watch on Telegram',
-  'ဈေးအသစ်တင်တိုင်း အသိပေးမယ်':'Notify me of new rates',
-  'Telegram မှာ ဆက်ဖွင့်မယ်':'Continue in Telegram',
-  'Telegram ဖွင့်မရသေးဘူး။ ပြန်စမ်းပေးပါ။':'Could not open Telegram. Try again.',
-  'ဖုန်းမှာ အသိပေးမယ်':'Phone notifications',
-  'ဖုန်း noti ဖွင့်မယ်':'Enable phone notifications',
-  'Noti ပိတ်မယ်':'Disable notifications',
-  'Noti စမ်းကြည့်မယ်':'Test notification',
-  'ဖုန်း noti မဖွင့်ရသေးဘူး':'Phone notifications are off',
-  '✓ ဖုန်း noti ဖွင့်ထားတယ်':'✓ Phone notifications enabled',
-  'ချိတ်ဆက်နေတယ်…':'Connecting…',
-  'ကိုယ်ရေးအချက်အလက် အသေးစိတ်':'Privacy details',
-  'ပုံအဖြစ် မျှဝေမယ်':'Share image',
-  'ပုံပြင်ဆင်နေပါတယ်':'Preparing image…',
-  'ဖုန်းထဲ သိမ်းမရသေးဘူး။ ပြန်စမ်းပေးပါ။':'Could not save on this device. Please retry.',
-  'Update စစ်မရသေးဘူး။':'Could not check for updates.',
-  'Version အသစ်ရပြီ':'New version available',
-  'အသစ်':'New',
-  'နောက်မှလုပ်မယ်':'Later',
-  'ပြန်စစ်မယ်':'Check again',
-  'APK အသစ်ယူမယ်':'Download new APK',
-  'Play Store မှာ Update လုပ်မယ်':'Update in Play Store',
+  'ဈေးအသိပေးမယ်': 'Set a price alert',
+  'ဈေးနှုန်း မျှဝေမယ်': 'Share rates',
+  'လဲဖို့ရက် မှတ်ထားမယ်': 'Plan an exchange date',
+  'ရက်မှတ်ထားတာ ဖယ်မယ်': 'Remove planned date',
+  'စဉ်းစားထားတဲ့ရက်': 'Planned date',
+  'ဖုန်းမျက်နှာပြင်ပေါ် ထည့်ထားမယ်': 'Add to Home Screen',
+  'ဈေးနဲ့ ကြေညာချက် အသိပေးမယ်': 'Rate and announcement alerts',
+  'Telegram နဲ့ စောင့်မယ်': 'Watch on Telegram',
+  'ဈေးအသစ်တင်တိုင်း အသိပေးမယ်': 'Notify me of new rates',
+  'Telegram မှာ ဆက်ဖွင့်မယ်': 'Continue in Telegram',
+  'Telegram ဖွင့်မရသေးဘူး။ ပြန်စမ်းပေးပါ။':
+      'Could not open Telegram. Try again.',
+  'ဖုန်းမှာ အသိပေးမယ်': 'Phone notifications',
+  'ဖုန်း noti ဖွင့်မယ်': 'Enable phone notifications',
+  'Noti ပိတ်မယ်': 'Disable notifications',
+  'Noti စမ်းကြည့်မယ်': 'Test notification',
+  'ဖုန်း noti မဖွင့်ရသေးဘူး': 'Phone notifications are off',
+  '✓ ဖုန်း noti ဖွင့်ထားတယ်': '✓ Phone notifications enabled',
+  'ချိတ်ဆက်နေတယ်…': 'Connecting…',
+  'ကိုယ်ရေးအချက်အလက် အသေးစိတ်': 'Privacy details',
+  'ပုံအဖြစ် မျှဝေမယ်': 'Share image',
+  'ပုံပြင်ဆင်နေပါတယ်': 'Preparing image…',
+  'ဖုန်းထဲ သိမ်းမရသေးဘူး။ ပြန်စမ်းပေးပါ။':
+      'Could not save on this device. Please retry.',
+  'Update စစ်မရသေးဘူး။': 'Could not check for updates.',
+  'Version အသစ်ရပြီ': 'New version available',
+  'အသစ်': 'New',
+  'နောက်မှလုပ်မယ်': 'Later',
+  'ပြန်စစ်မယ်': 'Check again',
+  'APK အသစ်ယူမယ်': 'Download new APK',
+  'Play Store မှာ Update လုပ်မယ်': 'Update in Play Store',
   "ယခင်လ": "Previous month",
   "နောက်လ": "Next month",
   "မှတ်တမ်း ပြင် / ဖျက်": "Edit / delete record",
   "ဘတ်ပမာဏ": "Amount (THB)",
   "အမျိုးအစား": "Category",
-  "အိမ်မှာ တကယ်ရတဲ့ ကျပ်ငွေ (သိမှဖြည့်)": "Actual MMK received by family (optional)",
+  "အိမ်မှာ တကယ်ရတဲ့ ကျပ်ငွေ (သိမှဖြည့်)":
+      "Actual MMK received by family (optional)",
   "ဥပမာ 50": "e.g. 50",
   "ဥပမာ 100000": "e.g. 100000",
   "ဥပမာ 10000": "e.g. 10000",
@@ -389,10 +549,13 @@ const _en = <String, String>{
   "တကယ်ဝင်ပြီး / သုံးပြီးတဲ့ရက်": "Date actually received / spent",
   "ဒီအစီအစဉ် စမယ့်ရက်": "Plan start date",
   "နောက်ဝင်ငွေရမယ့်ရက်": "Next payday",
-  "ရပြီးသားငွေနဲ့ သွင်းထားတဲ့စာရင်းအပေါ် အခြေခံထားတာပါ။ ထပ်ဝင်မယ့်ငွေ မပါသေးပါဘူး။": "Based on money actually received and logged. Future income is not included.",
+  "ရပြီးသားငွေနဲ့ သွင်းထားတဲ့စာရင်းအပေါ် အခြေခံထားတာပါ။ ထပ်ဝင်မယ့်ငွေ မပါသေးပါဘူး။":
+      "Based on money actually received and logged. Future income is not included.",
   "ကြိုဖယ်ထားမယ့်ငွေ": "Money to reserve",
-  "အခုရှိငွေ၊ နောက်ဝင်ငွေရမယ့်ရက်နဲ့ ပေးဖို့ရှိတာတွေကို စီမံထားနိုင်တယ်။": "Plan your current balance, next payday and upcoming bills.",
-  "ဒီနေ့နဲ့ကိုက်တဲ့ ကာလအသစ်ကို စီမံပေးပါ။ ဖယ်ထားငွေတွေကိုတော့ ဆက်ဖယ်ထားပေးထားတယ်။": "Create a new plan for the current period. Reserved money remains protected.",
+  "အခုရှိငွေ၊ နောက်ဝင်ငွေရမယ့်ရက်နဲ့ ပေးဖို့ရှိတာတွေကို စီမံထားနိုင်တယ်။":
+      "Plan your current balance, next payday and upcoming bills.",
+  "ဒီနေ့နဲ့ကိုက်တဲ့ ကာလအသစ်ကို စီမံပေးပါ။ ဖယ်ထားငွေတွေကိုတော့ ဆက်ဖယ်ထားပေးထားတယ်။":
+      "Create a new plan for the current period. Reserved money remains protected.",
   "ပုံမှန်ပေးစရာ ကျန်ငွေ": "Bills remaining",
   "အိမ်ပို့ရန် ကျန်ငွေ": "Remittance remaining",
   "စုဖို့ ဖယ်ထားငွေ": "Reserved savings",
@@ -407,9 +570,11 @@ const _en = <String, String>{
   "ဒီလ အိမ်ပို့ပြီးငွေ": "Sent home this month",
   "ဒီလ ထွက်ငွေ ဘာတွေအတွက် သုံးထားလဲ?": "What did you spend on this month?",
   "ဒီလအတွက် သုံးငွေ မမှတ်ရသေးဘူး။": "No expenses recorded this month.",
-  "ကျပ်ရငွေကို ဘတ်သုံးငွေနဲ့ ထပ်ပေါင်းမထားပါဘူး။ အိမ်ပို့ပြီးငွေကို ဘတ်ထွက်ငွေအဖြစ် တစ်ကြိမ်ပဲ တွက်ထားတယ်။": "MMK received is not added to THB spending. Remittances count only once as a THB outflow.",
+  "ကျပ်ရငွေကို ဘတ်သုံးငွေနဲ့ ထပ်ပေါင်းမထားပါဘူး။ အိမ်ပို့ပြီးငွေကို ဘတ်ထွက်ငွေအဖြစ် တစ်ကြိမ်ပဲ တွက်ထားတယ်။":
+      "MMK received is not added to THB spending. Remittances count only once as a THB outflow.",
   "ဒီလ မှတ်တမ်း": "This month’s entries",
-  "အောက်က “သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။": "Start with Add expense or Add income below.",
+  "အောက်က “သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။":
+      "Start with Add expense or Add income below.",
   "အိမ်မှာရငွေ": "Received by family",
   "ပုံမှန်ပေးစရာ ဖယ်ထားငွေထဲက သုံးထားတယ်။": "Paid from reserved bill money.",
   "မှတ်ချိန်က ရည်ညွှန်းဈေး": "Rate at the time recorded",
@@ -419,26 +584,35 @@ const _en = <String, String>{
   "စာရင်း": "records",
   "မှတ်မယ်": "Add",
   "ပုံမှန်ပေးစရာ ဖယ်ထားငွေထဲက ပေးတာ": "Paid from reserved bills",
-  "အခန်းခ/မီတာခလို ပေးပြီးသမျှအတွက် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။": "Reduce outstanding bills when a payment comes from reserved money.",
-  "တကယ်လွှဲပြီးတာကို မှတ်ထားတာပါ။ ဒီနေရာကနေ ငွေလွှဲပေးတာ မဟုတ်ပါဘူး။": "This records an actual remittance. The app does not send money.",
+  "အခန်းခ/မီတာခလို ပေးပြီးသမျှအတွက် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။":
+      "Reduce outstanding bills when a payment comes from reserved money.",
+  "တကယ်လွှဲပြီးတာကို မှတ်ထားတာပါ။ ဒီနေရာကနေ ငွေလွှဲပေးတာ မဟုတ်ပါဘူး။":
+      "This records an actual remittance. The app does not send money.",
   "ရက်စွဲ": "Date",
   "စာရင်းမစခင် ရှိငွေ (ဘတ်)": "Opening balance (THB)",
-  "ဒီငွေဟာ အောက်က ဝင်ငွေမှတ်တမ်းတွေ မတိုင်မီ ရှိထားတဲ့ငွေပါ။ လက်ရှိစာရင်းထဲ ထည့်ပြီးသားလစာကို ဒီမှာ ထပ်မထည့်ဖို့ သတိထားပေးပါ။": "This is money you already had before the recorded income. Do not add salary twice.",
+  "ဒီငွေဟာ အောက်က ဝင်ငွေမှတ်တမ်းတွေ မတိုင်မီ ရှိထားတဲ့ငွေပါ။ လက်ရှိစာရင်းထဲ ထည့်ပြီးသားလစာကို ဒီမှာ ထပ်မထည့်ဖို့ သတိထားပေးပါ။":
+      "This is money you already had before the recorded income. Do not add salary twice.",
   "အစီအစဉ် စရက်": "Period starts",
-  "ဒီကာလအတွက် စုစုပေါင်း ဖယ်ထားချင်တဲ့ငွေကို ဖြည့်ပါ။ ပေးပြီးသမျှကို နုတ်ပြီး ပေးရန်ကျန်ငွေ ပြပေးမယ်။": "Enter the total you want to reserve for this period. Payments reduce the remaining amounts.",
+  "ဒီကာလအတွက် စုစုပေါင်း ဖယ်ထားချင်တဲ့ငွေကို ဖြည့်ပါ။ ပေးပြီးသမျှကို နုတ်ပြီး ပေးရန်ကျန်ငွေ ပြပေးမယ်။":
+      "Enter the total you want to reserve for this period. Payments reduce the remaining amounts.",
   "ပုံမှန်ပေးစရာများအတွက် (ဘတ်)": "Bills reserve (THB)",
   "အိမ်ကိုပို့ဖို့ (ဘတ်)": "Remittance reserve (THB)",
   "စုငွေအဖြစ် မသုံးဘဲထားမယ့် စုစုပေါင်း (ဘတ်)": "Savings to set aside (THB)",
-  "အရင်စုထားတာကိုပါ ဆက်ဖယ်ထားချင်ရင် ဒီစုစုပေါင်းထဲ ထည့်ထားပါ။": "Include previously saved money here if you still want to protect it.",
+  "အရင်စုထားတာကိုပါ ဆက်ဖယ်ထားချင်ရင် ဒီစုစုပေါင်းထဲ ထည့်ထားပါ။":
+      "Include previously saved money here if you still want to protect it.",
   "ဒီမှတ်တမ်းကို ဖျက်မလား?": "Delete this entry?",
   "ဒီအစီအစဉ်ကို ဖျက်မလား?": "Delete this plan?",
   "မှတ်တမ်း ဖျက်ပြီးပြီ။": "Entry deleted.",
-  "လက်ကျန်နဲ့ ဖယ်ထားငွေကို ပြန်တွက်ပေးမယ်။": "Balance and reserves will be recalculated.",
-  "ဝင်/ထွက်ငွေမှတ်တမ်းတွေ မပျက်ဘဲ ဖယ်ထားငွေကို ပြန်တွက်ပေးမယ်။": "Income and spending records will stay. Reserves will be recalculated.",
-  "အရင်ငွေစာရင်းကို အစားမထိုးထားပါဘူး။": "Existing money records were not replaced.",
+  "လက်ကျန်နဲ့ ဖယ်ထားငွေကို ပြန်တွက်ပေးမယ်။":
+      "Balance and reserves will be recalculated.",
+  "ဝင်/ထွက်ငွေမှတ်တမ်းတွေ မပျက်ဘဲ ဖယ်ထားငွေကို ပြန်တွက်ပေးမယ်။":
+      "Income and spending records will stay. Reserves will be recalculated.",
+  "အရင်ငွေစာရင်းကို အစားမထိုးထားပါဘူး။":
+      "Existing money records were not replaced.",
   "Backup သိမ်းမယ်": "Export backup",
   "အသုံးပြုနည်း / ကိုယ်ရေးအချက်အလက်": "Help / Privacy",
-  "ဖိုင်ထုတ်သိမ်းပြီးပြီလား? ဒီဖုန်းထဲက မှတ်တမ်းအားလုံး ဖျက်တော့မလား?": "Have you exported your backup? Delete all local history?",
+  "ဖိုင်ထုတ်သိမ်းပြီးပြီလား? ဒီဖုန်းထဲက မှတ်တမ်းအားလုံး ဖျက်တော့မလား?":
+      "Have you exported your backup? Delete all local history?",
   "ငွေလဲပြီးတာ": "Completed exchange",
   "သိမ်းထားတဲ့": "Saved",
   "အိမ်ပို့ရန်ကျန်ငွေနဲ့": "Using remaining remittance funds",
@@ -447,25 +621,42 @@ const _en = <String, String>{
   "ဘတ် ခန့် သုံးနိုင်တယ်။": "THB approximately available to spend.",
   "ပေးရန်ကျန်ငွေ": "Remaining to pay",
   "ရပြီးသားငွေ": "Received money",
-  "ငွေပမာဏကို ပြန်စစ်ပေးပါ။ ဒသမ ၂ နေရာအထိ ထည့်နိုင်တယ်။": "Check the amount. Up to two decimal places are allowed.",
+  "ငွေပမာဏကို ပြန်စစ်ပေးပါ။ ဒသမ ၂ နေရာအထိ ထည့်နိုင်တယ်။":
+      "Check the amount. Up to two decimal places are allowed.",
 
-  "ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။": "Choose which currency you pay: THB or MMK. The published rates for the two directions are different.\n\nCheck the daily rate and tap Calculate with this rate, then enter the amount you want to pay.\n\nThis app provides exchange-rate information and calculations only. Confirm the latest rate with your exchange provider before exchanging money.\n\nYour personal records are saved in this browser only. Export a backup before clearing browser data.",
-  "ငွေမလဲခင် ကိုယ်လဲမယ့်သူဆီမှာ နောက်ဆုံးဈေးကို ပြန်မေးပေးပါ။": "Confirm the latest rate with your exchange provider before exchanging.",
-  "တခြားလူပေးတဲ့ဈေးနဲ့ နှိုင်းချင်မှ နှုန်းအသစ် ထပ်ထည့်ပါ။ အများဆုံး ၃ ခု နှိုင်းနိုင်ပါတယ်။": "Add a second rate only if you want to compare. You can compare up to three rates.",
-  "လဲပြီးတဲ့ရက်အလိုက် ပေါင်းထားပါတယ်။ ရက်မမှတ်ခဲ့တဲ့ အဟောင်းတွေကိုတော့ သိမ်းတဲ့ရက် သုံးထားတယ်။": "Totals use the actual exchange date. Older records without one use the date they were saved.",
-  "ငွေတွက်ပြီးရင် ရလဒ်အောက်က “မှတ်တမ်းသိမ်း” ကို နှိပ်လိုက်ပါ။": "After calculating, use Save record below the result.",
-  "ရပြီးသားဝင်ငွေနဲ့ တကယ်သုံးပြီးတဲ့ငွေကို ဘတ်နဲ့ မှတ်ပါ။ အိမ်မှာတကယ်ရတဲ့ ကျပ်ပမာဏကိုလည်း တွဲမှတ်နိုင်တယ်။\n\nအခန်းခ/မီတာခ ပေးတဲ့အခါ “ဖယ်ထားငွေထဲက ပေးတာ” ကို ရွေးရင် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။ အိမ်ပို့ပြီးငွေကိုတော့ အိမ်ပို့ရန်ကျန်ငွေထဲက အလိုအလျောက် လျှော့ပေးမယ်။\n\nစုငွေကို အစီအစဉ်မှာ ဖယ်ထားနိုင်တယ်။ ရက်ကျော်နေတဲ့အစီအစဉ်ရဲ့ ဖယ်ထားငွေကိုလည်း အသစ်စီမံတဲ့အထိ ဆက်ဖယ်ထားပေးမယ်။\n\nဒီစာရင်းကို ဖုန်း/Browser ထဲမှာပဲ သိမ်းတယ်။ Admin ကို မပို့ပါဘူး။ Backup ဖိုင်ကို ကိုယ်တိုင် ထုတ်သိမ်းထားပါ။": "Record money you actually earned and spent in THB. You can also record the MMK amount your family actually received.\n\nWhen paying rent or utilities, choose Paid from reserved bills to reduce the outstanding amount. Actual remittances automatically reduce the amount reserved to send home.\n\nYou can reserve savings in your plan. Old reserves remain protected until you create a new plan.\n\nRecords are stored on this phone/browser only, never sent to the admin. Export and securely keep your own backup.",
-  "လက်ရှိ ကိုယ့်ငွေစာရင်းကို ဒီ backup နဲ့ အစားထိုးမှာပါ။ လက်ရှိစာရင်းကိုလည်း အရင် Backup သိမ်းထားနိုင်တယ်။ ငွေလဲမှတ်တမ်းနဲ့ နေ့စဉ်ဈေးကို မပြောင်းပါဘူး။": "This backup replaces your current budget data. Back up your existing records first. Exchange history and daily published rates will not change.",
-  "iPhone မှာ Safari ရဲ့ Share ကိုနှိပ်ပြီး “Add to Home Screen” ကို ရွေးပါ။\n\nAndroid မှာ browser menu ထဲက “Install app” သို့မဟုတ် “Add to Home screen” ကို ရွေးနိုင်တယ်။\n\nနောက်တစ်ခါ icon ကိုနှိပ်ရုံနဲ့ ဖွင့်လို့ရမယ်။": "On iPhone, open Safari, tap Share and select Add to Home Screen.\n\nOn Android, open the browser menu and select Install app or Add to Home screen.\n\nNext time, tap the icon to launch the app.",
-  "Telegram မှာ Start နှိပ်မှ ဖွင့်မယ်။ အသစ်ရွေးရင် အရင်ရွေးထားတာကို အစားထိုးမယ်။ စောင့်ထားတဲ့ဈေးကို ရောက်လာရင် တစ်ခါပဲ ပြောပေးမယ်။ /stop နဲ့ ရပ်နိုင်တယ်။": "In Telegram, press Start to activate. Choosing a new target replaces the old one. You will be notified once when the target is reached. Use /stop to cancel.",
-  "ပုံမျှဝေမရသေးဘူး။ ပြန်စမ်းပေးပါ။": "Could not share the image. Please try again.",
+  "ဘတ်ပေးမလား၊ ကျပ်ပေးမလား အရင်ရွေးပါ။ နှစ်ဘက်ဈေးက မတူပါဘူး။\n\nနေ့စဉ်ဈေးမှ လက်ရှိနှုန်းကိုကြည့်ပြီး “ဒီနှုန်းနဲ့ တွက်မယ်” ကိုနှိပ်ပါ။ ပေးမယ့်ငွေထည့်ရုံနဲ့ ရမယ့်ငွေကို တွက်ပေးမယ်။\n\nဒီ app က ငွေလဲနှုန်းအချက်အလက်နဲ့ တွက်ချက်မှုကို ပေးပါတယ်။ ငွေလဲမလုပ်ခင် သင်လဲမယ့်သူရဲ့ နောက်ဆုံးဈေးကို ပြန်မေးပါ။\n\nကိုယ့်မှတ်တမ်းတွေကို ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data ဖျက်ရင် ပျောက်နိုင်လို့ အရင် ဖိုင်ထုတ်သိမ်းထားပါ။":
+      "Choose which currency you pay: THB or MMK. The published rates for the two directions are different.\n\nCheck the daily rate and tap Calculate with this rate, then enter the amount you want to pay.\n\nThis app provides exchange-rate information and calculations only. Confirm the latest rate with your exchange provider before exchanging money.\n\nYour personal records are saved in this browser only. Export a backup before clearing browser data.",
+  "ငွေမလဲခင် ကိုယ်လဲမယ့်သူဆီမှာ နောက်ဆုံးဈေးကို ပြန်မေးပေးပါ။":
+      "Confirm the latest rate with your exchange provider before exchanging.",
+  "တခြားလူပေးတဲ့ဈေးနဲ့ နှိုင်းချင်မှ နှုန်းအသစ် ထပ်ထည့်ပါ။ အများဆုံး ၃ ခု နှိုင်းနိုင်ပါတယ်။":
+      "Add a second rate only if you want to compare. You can compare up to three rates.",
+  "လဲပြီးတဲ့ရက်အလိုက် ပေါင်းထားပါတယ်။ ရက်မမှတ်ခဲ့တဲ့ အဟောင်းတွေကိုတော့ သိမ်းတဲ့ရက် သုံးထားတယ်။":
+      "Totals use the actual exchange date. Older records without one use the date they were saved.",
+  "ငွေတွက်ပြီးရင် ရလဒ်အောက်က “မှတ်တမ်းသိမ်း” ကို နှိပ်လိုက်ပါ။":
+      "After calculating, use Save record below the result.",
+  "ရပြီးသားဝင်ငွေနဲ့ တကယ်သုံးပြီးတဲ့ငွေကို ဘတ်နဲ့ မှတ်ပါ။ အိမ်မှာတကယ်ရတဲ့ ကျပ်ပမာဏကိုလည်း တွဲမှတ်နိုင်တယ်။\n\nအခန်းခ/မီတာခ ပေးတဲ့အခါ “ဖယ်ထားငွေထဲက ပေးတာ” ကို ရွေးရင် ပေးရန်ကျန်ငွေကိုပါ လျှော့ပြမယ်။ အိမ်ပို့ပြီးငွေကိုတော့ အိမ်ပို့ရန်ကျန်ငွေထဲက အလိုအလျောက် လျှော့ပေးမယ်။\n\nစုငွေကို အစီအစဉ်မှာ ဖယ်ထားနိုင်တယ်။ ရက်ကျော်နေတဲ့အစီအစဉ်ရဲ့ ဖယ်ထားငွေကိုလည်း အသစ်စီမံတဲ့အထိ ဆက်ဖယ်ထားပေးမယ်။\n\nဒီစာရင်းကို ဖုန်း/Browser ထဲမှာပဲ သိမ်းတယ်။ Admin ကို မပို့ပါဘူး။ Backup ဖိုင်ကို ကိုယ်တိုင် ထုတ်သိမ်းထားပါ။":
+      "Record money you actually earned and spent in THB. You can also record the MMK amount your family actually received.\n\nWhen paying rent or utilities, choose Paid from reserved bills to reduce the outstanding amount. Actual remittances automatically reduce the amount reserved to send home.\n\nYou can reserve savings in your plan. Old reserves remain protected until you create a new plan.\n\nRecords are stored on this phone/browser only, never sent to the admin. Export and securely keep your own backup.",
+  "လက်ရှိ ကိုယ့်ငွေစာရင်းကို ဒီ backup နဲ့ အစားထိုးမှာပါ။ လက်ရှိစာရင်းကိုလည်း အရင် Backup သိမ်းထားနိုင်တယ်။ ငွေလဲမှတ်တမ်းနဲ့ နေ့စဉ်ဈေးကို မပြောင်းပါဘူး။":
+      "This backup replaces your current budget data. Back up your existing records first. Exchange history and daily published rates will not change.",
+  "iPhone မှာ Safari ရဲ့ Share ကိုနှိပ်ပြီး “Add to Home Screen” ကို ရွေးပါ။\n\nAndroid မှာ browser menu ထဲက “Install app” သို့မဟုတ် “Add to Home screen” ကို ရွေးနိုင်တယ်။\n\nနောက်တစ်ခါ icon ကိုနှိပ်ရုံနဲ့ ဖွင့်လို့ရမယ်။":
+      "On iPhone, open Safari, tap Share and select Add to Home Screen.\n\nOn Android, open the browser menu and select Install app or Add to Home screen.\n\nNext time, tap the icon to launch the app.",
+  "Telegram မှာ Start နှိပ်မှ ဖွင့်မယ်။ အသစ်ရွေးရင် အရင်ရွေးထားတာကို အစားထိုးမယ်။ စောင့်ထားတဲ့ဈေးကို ရောက်လာရင် တစ်ခါပဲ ပြောပေးမယ်။ /stop နဲ့ ရပ်နိုင်တယ်။":
+      "In Telegram, press Start to activate. Choosing a new target replaces the old one. You will be notified once when the target is reached. Use /stop to cancel.",
+  "ပုံမျှဝေမရသေးဘူး။ ပြန်စမ်းပေးပါ။":
+      "Could not share the image. Please try again.",
   "ဘတ် ↔ ကျပ် · နောက်ဆုံးစစ်ထားတဲ့ဈေး": "THB ↔ MMK · Last checked rate",
-  "Backup စာ ကူးပြီးပြီ။ ကိုယ်ပိုင်နေရာမှာ သိမ်းထားပေးပါ။": "Backup text copied. Store it securely in a private location.",
-  "ငွေလဲမှတ်တမ်းနဲ့ ကိုယ့်ငွေစာရင်းကို ဖိုင်တစ်ခုထဲ သိမ်းနိုင်တယ်။ ဒီဖိုင်ထဲမှာ ကိုယ်ပိုင်ငွေကြေးအချက်အလက်တွေ ပါလို့ သူများကို မပို့ပါနဲ့။": "Export exchange history and personal budget together in one file. It contains private financial information, so do not share it with others.",
-  "အရင်ဆုံး ဒီဖုန်းထဲက မှတ်တမ်းတွေကို Backup သိမ်းထားပါ။ ပြန်ထည့်တဲ့အခါ ကိုယ့်ငွေစာရင်းကို အစားထိုးမယ်။ ငွေလဲမှတ်တမ်းကတော့ ရှိပြီးသားတွေ မဖျက်ဘဲ အသစ်တွေ ပေါင်းထည့်မယ်။": "First export a backup of your current records. Restoring will replace your personal budget. Exchange history will be merged by ID without deleting existing records.",
-  "ကိုယ့်ငွေစာရင်းကို အစားထိုးမယ်ဆိုတာ နားလည်ပြီး အတည်ပြုတယ်": "I understand and confirm that my personal budget will be replaced.",
-  "ဈေးနှုန်း ဒါမှမဟုတ် ကြေညာချက်အသစ်တင်ရင် App မဖွင့်ထားလည်း အသိပေးမယ်။ Noti ကိုနှိပ်ရင် App ပြန်ဖွင့်ပေးမယ်။": "Get notifications about new rates or announcements even when the app is closed. Tapping a notification opens the app.",
-  "Noti ပို့ဖို့ browser ရဲ့ ချိတ်ဆက်လိပ်စာကိုပဲ သိမ်းမယ်။ ကိုယ့်ငွေပမာဏနဲ့ မှတ်တမ်းတွေ မပို့ပါဘူး။ ဒီနေရာကနေ အချိန်မရွေး ပိတ်နိုင်တယ်။": "Only the browser's push subscription is stored to send notifications. Your balances and personal records are never sent. You can disable this anytime.",
+  "Backup စာ ကူးပြီးပြီ။ ကိုယ်ပိုင်နေရာမှာ သိမ်းထားပေးပါ။":
+      "Backup text copied. Store it securely in a private location.",
+  "ငွေလဲမှတ်တမ်းနဲ့ ကိုယ့်ငွေစာရင်းကို ဖိုင်တစ်ခုထဲ သိမ်းနိုင်တယ်။ ဒီဖိုင်ထဲမှာ ကိုယ်ပိုင်ငွေကြေးအချက်အလက်တွေ ပါလို့ သူများကို မပို့ပါနဲ့။":
+      "Export exchange history and personal budget together in one file. It contains private financial information, so do not share it with others.",
+  "အရင်ဆုံး ဒီဖုန်းထဲက မှတ်တမ်းတွေကို Backup သိမ်းထားပါ။ ပြန်ထည့်တဲ့အခါ ကိုယ့်ငွေစာရင်းကို အစားထိုးမယ်။ ငွေလဲမှတ်တမ်းကတော့ ရှိပြီးသားတွေ မဖျက်ဘဲ အသစ်တွေ ပေါင်းထည့်မယ်။":
+      "First export a backup of your current records. Restoring will replace your personal budget. Exchange history will be merged by ID without deleting existing records.",
+  "ကိုယ့်ငွေစာရင်းကို အစားထိုးမယ်ဆိုတာ နားလည်ပြီး အတည်ပြုတယ်":
+      "I understand and confirm that my personal budget will be replaced.",
+  "ဈေးနှုန်း ဒါမှမဟုတ် ကြေညာချက်အသစ်တင်ရင် App မဖွင့်ထားလည်း အသိပေးမယ်။ Noti ကိုနှိပ်ရင် App ပြန်ဖွင့်ပေးမယ်။":
+      "Get notifications about new rates or announcements even when the app is closed. Tapping a notification opens the app.",
+  "Noti ပို့ဖို့ browser ရဲ့ ချိတ်ဆက်လိပ်စာကိုပဲ သိမ်းမယ်။ ကိုယ့်ငွေပမာဏနဲ့ မှတ်တမ်းတွေ မပို့ပါဘူး။ ဒီနေရာကနေ အချိန်မရွေး ပိတ်နိုင်တယ်။":
+      "Only the browser's push subscription is stored to send notifications. Your balances and personal records are never sent. You can disable this anytime.",
   "ဆက်တင်": "Settings",
   "ဘာသာစကား": "Language",
   "မြန်မာ / English": "Myanmar / English",
@@ -473,7 +664,8 @@ const _en = <String, String>{
   "အမှောင်": "Dark mode",
   "ဖုန်း noti / Telegram": "Phone alerts / Telegram",
   "ကိုယ့်မှတ်တမ်းတွေ သိမ်း / ပြန်ထည့်": "Back up or restore my records",
-  "ကိုယ့်ငွေစာရင်းနဲ့ ငွေလဲမှတ်တမ်းတွေကို ဒီဖုန်း / browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Backup ဖိုင်ကို ကိုယ်တိုင် လုံခြုံစွာ သိမ်းထားပါ။": "Your budget and exchange records are saved only on this device / browser. Keep an exported backup somewhere safe.",
+  "ကိုယ့်ငွေစာရင်းနဲ့ ငွေလဲမှတ်တမ်းတွေကို ဒီဖုန်း / browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Backup ဖိုင်ကို ကိုယ်တိုင် လုံခြုံစွာ သိမ်းထားပါ။":
+      "Your budget and exchange records are saved only on this device / browser. Keep an exported backup somewhere safe.",
   "ငွေစာရင်းအကူအညီ": "Money management help",
   "လက်ရှိ ငွေစာရင်း": "Current budget",
 };

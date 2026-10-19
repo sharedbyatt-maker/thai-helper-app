@@ -26,7 +26,7 @@ void main(){
   await start(tester,store,rate:quote(133689840));expect(find.byKey(const ValueKey('budget_balance')),findsOneWidget);
   await reveal(tester,find.byKey(const ValueKey('budget_add_income')));await tester.tap(find.byKey(const ValueKey('budget_add_income')));await tester.pumpAndSettle();
   await enter(tester,'budget_amount','15000');await saveEntry(tester);expect((await store.load()).entries.single.amount,1500000);
-  await tester.tap(find.byKey(const ValueKey('budget_add_expense')));await tester.pumpAndSettle();await enter(tester,'budget_amount','50');await enter(tester,'budget_note','နေ့လယ်စာ');await saveEntry(tester);
+  await reveal(tester,find.byKey(const ValueKey('budget_add_expense')));await tester.tap(find.byKey(const ValueKey('budget_add_expense')));await tester.pumpAndSettle();await enter(tester,'budget_amount','50');await enter(tester,'budget_note','နေ့လယ်စာ');await saveEntry(tester);
   var data=await store.load();final expense=data.entries.firstWhere((e)=>e.kind==BudgetKind.expense);expect(BudgetSummary(data,today).balance,1495000);
   final menu=find.byKey(ValueKey('budget_menu_${expense.id}'));await reveal(tester,menu);await tester.tap(menu);await tester.pumpAndSettle();await tester.tap(find.text('ပြင်မယ်').last);await tester.pumpAndSettle();await enter(tester,'budget_amount','60');await saveEntry(tester);
   expect((await store.load()).entries.firstWhere((e)=>e.id==expense.id).amount,6000);
@@ -79,6 +79,6 @@ void main(){
   final store=BudgetStore(clock:()=>today);await store.save(const BudgetData(opening:1500000,plans:[BudgetPlan(id:'p',start:'2026-10-01',end:'2026-11-01',fixed:300000,home:400000,savings:100000)],entries:[BudgetEntry(id:'food',day:'2026-10-17',kind:BudgetKind.expense,amount:5000,category:'food',note:'နေ့လယ်စာ')]),expectedRevision:0);
   await tester.pumpWidget(MaterialApp(theme:ThemeData(useMaterial3:true,fontFamily:'Noto Sans Myanmar'),builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(textScaler:const TextScaler.linear(1.4)),child:child!),home:BudgetPage(store:store,quote:quote(133689840),today:today)));await tester.pumpAndSettle();
   await reveal(tester,find.byKey(const ValueKey('budget_menu_food')));expect(tester.takeException(),isNull);
-  await tester.tap(find.byKey(const ValueKey('budget_add_expense')));await tester.pumpAndSettle();await enter(tester,'budget_amount','၀');await saveEntry(tester);expect(find.textContaining('ငွေပမာဏကို ပြန်စစ်ပေးပါ'),findsOneWidget);expect((await store.load()).entries.length,1);expect(tester.takeException(),isNull);
+  await reveal(tester,find.byKey(const ValueKey('budget_add_expense')));await tester.tap(find.byKey(const ValueKey('budget_add_expense')));await tester.pumpAndSettle();await enter(tester,'budget_amount','၀');await saveEntry(tester);expect(find.textContaining('ငွေပမာဏကို ပြန်စစ်ပေးပါ'),findsOneWidget);expect((await store.load()).entries.length,1);expect(tester.takeException(),isNull);
  });
 }

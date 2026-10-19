@@ -10,3 +10,6 @@ node_modules/
 
 # Build-time fonts are pinned and verified by scripts/fetch_fonts.py
 flutter_app/assets/fonts/*.ttf
+
+# Small checked-in fallback for arrows and monetary comparison symbols.
+!flutter_app/assets/fonts/BahtzayUISymbols.ttf

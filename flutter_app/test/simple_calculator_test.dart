@@ -1,3 +1,4 @@
+import 'support/calculator_fixture.dart';
 import 'support/app_update_fixture.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -150,7 +151,7 @@ void main() {
       await reveal(tester, find.byKey(const ValueKey('published_deduction_0')));
       expect(find.byKey(const ValueKey('deduction_0')), findsNothing);
       expect(find.byKey(const ValueKey('deduction_percent_0')), findsNothing);
-      expect(find.textContaining('Test source'), findsNothing);
+      expect(find.textContaining('Test source'), findsOneWidget);
       await reveal(tester, find.byKey(const ValueKey('calculate')));
       await tester.tap(find.byKey(const ValueKey('calculate')));
       await tester.pumpAndSettle();
@@ -161,6 +162,7 @@ void main() {
           .position
           .jumpTo(0);
       await tester.pumpAndSettle();
+      await openRateEditor(tester);
       await reveal(tester, find.byKey(const ValueKey('rate_0')));
       await tester.enterText(find.byKey(const ValueKey('rate_0')), '810');
       await tester.pumpAndSettle();

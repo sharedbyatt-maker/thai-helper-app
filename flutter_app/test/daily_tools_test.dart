@@ -300,6 +300,9 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
+        await t.ensureVisible(find.text('အသိပေးချက် / မျှဝေ / ရက်မှတ်'));
+        await t.tap(find.text('အသိပေးချက် / မျှဝေ / ရက်မှတ်'));
+        await t.pumpAndSettle();
         await t.ensureVisible(find.text('ဈေးအသိပေးမယ်'));
         await t.tap(find.text('ဈေးအသိပေးမယ်'));
         await t.pumpAndSettle();

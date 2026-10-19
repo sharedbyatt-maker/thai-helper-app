@@ -3,8 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/material.dart' as raw show Text;
-import 'user_language.dart' show Text, UserLanguage, UserLanguageScope, uiText;
+
+import 'user_language.dart'
+    show Text, UserLanguage, UserLanguageScope, uiText, uiFormat, uiRateLabel;
+
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,19 +22,26 @@ import 'daily_tools.dart';
 import 'platform_files.dart';
 import 'app_updates.dart';
 import 'budget_page.dart';
+import 'ux_widgets.dart';
 import 'complete_backup_page.dart';
 import 'app_settings.dart';
 
 class CurrencyApp extends StatefulWidget {
   final RatesRepository? repository;
   final AppUpdateService updates;
-  const CurrencyApp({super.key, this.repository, this.updates = const AppUpdateService()});
+  const CurrencyApp({
+    super.key,
+    this.repository,
+    this.updates = const AppUpdateService(),
+  });
   @override
   State<CurrencyApp> createState() => _CurrencyAppState();
 }
 
 class _CurrencyAppState extends State<CurrencyApp> {
   ThemeMode mode = ThemeMode.system;
+  bool themeChosen = false;
+  bool languageChosen = false;
   UserLanguage language = UserLanguage.myanmar;
   @override
   void initState() {
@@ -44,7 +55,7 @@ class _CurrencyAppState extends State<CurrencyApp> {
       final prefs = await SharedPreferences.getInstance().timeout(
         const Duration(seconds: 1),
       );
-      if (!mounted) return;
+      if (!mounted || themeChosen) return;
       final raw = prefs.getString('currency_theme');
       setState(
         () => mode = raw == 'dark'
@@ -64,9 +75,12 @@ class _CurrencyAppState extends State<CurrencyApp> {
         const Duration(seconds: 1),
       );
       final raw = prefs.getString('user_language');
-      if (mounted) {
-        setState(() => language =
-            raw == 'en' ? UserLanguage.english : UserLanguage.myanmar);
+      if (mounted && !languageChosen) {
+        setState(
+          () => language = raw == 'en'
+              ? UserLanguage.english
+              : UserLanguage.myanmar,
+        );
       }
     } catch (_) {
       // Language still works in memory if private browser storage is blocked.
@@ -74,24 +88,29 @@ class _CurrencyAppState extends State<CurrencyApp> {
   }
 
   Future<void> _changeLanguage(UserLanguage next) async {
+    languageChosen = true;
     setState(() => language = next);
     try {
       final prefs = await SharedPreferences.getInstance().timeout(
         const Duration(seconds: 1),
       );
-      await prefs.setString('user_language',
-          next == UserLanguage.english ? 'en' : 'my');
+      await prefs.setString(
+        'user_language',
+        next == UserLanguage.english ? 'en' : 'my',
+      );
     } catch (_) {
       // Keep the selected language available for this session.
     }
   }
 
   Future<void> _toggleTheme() async {
-    final effectiveDark = mode == ThemeMode.dark ||
+    themeChosen = true;
+    final isDark =
+        mode == ThemeMode.dark ||
         (mode == ThemeMode.system &&
             WidgetsBinding.instance.platformDispatcher.platformBrightness ==
                 Brightness.dark);
-    final next = effectiveDark ? ThemeMode.light : ThemeMode.dark;
+    final next = isDark ? ThemeMode.light : ThemeMode.dark;
     setState(() => mode = next);
     try {
       final prefs = await SharedPreferences.getInstance().timeout(
@@ -159,7 +178,7 @@ class _CurrencyAppState extends State<CurrencyApp> {
           elevation: 0,
         ),
         fontFamily: 'Noto Sans Myanmar',
-        fontFamilyFallback: const ['Noto Sans Symbols 2'],
+        fontFamilyFallback: const ['Bahtzay UI Symbols', 'Noto Sans Symbols 2'],
       );
     }
 
@@ -169,6 +188,8 @@ class _CurrencyAppState extends State<CurrencyApp> {
       theme: theme(Brightness.light),
       darkTheme: theme(Brightness.dark),
       themeMode: mode,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('my'), Locale('en')],
       locale: language == UserLanguage.english
           ? const Locale('en')
           : const Locale('my'),
@@ -177,7 +198,13 @@ class _CurrencyAppState extends State<CurrencyApp> {
         onChanged: _changeLanguage,
         child: child ?? const SizedBox.shrink(),
       ),
-      home: AppUpdateHost(service: widget.updates, child: ExchangeHome(onTheme: _toggleTheme, repository: widget.repository)),
+      home: AppUpdateHost(
+        service: widget.updates,
+        child: ExchangeHome(
+          onTheme: _toggleTheme,
+          repository: widget.repository,
+        ),
+      ),
     );
   }
 }
@@ -186,6 +213,9 @@ class CalcLine {
   final TextEditingController name, rate, fee, percent;
   bool perLakh;
   ExchangeQuote? original;
+  String? error;
+  bool editingRate = false;
+  final fieldKey = GlobalKey();
   CalcLine({String label = '', ExchangeQuote? quote})
     : perLakh = quote != null,
       name = TextEditingController(text: quote?.label ?? label),
@@ -262,6 +292,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
   final store = RecordStore();
   final amount = TextEditingController();
   final calculationResultKey = GlobalKey();
+  final amountFieldKey = GlobalKey();
+  final historySearch = TextEditingController();
+  String? amountError;
+  bool? completedFilter;
+  DateTimeRange? historyRange;
+  bool recordsLoading = false;
+  final visitedTabs = <int>{0};
   final lines = <CalcLine>[CalcLine(label: 'ဈေး A')];
   List<Calculation> results = [];
   List<PersonalRecord> records = [];
@@ -307,6 +344,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
     calculationFeedbackTimer?.cancel();
     repo.close();
     amount.dispose();
+    historySearch.dispose();
     for (final line in lines) {
       line.dispose();
     }
@@ -353,8 +391,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             final replacement = next.sheet.quotes
                 .where(
                   (q) =>
-                      q.id == original.id &&
-                      q.direction == original.direction,
+                      q.id == original.id && q.direction == original.direction,
                 )
                 .firstOrNull;
             final same =
@@ -438,8 +475,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   Future<void> _loadRecords() async {
-    if (writingRecord) return;
+    if (writingRecord || importingRecords) return;
     final id = ++recordLoadId;
+    setState(() => recordsLoading = true);
     try {
       final saved = await store.load();
       if (mounted && id == recordLoadId) {
@@ -451,13 +489,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
     } catch (_) {
       if (mounted && id == recordLoadId) {
-        setState(
-          () {
-            recordsReady = false;
-            recordError = 'မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ သိမ်းထားတဲ့စာရင်းကို မပြောင်းထားပါဘူး။';
-          },
-        );
+        setState(() {
+          recordsReady = false;
+          recordError =
+              'မှတ်တမ်းတွေ ဖတ်မရသေးဘူး။ သိမ်းထားတဲ့စာရင်းကို မပြောင်းထားပါဘူး။';
+        });
       }
+    } finally {
+      if (mounted && id == recordLoadId) setState(() => recordsLoading = false);
     }
   }
 
@@ -470,6 +509,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
       results = [];
       calcError = null;
+      amountError = null;
+      for (final item in lines) {
+        item.error = null;
+      }
     });
   }
 
@@ -509,9 +552,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
       lines
         ..clear()
-        ..add(
-          CalcLine(quote: dailyQuote(next), label: 'ဈေး A'),
-        );
+        ..add(CalcLine(quote: dailyQuote(next), label: 'ဈေး A'));
     });
   }
 
@@ -520,16 +561,30 @@ class _ExchangeHomeState extends State<ExchangeHome>
     FocusScope.of(context).unfocus();
     calculationFeedbackTimer?.cancel();
     final generation = ++calculationGeneration;
+    amountError = null;
+    for (final line in lines) {
+      line.error = null;
+    }
+    GlobalKey? invalidField;
     try {
       final value = parseMoney(amount.text);
       if (value == null) {
+        invalidField = amountFieldKey;
+        amountError = '0 ထက်ကြီးတဲ့ ပမာဏထည့်ပေးပါ။ ဒသမ ၂ နေရာအထိ ရပါတယ်။';
         throw const FormatException(
           '0 ထက်ကြီးတဲ့ ပမာဏထည့်ပေးပါ။ ဒသမဆို ၂ နေရာအထိ ရပါတယ်။',
         );
       }
       final calculated = <Calculation>[];
       for (var i = 0; i < lines.length; i++) {
-        final q = lines[i].quote(direction, i);
+        late ExchangeQuote q;
+        try {
+          q = lines[i].quote(direction, i);
+        } on FormatException catch (e) {
+          lines[i].error = e.message;
+          invalidField = lines[i].fieldKey;
+          rethrow;
+        }
         final budget = targetMode ? q.requiredBudget(value) : value;
         if (budget == null) {
           throw const FormatException(
@@ -564,6 +619,20 @@ class _ExchangeHomeState extends State<ExchangeHome>
         results = [];
         calculationAcknowledged = false;
       });
+      if (invalidField != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final fieldContext = invalidField?.currentContext;
+          if (mounted && tab == 1 && fieldContext != null) {
+            Scrollable.ensureVisible(
+              fieldContext,
+              alignment: .15,
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 250),
+            );
+          }
+        });
+      }
     }
   }
 
@@ -703,12 +772,13 @@ class _ExchangeHomeState extends State<ExchangeHome>
             ? d == ExchangeDirection.thbMmk
                   ? '${referenceRateText(q.rateMicros)} ဘတ်\nကျပ် ၁ သိန်း'
                   : 'ကျပ် ၁ သိန်း\n${referenceRateText(q.rateMicros)} ဘတ်'
-            : quoteRateLabel(q).replaceFirst(' = ', ' → ');
+            : uiRateLabel(context, q).replaceFirst(' = ', ' → ');
         return Semantics(
           key: ValueKey('direction_${d.key}'),
           button: true,
           selected: selected,
-          label: '${d.label}။ ${q == null ? 'မတင်ရသေးပါ' : quoteRateLabel(q)}',
+          label:
+              '${d.label}။ ${q == null ? 'မတင်ရသေးပါ' : uiRateLabel(context, q)}',
           onTap: () => changeDirection(d),
           child: ExcludeSemantics(
             child: Material(
@@ -816,7 +886,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
     }
     FocusScope.of(context).unfocus();
-    setState(() => tab = value);
+    setState(() {
+      tab = value;
+      visitedTabs.add(value);
+    });
     // Combined backups can be restored from the budget tab. Refresh the
     // exchange-history store whenever its main tab is opened.
     if (value == 3) _loadRecords();
@@ -852,9 +925,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
   );
 
   Future<void> _openBackup() async {
-    await Navigator.of(context).push<void>(MaterialPageRoute(
-      builder: (_) => const CompleteBackupPage(),
-    ));
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const CompleteBackupPage()));
     if (!mounted) return;
     _loadRecords();
     setState(() => budgetRefreshSignal++);
@@ -912,25 +985,42 @@ class _ExchangeHomeState extends State<ExchangeHome>
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/branding/bahtzay-icon-bahtzay-v2.png',
-                width: 38, height: 38, excludeFromSemantics: true),
+            Image.asset(
+              'assets/branding/bahtzay-icon-bahtzay-v2.png',
+              width: 38,
+              height: 38,
+              excludeFromSemantics: true,
+            ),
             const SizedBox(width: 9),
             const Flexible(
-              child: Text('ဘတ်ဈေး',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                'ဘတ်ဈေး',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
         actions: [
-          if (tab == 0 || tab == 1)
+          if (tab != 2)
             IconButton(
               key: const ValueKey('refresh_rates'),
-              tooltip: uiText(context, 'ဈေးအသစ် ယူမယ်'),
-              onPressed: loading ? null : _refresh,
-              icon: loading
-                  ? const SizedBox(width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+              tooltip: uiText(
+                context,
+                tab == 3 ? 'မှတ်တမ်း ပြန်ဖတ်မယ်' : 'ဈေးအသစ် ယူမယ်',
+              ),
+              onPressed: (tab == 3 ? recordsLoading : loading)
+                  ? null
+                  : tab == 3
+                  ? _loadRecords
+                  : _refresh,
+              icon: (tab == 3 ? recordsLoading : loading)
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.refresh_rounded),
             ),
           IconButton(
@@ -941,33 +1031,33 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ),
         ],
       ),
-      body: tab == 2
-          ? SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 960),
-                  child: BudgetPage(
-                    key: const ValueKey('budget_main_tab'),
-                    embedded: true,
-                    refreshSignal: budgetRefreshSignal,
-                    quote: dailyQuote(ExchangeDirection.thbMmk),
-                  ),
-                ),
-              ),
-            )
-          : SafeArea(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: tab == 1 ? 660 : 960),
-                  child: tab == 0
+      body: IndexedStack(
+        index: tab,
+        children: [
+          for (var i = 0; i < 4; i++)
+            if (!visitedTabs.contains(i))
+              const SizedBox.shrink()
+            else if (i == 2)
+              BudgetPage(
+                key: const ValueKey('budget_main_tab'),
+                active: tab == 2,
+                embedded: true,
+                refreshSignal: budgetRefreshSignal,
+                quote: dailyQuote(ExchangeDirection.thbMmk),
+              )
+            else
+              SafeArea(
+                child: ContentWidth(
+                  maxWidth: i == 1 ? 700 : 1080,
+                  child: i == 0
                       ? daily()
-                      : tab == 1
+                      : i == 1
                       ? calculator()
                       : history(),
                 ),
               ),
-            ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tab,
         indicatorColor: scheme.primaryContainer,
@@ -1019,19 +1109,39 @@ class _ExchangeHomeState extends State<ExchangeHome>
             panel(raw.Text(data!.sheet.notice)),
           directionPicker(showRates: true),
           const SizedBox(height: 16),
-          TrendCard(
-            quotes: quotes,
-            history: rateHistory,
-            loading: loading || trendLoading,
-            unavailable: trendUnavailable,
-            onCalculate: useQuote,
-          ),
-          const SizedBox(height: 14),
-          DailyTools(
-            quote: dailyQuote(direction),
-            history: rateHistory,
-            quotes: data?.sheet.quotes ?? [],
-            direction: direction,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide =
+                  constraints.maxWidth >= 900 &&
+                  MediaQuery.textScalerOf(context).scale(1) <= 1.3;
+              final trend = TrendCard(
+                quotes: quotes,
+                history: rateHistory,
+                loading: loading || trendLoading,
+                unavailable: trendUnavailable,
+                cached: data != null && data.origin != SheetOrigin.server,
+                onCalculate: useQuote,
+              );
+              final tools = DailyTools(
+                quote: dailyQuote(direction),
+                history: rateHistory,
+                quotes: data?.sheet.quotes ?? [],
+                direction: direction,
+              );
+              if (wide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 6, child: trend),
+                    const SizedBox(width: 18),
+                    Expanded(flex: 5, child: tools),
+                  ],
+                );
+              }
+              return Column(
+                children: [trend, const SizedBox(height: 14), tools],
+              );
+            },
           ),
           const SizedBox(height: 14),
           if (!loading &&
@@ -1158,6 +1268,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ..clear()
         ..add(CalcLine(quote: q));
       tab = 1;
+      visitedTabs.add(1);
       results = [];
       calcError = null;
     });
@@ -1175,6 +1286,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
   Widget calculator() => SingleChildScrollView(
     key: const PageStorageKey('calculator'),
     padding: const EdgeInsets.all(14),
+    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1194,24 +1306,39 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 targetMode ? 'ဘယ်လောက် ရချင်လဲ?' : 'ဘယ်လောက် ပေးမလဲ?',
               ),
               const SizedBox(height: 14),
-              TextField(
-                key: const ValueKey('amount'),
-                controller: amount,
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (_) => invalidate(),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => calculate(),
-                decoration: InputDecoration(
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 20,
+              KeyedSubtree(
+                key: amountFieldKey,
+                child: TextField(
+                  key: const ValueKey('amount'),
+                  controller: amount,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
                   ),
-                  labelText: '${uiText(context, targetMode ? 'ရချင်တဲ့ပမာဏ' : 'ပေးမယ့်စုစုပေါင်းငွေ')} (${uiText(context, targetMode ? direction.to : direction.from)})',
-                  hintText: uiText(context, (targetMode ? direction.to : direction.from) == 'ကျပ်' ? 'ဥပမာ 100000' : 'ဥပမာ 10000'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => invalidate(),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => calculate(),
+                  decoration: InputDecoration(
+                    errorText: amountError == null
+                        ? null
+                        : uiText(context, amountError!),
+                    errorMaxLines: 3,
+                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 20,
+                    ),
+                    labelText: targetMode
+                        ? '${uiText(context, 'ရချင်တဲ့ပမာဏ')} (${uiText(context, direction.to)})'
+                        : '${uiText(context, 'ပေးမယ့်စုစုပေါင်းငွေ')} (${uiText(context, direction.from)})',
+                    hintText:
+                        (targetMode ? direction.to : direction.from) == 'ကျပ်'
+                        ? uiText(context, 'ဥပမာ 100000')
+                        : uiText(context, 'ဥပမာ 10000'),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1252,9 +1379,11 @@ class _ExchangeHomeState extends State<ExchangeHome>
               context,
             ).colorScheme.primary.withValues(alpha: .25),
           ),
-          icon: Icon(calculationAcknowledged && results.isNotEmpty
-              ? Icons.check_circle_outline
-              : Icons.calculate_outlined),
+          icon: Icon(
+            calculationAcknowledged && results.isNotEmpty
+                ? Icons.check_circle_outline
+                : Icons.calculate_outlined,
+          ),
           label: Padding(
             padding: const EdgeInsets.all(8),
             child: Text(
@@ -1269,7 +1398,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ),
         ),
         const SizedBox(height: 10),
-        if (calcError != null)
+        if (calcError != null &&
+            amountError == null &&
+            lines.every((line) => line.error == null))
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Text(
@@ -1287,9 +1418,28 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ),
         for (var i = 0; i < results.length; i++)
           if (i == 0)
-            KeyedSubtree(key: calculationResultKey, child: resultCard(results[i], i))
+            KeyedSubtree(
+              key: calculationResultKey,
+              child: resultCard(results[i], i),
+            )
           else
             resultCard(results[i], i),
+        if (amount.text.isNotEmpty || results.isNotEmpty)
+          TextButton.icon(
+            key: const ValueKey('reset_calculator'),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              setState(() {
+                amount.clear();
+                results = [];
+                calcError = null;
+                amountError = null;
+                calculationAcknowledged = false;
+              });
+            },
+            icon: const Icon(Icons.restart_alt),
+            label: const Text('ပြန်စမယ်'),
+          ),
         const SizedBox(height: 10),
         Card(
           child: ExpansionTile(
@@ -1382,53 +1532,118 @@ class _ExchangeHomeState extends State<ExchangeHome>
             ],
           ),
           const SizedBox(height: 10),
-          DropdownButtonFormField<bool>(
-            key: ValueKey('${identityHashCode(line)}_${line.perLakh}'),
-            initialValue: line.perLakh,
-            isExpanded: true,
-            decoration: InputDecoration(labelText: uiText(context, 'ဈေးရေးပုံ')),
-            items: const [
-              DropdownMenuItem(value: false, child: Text('၁ ဘတ်အတွက် ကျပ်')),
-              DropdownMenuItem(
-                value: true,
-                child: Text('ကျပ် ၁ သိန်းအတွက် ဘတ်'),
+          if (line.original != null) ...[
+            Text(
+              uiRateLabel(context, line.original!),
+              style: const TextStyle(
+                fontSize: 23,
+                fontWeight: FontWeight.w700,
+                height: 1.6,
               ),
-            ],
-            onChanged: (value) {
-              if (value == null || value == line.perLakh) return;
-              final old = double.tryParse(
-                normalizeDigits(line.rate.text).replaceAll(',', ''),
-              );
-              if (old != null && old.isFinite && old > 0) {
-                line.rate.text = (100000 / old).toStringAsFixed(6);
-              }
-              line.perLakh = value;
-              invalidate(line);
-            },
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            key: ValueKey('rate_$index'),
-            controller: line.rate,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (_) => invalidate(line),
-            decoration: InputDecoration(
-              floatingLabelBehavior: FloatingLabelBehavior.always,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 18,
-              ),
-              labelText: uiText(context, line.perLakh ? 'ကျပ် ၁ သိန်းအတွက် ဘတ်' : '၁ ဘတ်အတွက် ကျပ်'),
-              hintText: uiText(context, line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125'),
-              helperText: uiText(context, '${direction.label} ဈေးကို ထည့်ပေးပါ။'),
-              helperMaxLines: 2,
             ),
-          ),
+            const SizedBox(height: 6),
+            raw.Text(
+              line.original!.sourceName.isEmpty
+                  ? line.original!.label
+                  : line.original!.sourceName,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (line.original!.activeAt(DateTime.now()))
+              Text(
+                uiFormat(context, 'publishedAt', {
+                  'date': when(line.original!.observedAt),
+                }),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            TextButton.icon(
+              key: ValueKey('edit_rate_$index'),
+              onPressed: () =>
+                  setState(() => line.editingRate = !line.editingRate),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: Text(
+                line.editingRate ? 'နှုန်းပြင်တာ ပိတ်မယ်' : 'နှုန်းပြင်မယ်',
+              ),
+            ),
+          ],
+          if (line.original == null || line.editingRate) ...[
+            DropdownButtonFormField<bool>(
+              key: ValueKey('${identityHashCode(line)}_${line.perLakh}'),
+              initialValue: line.perLakh,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: uiText(context, 'ဈေးရေးပုံ'),
+              ),
+              items: const [
+                DropdownMenuItem(value: false, child: Text('၁ ဘတ်အတွက် ကျပ်')),
+                DropdownMenuItem(
+                  value: true,
+                  child: Text('ကျပ် ၁ သိန်းအတွက် ဘတ်'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null || value == line.perLakh) return;
+                final old = double.tryParse(
+                  normalizeDigits(line.rate.text).replaceAll(',', ''),
+                );
+                if (old != null && old.isFinite && old > 0) {
+                  line.rate.text = (100000 / old).toStringAsFixed(6);
+                }
+                line.perLakh = value;
+                invalidate(line);
+              },
+            ),
+            const SizedBox(height: 14),
+            KeyedSubtree(
+              key: line.fieldKey,
+              child: TextField(
+                key: ValueKey('rate_$index'),
+                controller: line.rate,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                onChanged: (_) => invalidate(line),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => calculate(),
+                decoration: InputDecoration(
+                  errorText: line.error == null
+                      ? null
+                      : uiText(context, line.error!),
+                  errorMaxLines: 3,
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 18,
+                  ),
+                  labelText: line.perLakh
+                      ? uiText(context, 'ကျပ် ၁ သိန်းအတွက် ဘတ်')
+                      : uiText(context, '၁ ဘတ်အတွက် ကျပ်'),
+                  hintText: uiText(
+                    context,
+                    line.perLakh ? 'ဥပမာ 800' : 'ဥပမာ 125',
+                  ),
+                  helperText: uiText(
+                    context,
+                    '${direction.label} ဈေးကို ထည့်ပေးပါ။',
+                  ),
+                  helperMaxLines: 2,
+                ),
+              ),
+            ),
+          ],
           if (line.original != null &&
               line.original!.sourceChecked &&
               !line.original!.activeAt(DateTime.now()))
-            lastRateNotice(line.original!, key: ValueKey('last_rate_notice_$index')),
+            lastRateNotice(
+              line.original!,
+              key: ValueKey('last_rate_notice_$index'),
+            ),
           if (hasDeduction)
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -1472,7 +1687,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
     ),
   );
 
-  Widget resultCard(Calculation result, int index) => TweenAnimationBuilder<double>(
+  Widget resultCard(
+    Calculation result,
+    int index,
+  ) => TweenAnimationBuilder<double>(
     key: ValueKey('calculation_result_${calculationGeneration}_$index'),
     tween: Tween(begin: index == 0 ? 1.0 : 0.0, end: 0.0),
     duration: MediaQuery.disableAnimationsOf(context)
@@ -1489,7 +1707,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: .2 + .5 * highlight),
+          color: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: .2 + .5 * highlight),
           width: 1 + highlight,
         ),
       ),
@@ -1500,10 +1720,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          raw.Text(
             results.length > 1
                 ? '${index + 1}. ${result.quote.label}'
-                : 'ရမယ့်ငွေ',
+                : uiText(context, 'ရမယ့်ငွေ'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           if (results.length > 1 && index == 0)
@@ -1522,8 +1742,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
               height: 1.7,
             ),
           ),
-          if (result.quote.sourceChecked && !result.quote.activeAt(DateTime.now()))
-            lastRateNotice(result.quote, key: ValueKey('result_last_rate_notice_$index')),
+          if (result.quote.sourceChecked &&
+              !result.quote.activeAt(DateTime.now()))
+            lastRateNotice(
+              result.quote,
+              key: ValueKey('result_last_rate_notice_$index'),
+            ),
           if (result.quote.feeFor(result.budget) > 0)
             Text(
               'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသားပါ။',
@@ -1572,7 +1796,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ? 'နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်။ ဈေးအသစ် မတင်ရသေးပါ။\n'
         : '';
     shareText(
-      '$ageNoticeဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${quoteRateLabel(q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
+      '$ageNoticeဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${uiRateLabel(context, q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
     );
   }
 
@@ -1641,13 +1865,34 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
     } catch (e) {
       toast(
-        e is FormatException ? e.message : 'မှတ်တမ်း သိမ်းမရသေးဘူး။ ဖုန်းမှာ နေရာရှိသေးလား စစ်ပေးပါ။ အရင်စာရင်းတွေကို မပြောင်းထားပါဘူး။',
+        e is FormatException
+            ? e.message
+            : 'မှတ်တမ်း သိမ်းမရသေးဘူး။ ဖုန်းမှာ နေရာရှိသေးလား စစ်ပေးပါ။ အရင်စာရင်းတွေကို မပြောင်းထားပါဘူး။',
       );
       if (mounted) setState(() => writingRecord = false);
       await _loadRecords();
     } finally {
       if (mounted) setState(() => writingRecord = false);
     }
+  }
+
+  void resetHistoryFilters() => setState(() {
+    recordsDirection = null;
+    completedFilter = null;
+    historyRange = null;
+    historySearch.clear();
+  });
+
+  Future<void> chooseHistoryRange() async {
+    final now = bangkokCalendarDay();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: now,
+      initialDateRange: historyRange,
+      helpText: uiText(context, 'မှတ်တမ်း ရက်ကာလ ရွေးမယ်'),
+    );
+    if (range != null && mounted) setState(() => historyRange = range);
   }
 
   Widget history() {
@@ -1666,151 +1911,291 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   recordsDirection == null ||
                   r.quote.direction == recordsDirection,
             )
+            .where(
+              (r) => completedFilter == null || r.completed == completedFilter,
+            )
+            .where((r) {
+              if (historyRange == null) return true;
+              final instant =
+                  (r.completed ? r.completedAt ?? r.savedAt : r.savedAt)
+                      .toUtc()
+                      .add(const Duration(hours: 7));
+              final day = DateTime(instant.year, instant.month, instant.day);
+              return !day.isBefore(historyRange!.start) &&
+                  !day.isAfter(historyRange!.end);
+            })
+            .where(
+              (r) =>
+                  historySearch.text.trim().isEmpty ||
+                  '${r.name} ${r.note} ${r.quote.label} ${r.quote.sourceName}'
+                      .toLowerCase()
+                      .contains(historySearch.text.trim().toLowerCase()),
+            )
             .toList()
           ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
     final thbCount = month
         .where((r) => r.quote.direction == ExchangeDirection.thbMmk)
         .length;
     final mmkCount = month.length - thbCount;
-    return ListView(
-      key: const PageStorageKey('records'),
-      padding: const EdgeInsets.all(14),
-      children: [
-        pageHeading(
-          'ကိုယ့်ငွေလဲမှတ်တမ်း',
-          'တွက်ထားတာနဲ့ လဲပြီးတာကို ဒီမှာ မှတ်ထားလို့ရတယ်။ ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားတာပါ။',
-          Icons.receipt_long_outlined,
-        ),
-        if (recordError != null)
-          panel(
-            Column(
-              children: [
-                Text(recordError!),
-                TextButton(
-                  onPressed: _loadRecords,
-                  child: const Text('ပြန်ဖတ်မယ်'),
-                ),
-              ],
+    return RefreshIndicator(
+      onRefresh: _loadRecords,
+      child: ListView(
+        key: const PageStorageKey('records'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.all(14),
+        children: [
+          pageHeading(
+            'ကိုယ့်ငွေလဲမှတ်တမ်း',
+            'တွက်ထားတာနဲ့ လဲပြီးတာကို ဒီမှာ မှတ်ထားလို့ရတယ်။ ဒီဖုန်းရဲ့ browser ထဲမှာပဲ သိမ်းထားတာပါ။',
+            Icons.receipt_long_outlined,
+          ),
+          if (recordsLoading) const LinearProgressIndicator(),
+          if (recordError != null)
+            panel(
+              Column(
+                children: [
+                  Text(recordError!),
+                  TextButton(
+                    onPressed: _loadRecords,
+                    child: const Text('ပြန်ဖတ်မယ်'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        if (!recordsReady && recordError == null)
-          const Center(child: CircularProgressIndicator()),
-        if (recordsReady && records.isNotEmpty) ...[
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: ExpansionTile(
-              key: const PageStorageKey('monthly_records_summary'),
-              leading: Icon(
-                Icons.calendar_month_outlined,
-                color: colors.primary,
-              ),
-              title: const Text(
-                'ဒီလ ငွေလဲပြီးသမျှ',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(
-                'ဘတ်ပေး $thbCount ကြိမ် · ကျပ်ပေး $mmkCount ကြိမ်',
-              ),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              children: [
-                for (final side in ExchangeDirection.values)
-                  monthlyRecordSummary(side, month),
-                const SizedBox(height: 8),
-                const Text(
-                  'လဲပြီးတဲ့ရက်အလိုက် ပေါင်းထားပါတယ်။ ရက်မမှတ်ခဲ့တဲ့ အဟောင်းတွေကိုတော့ သိမ်းတဲ့ရက် သုံးထားတယ်။',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final side in <ExchangeDirection?>[
-                null,
-                ...ExchangeDirection.values,
-              ])
-                ChoiceChip(
-                  key: ValueKey('records_filter_${side?.key ?? 'all'}'),
-                  label: Text(side?.label ?? 'အားလုံး'),
-                  selected: recordsDirection == side,
-                  onSelected: (_) => setState(() => recordsDirection = side),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'မှတ်တမ်း ${visible.length} ခု',
-            style: TextStyle(color: colors.onSurfaceVariant),
-          ),
-        ],
-        if (recordsReady && records.isEmpty)
-          OutlinedButton.icon(
-            onPressed: (writingRecord || importingRecords)
-                ? null
-                : importRecords,
-            icon: const Icon(Icons.file_open_outlined),
-            label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
-          ),
-        if (recordsReady && visible.isEmpty)
-          panel(
-            Column(
-              children: [
-                Icon(
-                  Icons.bookmark_border_rounded,
-                  size: 40,
+          if (!recordsReady && recordError == null)
+            const Center(child: CircularProgressIndicator()),
+          if (recordsReady && records.isNotEmpty) ...[
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: ExpansionTile(
+                key: const PageStorageKey('monthly_records_summary'),
+                leading: Icon(
+                  Icons.calendar_month_outlined,
                   color: colors.primary,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  records.isEmpty
-                      ? 'မှတ်တမ်း မရှိသေးဘူး'
-                      : 'ဒီဘက်အတွက် မှတ်တမ်း မရှိသေးဘူး',
-                  style: Theme.of(context).textTheme.titleMedium,
+                title: const Text(
+                  'ဒီလ ငွေလဲပြီးသမျှ',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  uiFormat(context, 'monthlyDirections', {
+                    'thb': thbCount,
+                    'mmk': mmkCount,
+                  }),
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  for (final side in ExchangeDirection.values)
+                    monthlyRecordSummary(side, month),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'လဲပြီးတဲ့ရက်အလိုက် ပေါင်းထားပါတယ်။ ရက်မမှတ်ခဲ့တဲ့ အဟောင်းတွေကိုတော့ သိမ်းတဲ့ရက် သုံးထားတယ်။',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final side in <ExchangeDirection?>[
+                  null,
+                  ...ExchangeDirection.values,
+                ])
+                  ChoiceChip(
+                    key: ValueKey('records_filter_${side?.key ?? 'all'}'),
+                    label: Text(side?.label ?? 'အားလုံး'),
+                    selected: recordsDirection == side,
+                    onSelected: (_) => setState(() => recordsDirection = side),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const ValueKey('history_search'),
+              controller: historySearch,
+              textInputAction: TextInputAction.search,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: uiText(context, 'မှတ်တမ်း ရှာမယ်'),
+                hintText: uiText(context, 'မှတ်ချက် / ဈေးနာမည်'),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: historySearch.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: uiText(context, 'ရှာထားတာ ဖယ်မယ်'),
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(historySearch.clear),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<bool?>(
+              key: ValueKey('history_status_$completedFilter'),
+              initialValue: completedFilter,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: uiText(context, 'မှတ်တမ်း အခြေအနေ'),
+              ),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('အားလုံး')),
+                DropdownMenuItem(value: false, child: Text('တွက်ထားတာ')),
+                DropdownMenuItem(value: true, child: Text('ငွေလဲပြီးတာ')),
+              ],
+              onChanged: (v) => setState(() => completedFilter = v),
+            ),
+            const SizedBox(height: 10),
+            ExpansionTile(
+              key: const PageStorageKey('history_date_filters'),
+              tilePadding: EdgeInsets.zero,
+              title: const Text(
+                'ရက်ကာလနဲ့ စစ်ထုတ်မယ်',
+                style: TextStyle(fontSize: 13),
+              ),
+              subtitle: historyRange == null
+                  ? null
+                  : raw.Text(
+                      '${historyRange!.start.year}/${historyRange!.start.month}/${historyRange!.start.day} → ${historyRange!.end.year}/${historyRange!.end.month}/${historyRange!.end.day}',
+                    ),
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    ActionChip(
+                      key: const ValueKey('history_this_month'),
+                      label: const Text('ဒီလ'),
+                      onPressed: () {
+                        final day = bangkokCalendarDay();
+                        setState(
+                          () => historyRange = DateTimeRange(
+                            start: DateTime(day.year, day.month),
+                            end: day,
+                          ),
+                        );
+                      },
+                    ),
+                    ActionChip(
+                      key: const ValueKey('history_choose_range'),
+                      label: const Text('ရက်ကာလ ရွေးမယ်'),
+                      onPressed: chooseHistoryRange,
+                    ),
+                    if (historyRange != null)
+                      TextButton(
+                        onPressed: () => setState(() => historyRange = null),
+                        child: const Text('ရက်အားလုံး'),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'ငွေတွက်ပြီးရင် ရလဒ်အောက်က “မှတ်တမ်းသိမ်း” ကို နှိပ်လိုက်ပါ။',
-                  textAlign: TextAlign.center,
-                ),
-                TextButton.icon(
-                  onPressed: () => selectTab(1),
-                  icon: const Icon(Icons.calculate_outlined),
-                  label: const Text('ငွေတွက်မယ်'),
+                  'လဲပြီးတဲ့မှတ်တမ်းကို လဲပြီးရက်၊ တွက်ထားတာကို သိမ်းတဲ့ရက်နဲ့ စစ်ထားပါတယ်။',
+                  style: TextStyle(fontSize: 12, height: 1.8),
                 ),
               ],
             ),
-          ),
-        for (final r in visible) personalRecordCard(r),
-        if (recordsReady && records.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              OutlinedButton.icon(
-                onPressed: exportRecords,
-                icon: const Icon(Icons.ios_share),
-                label: const Text('မှတ်တမ်းဖိုင် သိမ်းမယ်'),
+            Wrap(
+              spacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  uiFormat(context, 'historyCount', {'count': visible.length}),
+                  style: TextStyle(color: colors.onSurfaceVariant),
+                ),
+                if (recordsDirection != null ||
+                    completedFilter != null ||
+                    historyRange != null ||
+                    historySearch.text.isNotEmpty)
+                  TextButton(
+                    key: const ValueKey('history_clear_filters'),
+                    onPressed: resetHistoryFilters,
+                    child: const Text('မှတ်တမ်းအားလုံး ပြန်ကြည့်မယ်'),
+                  ),
+              ],
+            ),
+          ],
+          if (recordsReady && records.isEmpty)
+            OutlinedButton.icon(
+              onPressed: (writingRecord || importingRecords)
+                  ? null
+                  : importRecords,
+              icon: const Icon(Icons.file_open_outlined),
+              label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
+            ),
+          if (recordsReady && visible.isEmpty)
+            panel(
+              Column(
+                children: [
+                  Icon(
+                    Icons.bookmark_border_rounded,
+                    size: 40,
+                    color: colors.primary,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    records.isEmpty
+                        ? 'မှတ်တမ်း မရှိသေးဘူး'
+                        : 'စစ်ထုတ်ထားတာနဲ့ ကိုက်ညီတဲ့ မှတ်တမ်း မရှိဘူး',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  if (records.isNotEmpty)
+                    TextButton(
+                      key: const ValueKey('history_reset_filters'),
+                      onPressed: () => setState(() {
+                        recordsDirection = null;
+                        completedFilter = null;
+                        historyRange = null;
+                        historySearch.clear();
+                      }),
+                      child: const Text('မှတ်တမ်းအားလုံး ပြန်ကြည့်မယ်'),
+                    ),
+                  if (records.isEmpty)
+                    const Text(
+                      'ငွေတွက်ပြီးရင် ရလဒ်အောက်က “မှတ်တမ်းသိမ်း” ကို နှိပ်လိုက်ပါ။',
+                      textAlign: TextAlign.center,
+                    ),
+                  if (records.isEmpty)
+                    TextButton.icon(
+                      onPressed: () => selectTab(1),
+                      icon: const Icon(Icons.calculate_outlined),
+                      label: const Text('ငွေတွက်မယ်'),
+                    ),
+                ],
               ),
-              OutlinedButton.icon(
-                onPressed: (writingRecord || importingRecords)
-                    ? null
-                    : importRecords,
-                icon: const Icon(Icons.file_open_outlined),
-                label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
-              ),
-              TextButton(
-                onPressed: writingRecord ? null : clearRecords,
-                child: const Text('အားလုံးရှင်းမယ်'),
-              ),
-            ],
-          ),
+            ),
+          for (final r in visible) personalRecordCard(r),
+          if (recordsReady && records.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: exportRecords,
+                  icon: const Icon(Icons.ios_share),
+                  label: const Text('မှတ်တမ်းဖိုင် သိမ်းမယ်'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: (writingRecord || importingRecords)
+                      ? null
+                      : importRecords,
+                  icon: const Icon(Icons.file_open_outlined),
+                  label: const Text('မှတ်တမ်းဖိုင် ပြန်သွင်းမယ်'),
+                ),
+                TextButton(
+                  onPressed: writingRecord ? null : clearRecords,
+                  child: const Text('အားလုံးရှင်းမယ်'),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 18),
         ],
-        const SizedBox(height: 18),
-      ],
+      ),
     );
   }
 
@@ -1899,17 +2284,47 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ],
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  '${money(r.budgetMinor)} ${r.quote.direction.from} → ${money(r.receivedMinor)} ${r.quote.direction.to}',
+                Column(
                   key: ValueKey('record_amount_${r.id}'),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.8,
-                  ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ပေးငွေ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      '${money(r.budgetMinor)} ${r.quote.direction.from}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        height: 1.7,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'ရငွေ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      '${money(r.receivedMinor)} ${r.quote.direction.to}',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: colors.primary,
+                        height: 1.7,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  quoteRateLabel(r.quote),
+                  uiRateLabel(context, r.quote),
                   style: TextStyle(color: colors.onSurfaceVariant),
                 ),
                 if (r.quote.feeFor(r.budgetMinor) > 0)
