@@ -23,7 +23,7 @@ Future<void> mount(WidgetTester tester,Map<String,dynamic> config)async{
     return http.Response(jsonEncode(config),200,
        headers:{'content-type':'application/json'});
   });
-  await tester.pumpWidget(MaterialApp(home:Scaffold(body:SponsorBanner(
+  await tester.pumpWidget(MaterialApp(locale:const Locale('my'),home:Scaffold(body:SponsorBanner(
     placement:'home',apiBase:'https://rates.example',client:client,
   ))));
   await tester.pumpAndSettle();
