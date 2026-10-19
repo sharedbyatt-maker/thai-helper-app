@@ -573,8 +573,8 @@ const _en = <String, String>{
   "ကျပ်ရငွေကို ဘတ်သုံးငွေနဲ့ ထပ်ပေါင်းမထားပါဘူး။ အိမ်ပို့ပြီးငွေကို ဘတ်ထွက်ငွေအဖြစ် တစ်ကြိမ်ပဲ တွက်ထားတယ်။":
       "MMK received is not added to THB spending. Remittances count only once as a THB outflow.",
   "ဒီလ မှတ်တမ်း": "This month’s entries",
-  "အောက်က “သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။":
-      "Start with Add expense or Add income below.",
+  "“သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။":
+      "Start with Add expense or Add income.",
   "အိမ်မှာရငွေ": "Received by family",
   "ပုံမှန်ပေးစရာ ဖယ်ထားငွေထဲက သုံးထားတယ်။": "Paid from reserved bill money.",
   "မှတ်ချိန်က ရည်ညွှန်းဈေး": "Rate at the time recorded",

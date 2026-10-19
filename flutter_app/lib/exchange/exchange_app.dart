@@ -5,7 +5,7 @@ import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/material.dart' as raw show Text;
 
 import 'user_language.dart'
-    show Text, UserLanguage, UserLanguageScope, uiText, uiFormat, uiRateLabel;
+    show Text, UserLanguage, UserLanguageScope, uiText, uiFormat, uiRateLabel, uiIsEnglish;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models.dart';
+import 'share_receipt.dart';
 import 'rates_repository.dart';
 import 'storage.dart';
 import 'rate_history.dart';
@@ -1791,12 +1792,16 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   void shareResult(Calculation result) {
-    final q = result.quote;
-    final ageNotice = q.sourceChecked && !q.activeAt(DateTime.now())
-        ? 'နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်။ ဈေးအသစ် မတင်ရသေးပါ။\n'
-        : '';
     shareText(
-      '$ageNoticeဘတ်ဈေး · ${q.direction.label}\n${q.label}\nပေးငွေ ${money(result.budget)} ${q.direction.from}\nရငွေ ${money(result.received)} ${q.direction.to}\n${q.feeFor(result.budget) > 0 ? 'သီးသန့်နုတ်ငွေ ${money(q.feeFor(result.budget))} ${q.direction.from}\n' : ''}${uiRateLabel(context, q)}\n${q.sourceChecked ? 'ဈေးတင်ချိန် ${when(q.observedAt)}' : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်'}\nတွက်ချိန် ${when(DateTime.now())}\nငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
+      calculationReceipt(
+        quote: result.quote,
+        budget: result.budget,
+        received: result.received,
+        english: uiIsEnglish(context),
+        now: DateTime.now(),
+        rateLabel: uiRateLabel(context, result.quote),
+        formatTime: when,
+      ),
     );
   }
 
