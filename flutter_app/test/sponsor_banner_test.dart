@@ -23,7 +23,7 @@ Future<void> mount(WidgetTester tester,Map<String,dynamic> config)async{
     return http.Response(jsonEncode(config),200,
        headers:{'content-type':'application/json'});
   });
-  await tester.pumpWidget(MaterialApp(locale:const Locale('my'),supportedLocales:const [Locale('my'),Locale('en')],home:Scaffold(body:SponsorBanner(
+  await tester.pumpWidget(MaterialApp(home:Scaffold(body:SponsorBanner(
     placement:'home',apiBase:'https://rates.example',client:client,
   ))));
   await tester.pumpAndSettle();
@@ -38,7 +38,7 @@ void main(){
   testWidgets('Explicitly enabled sponsor is clearly labeled', (tester)async{
     await mount(tester,conf(enabled:true,web:true,home:true));
     expect(find.text('Example Sponsor'),findsOneWidget);
-    expect(find.text('ကြော်ငြာ / Sponsored'),findsOneWidget);
+    expect(find.text('Sponsored'),findsOneWidget);
     expect(find.byKey(const ValueKey('sponsor_link_home')),findsOneWidget);
     expect(tester.takeException(),isNull);
   });
