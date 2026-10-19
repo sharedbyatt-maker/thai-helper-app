@@ -38,6 +38,34 @@ void expectEnglish(WidgetTester t) {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('English calculator result and save dialog keep exact money values',
+      (t) async {
+    SharedPreferences.setMockInitialValues({'user_language': 'en'});
+    await start(t);
+    await tab(t, 'Calculator');
+    await t.enterText(find.byKey(const ValueKey('amount')), '10000');
+    final calculate = find.byKey(const ValueKey('calculate'));
+    await revealControl(t, calculate);
+    await t.tap(calculate);
+    await t.pumpAndSettle();
+    // Inspect rendered paragraphs, excluding the translating Text wrapper.
+    Finder paragraph(String text) => find.byWidgetPredicate(
+      (widget) => widget is RichText && widget.text.toPlainText() == text,
+    );
+    expect(paragraph('You pay 10,000 THB'), findsOneWidget);
+    expect(paragraph('You receive 1,250,000 MMK'), findsOneWidget);
+    // Published names are data and keep their original language.
+    expect(find.text(quote().label), findsWidgets);
+    final save = find.text('Save record');
+    await revealControl(t, save);
+    await t.tap(save);
+    await t.pumpAndSettle();
+    expect(find.text('Save calculation'), findsOneWidget);
+    expect(find.text('Note (optional)'), findsOneWidget);
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'English entry, plan, discard and backup flows keep finance records intact',
     (t) async {

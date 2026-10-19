@@ -98,6 +98,16 @@ String uiPerBahtLabel(BuildContext context, ExchangeQuote quote) =>
 // Explicit templates for dynamic UI copy. Values are inserted after selecting
 // the language, so notes, names and financial values are never translated.
 const _messages = <String, (String, String)>{
+  'resultPaid': ('{amount} {currency} ပေးရင်', 'You pay {amount} {currency}'),
+  'resultReceived': ('ရငွေ {amount} {currency}', 'You receive {amount} {currency}'),
+  'resultDeduction': (
+    'သီးသန့်နုတ်ငွေ {amount} {currency} ကို နုတ်ပြီးသားပါ။',
+    'A deduction of {amount} {currency} has already been applied.',
+  ),
+  'lastRateNotice': (
+    'ဈေးအသစ် မတင်ရသေးလို့ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်။\nဈေးတင်ချိန် {date} · ထိုင်းအချိန်',
+    'Calculated using the last published rate because a new rate is not available yet.\nRate published: {date} · Thailand time',
+  ),
   'planRange': ('{start} မှ {end} မတိုင်မီ', 'From {start} until {end}'),
   'remittanceEstimate': (
     'အိမ်ပို့ရန်ကျန်ငွေနဲ့ ကျပ် {amount} ခန့် ရနိုင်တယ်။',
@@ -218,6 +228,8 @@ class LanguageMenu extends material.StatelessWidget {
 }
 
 const _en = <String, String>{
+  'ဒီဈေးနဲ့ဆို ပေးရမယ့်ငွေ အနည်းဆုံးပါ': 'Lowest payment at this rate',
+  'ဒီဈေးနဲ့ဆို ရမယ့်ငွေ အများဆုံးပါ': 'Highest amount received at this rate',
   "ဥပမာ အခန်းခ / မီတာခ 3000": "e.g. rent and utility bills: 3000",
   "ဥပမာ 4000": "e.g. 4000",
 
@@ -573,8 +585,8 @@ const _en = <String, String>{
   "ကျပ်ရငွေကို ဘတ်သုံးငွေနဲ့ ထပ်ပေါင်းမထားပါဘူး။ အိမ်ပို့ပြီးငွေကို ဘတ်ထွက်ငွေအဖြစ် တစ်ကြိမ်ပဲ တွက်ထားတယ်။":
       "MMK received is not added to THB spending. Remittances count only once as a THB outflow.",
   "ဒီလ မှတ်တမ်း": "This month’s entries",
-  "အောက်က “သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။":
-      "Start with Add expense or Add income below.",
+  "“သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။":
+      "Start with Add expense or Add income.",
   "အိမ်မှာရငွေ": "Received by family",
   "ပုံမှန်ပေးစရာ ဖယ်ထားငွေထဲက သုံးထားတယ်။": "Paid from reserved bill money.",
   "မှတ်ချိန်က ရည်ညွှန်းဈေး": "Rate at the time recorded",

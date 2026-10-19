@@ -940,7 +940,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
                   ),
                   if (report.entries.isEmpty)
                     const Text(
-                      'အောက်က “သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။',
+                      '“သုံးငွေမှတ်မယ်” ဒါမှမဟုတ် “ဝင်ငွေမှတ်မယ်” ကနေ စမှတ်နိုင်တယ်။',
                       style: TextStyle(height: 1.8),
                     ),
                   for (final e in report.entries)
