@@ -28,6 +28,9 @@ class _SponsorBannerState extends State<SponsorBanner> {
   void initState(){super.initState();fetch();}
   Future<void> fetch() async {
     final base=widget.apiBase??RatesRepository.apiBase;
+    // Widget tests and non-HTTP local runs should never start an unneeded
+    // network request or delay unrelated calculator/wallet tests.
+    if(base.isEmpty&&Uri.base.scheme!='http'&&Uri.base.scheme!='https')return;
     final endpoint=base.isEmpty?Uri.base.resolve('/api/v2/ads'):Uri.parse('$base/api/v2/ads');
     final client=widget.client??http.Client();
     try{
