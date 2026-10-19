@@ -26,6 +26,7 @@ import 'budget_page.dart';
 import 'ux_widgets.dart';
 import 'complete_backup_page.dart';
 import 'app_settings.dart';
+import 'sponsor_banner.dart';
 
 class CurrencyApp extends StatefulWidget {
   final RatesRepository? repository;
@@ -1144,6 +1145,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               );
             },
           ),
+          SponsorBanner(placement: 'home', client: widget.repository?.client),
           const SizedBox(height: 14),
           if (!loading &&
               quotes.isEmpty &&
@@ -2209,6 +2211,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ],
             ),
           ],
+          SponsorBanner(placement: 'history', client: widget.repository?.client),
           const SizedBox(height: 18),
         ],
       ),
