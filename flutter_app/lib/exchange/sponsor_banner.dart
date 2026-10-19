@@ -24,9 +24,19 @@ class _SponsorBannerState extends State<SponsorBanner> {
     final url=Uri.tryParse(raw);
     return url!=null&&url.scheme=='https'&&url.host.isNotEmpty&&url.userInfo.isEmpty;
   }
+  String? _requestedLanguage;
   @override
-  void initState(){super.initState();fetch();}
-  Future<void> fetch() async {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Localizations is an inherited dependency: it cannot be accessed from
+    // initState and must not be looked up after an asynchronous network gap.
+    final language = Localizations.localeOf(context).languageCode;
+    if (_requestedLanguage == language) return;
+    _requestedLanguage = language;
+    sponsor = null;
+    fetch(language);
+  }
+  Future<void> fetch(String language) async {
     final base=widget.apiBase??RatesRepository.apiBase;
     // Widget tests and non-HTTP local runs should never start an unneeded
     // network request or delay unrelated calculator/wallet tests.
@@ -41,8 +51,7 @@ class _SponsorBannerState extends State<SponsorBanner> {
          json['platforms'] is! Map||json['platforms'][platform]!=true||
          json['placements'] is! Map||json['placements'][widget.placement]!=true||
          json['sponsors'] is! List){return;}
-      if(!mounted)return;
-      final language=Localizations.localeOf(context).languageCode;
+      if(!mounted || _requestedLanguage != language)return;
       for(final candidate in json['sponsors'] as List){
         if(candidate is! Map||candidate['placements'] is! List||
            !(candidate['placements'] as List).contains(widget.placement)){continue;}
