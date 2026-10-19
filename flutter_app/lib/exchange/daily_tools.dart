@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart' hide Text;
 
-import 'user_language.dart' show Text, uiText;
+import 'user_language.dart' show Text, uiText, uiIsEnglish, uiFormat;
 
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
@@ -89,18 +89,29 @@ bool quoteIsToday(ExchangeQuote q) {
       now.day == observed.day;
 }
 
-String comparisonDay(RatePoint p, {DateTime? now}) {
+String comparisonDay(RatePoint p, {DateTime? now, bool english = false}) {
   final local = (now ?? DateTime.now()).toUtc().add(const Duration(hours: 7));
   final today = DateTime.utc(local.year, local.month, local.day);
-  return today.difference(p.day).inDays == 1
-      ? 'မနေ့က'
+  if (today.difference(p.day).inDays == 1) {
+    return english ? 'yesterday' : 'မနေ့က';
+  }
+  return english
+      ? '${p.day.day}/${p.day.month}'
       : '${p.day.day}/${p.day.month} ရက်က';
 }
 
-String dailyRateBrief(ExchangeQuote quote, RatePoint p) {
+String dailyRateBrief(ExchangeQuote quote, RatePoint p, {bool english = false}) {
   final delta =
       referenceRateValue(quote.rateMicros) - referenceRateValue(p.rateMicros);
-  final date = comparisonDay(p);
+  final date = comparisonDay(p, english: english);
+  if (english) {
+    if (delta.abs() < .005) return 'Same rate as $date.';
+    final value = rateValueText(delta.abs(), ExchangeDirection.mmkThb);
+    final action = quote.direction == ExchangeDirection.thbMmk
+        ? 'pay'
+        : 'receive';
+    return 'You $action $value THB ${delta > 0 ? 'more' : 'less'} per 100,000 MMK than $date.';
+  }
   if (delta.abs() < .005) return '$dateနဲ့ ဈေးတူတယ်';
   final value = rateValueText(delta.abs(), ExchangeDirection.mmkThb);
   final verb = quote.direction == ExchangeDirection.thbMmk
@@ -356,9 +367,17 @@ class _DailyToolsState extends State<DailyTools> {
                   ),
                   if (difference != null)
                     Text(
-                      difference == 0
-                          ? '${comparisonDay(previous!)}နဲ့ ရမယ့်ငွေတူတယ်'
-                          : '${comparisonDay(previous!)}ထက် ${money(difference.abs())} ${widget.direction.to} ${difference > 0 ? 'ပိုရမယ်' : 'လျော့ရမယ်'}',
+                      uiFormat(
+                        context,
+                        difference == 0
+                            ? 'watchSame'
+                            : difference > 0 ? 'watchMore' : 'watchLess',
+                        {
+                          'date': comparisonDay(previous!, english: uiIsEnglish(context)),
+                          'amount': money(difference.abs()),
+                          'currency': uiText(context, widget.direction.to),
+                        },
+                      ),
                       key: const ValueKey('watch_difference'),
                       style: const TextStyle(height: 1.8),
                     ),
@@ -375,7 +394,7 @@ class _DailyToolsState extends State<DailyTools> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      dailyRateBrief(q!, previous),
+                      dailyRateBrief(q!, previous, english: uiIsEnglish(context)),
                       key: const ValueKey('daily_rate_brief'),
                       style: TextStyle(
                         fontSize: 12,

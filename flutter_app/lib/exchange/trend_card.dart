@@ -298,8 +298,12 @@ class _TrendCardState extends State<TrendCard> {
               LayoutBuilder(
                 builder: (context, c) => Semantics(
                   label: points.isEmpty
-                      ? 'ဈေးမှတ်တမ်း မရှိသေးဘူး'
-                      : 'ဈေး ${points.length} ကြိမ်တင်ထားပါတယ်။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
+                      ? uiText(context, 'ဈေးမှတ်တမ်း မရှိသေးဘူး')
+                      : uiFormat(context, 'graphSummary', {
+                          'count': points.length,
+                          'low': formatted(low!),
+                          'high': formatted(high!),
+                        }),
                   child: MouseRegion(
                     onHover: (event) =>
                         selectPoint(event.localPosition.dx, c.maxWidth, points),

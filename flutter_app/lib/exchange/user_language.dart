@@ -98,6 +98,13 @@ String uiPerBahtLabel(BuildContext context, ExchangeQuote quote) =>
 // Explicit templates for dynamic UI copy. Values are inserted after selecting
 // the language, so notes, names and financial values are never translated.
 const _messages = <String, (String, String)>{
+  'watchSame': ('{date}နဲ့ ရမယ့်ငွေတူတယ်', 'Same amount as {date}.'),
+  'watchMore': ('{date}ထက် {amount} {currency} ပိုရမယ်', '{amount} {currency} more than {date}.'),
+  'watchLess': ('{date}ထက် {amount} {currency} လျော့ရမယ်', '{amount} {currency} less than {date}.'),
+  'graphSummary': (
+    'ဈေး {count} ကြိမ်တင်ထားပါတယ်။ အနိမ့် {low}၊ အမြင့် {high}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
+    '{count} published rates. Lowest {low}, highest {high} THB per 100,000 MMK.',
+  ),
   'resultPaid': ('{amount} {currency} ပေးရင်', 'You pay {amount} {currency}'),
   'resultReceived': ('ရငွေ {amount} {currency}', 'You receive {amount} {currency}'),
   'resultDeduction': (
