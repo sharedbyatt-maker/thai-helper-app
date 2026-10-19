@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -26,9 +27,20 @@ Future<void> mount(WidgetTester tester,Map<String,dynamic> config)async{
   await tester.pumpWidget(MaterialApp(home:Scaffold(body:SponsorBanner(
     placement:'home',apiBase:'https://rates.example',client:client,
   ))));
+  // Flush the mocked HTTP completion independently of image loading.
+  await tester.pump();
   await tester.pumpAndSettle();
 }
 void main(){
+  // Flutter unit tests run on host runners (normally Linux). Explicitly
+  // simulate Android rather than depending on runner/engine defaults.
+  setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+  });
+  tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('Ads default OFF: no sponsor banner, no layout placeholder', (tester)async{
     await mount(tester,conf());
     expect(find.text('Example Sponsor'),findsNothing);
