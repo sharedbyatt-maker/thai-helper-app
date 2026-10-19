@@ -79,3 +79,11 @@ export const pushOutbox = sqliteTable('push_outbox', {
  revision: integer('revision').notNull(), status: integer('status').notNull().default(0), attempts: integer('attempts').notNull().default(0),
  nextAttempt: integer('next_attempt').notNull().default(0), lastError: text('last_error').notNull().default(''),
 });
+
+// Independent versioned ads/sponsor configuration (separate from daily rates).
+export const adConfiguration = sqliteTable('ad_configuration', {
+  id: integer('id').primaryKey(),
+  version: integer('version').notNull().default(0),
+  payload: text('payload').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
