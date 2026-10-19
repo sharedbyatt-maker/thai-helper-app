@@ -9,7 +9,7 @@ Map<String,dynamic> conf({bool enabled=false,bool web=false,
     bool home=false,String image='https://example.com/banner.png',
     String destination='https://example.com/sponsor'})=> {
   'enabled':enabled,
-  'platforms':{'web':web,'android':false,'ios':false},
+  'platforms':{'web':web,'android':web,'ios':false},
   'placements':{'home':home,'history':false,'calculator':false,'budget':false},
   'sponsors':[{
     'id':'s1','name':'Example Sponsor','label':'An advertised service',
