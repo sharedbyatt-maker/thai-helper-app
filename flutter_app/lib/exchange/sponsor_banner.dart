@@ -37,16 +37,16 @@ class _SponsorBannerState extends State<SponsorBanner> {
       if(json is! Map<String,dynamic>||json['enabled']!=true||
          json['platforms'] is! Map||json['platforms'][platform]!=true||
          json['placements'] is! Map||json['placements'][widget.placement]!=true||
-         json['sponsors'] is! List)return;
+         json['sponsors'] is! List){return;}
       if(!mounted)return;
       final language=Localizations.localeOf(context).languageCode;
       for(final candidate in json['sponsors'] as List){
         if(candidate is! Map||candidate['placements'] is! List||
-           !(candidate['placements'] as List).contains(widget.placement))continue;
+           !(candidate['placements'] as List).contains(widget.placement)){continue;}
         if(candidate['language']!='both'&&candidate['language']!=language)continue;
         final name=candidate['name'],image=candidate['image_url'],target=candidate['destination_url'];
         if(name is! String||image is! String||target is! String||
-           !safeUrl(image)||!safeUrl(target))continue;
+           !safeUrl(image)||!safeUrl(target)){continue;}
         setState(()=>sponsor=Map<String,dynamic>.from(candidate));
         break;
       }
@@ -60,7 +60,7 @@ class _SponsorBannerState extends State<SponsorBanner> {
     if(ad==null)return const SizedBox.shrink();
     final english=Localizations.localeOf(context).languageCode=='en';
     return Padding(
-      key:ValueKey('sponsor_'+widget.placement),
+      key:ValueKey('sponsor_${widget.placement}'),
       padding:const EdgeInsets.symmetric(vertical:12),
       child:Card(
         color:Theme.of(context).colorScheme.surfaceContainerLow,
@@ -86,7 +86,7 @@ class _SponsorBannerState extends State<SponsorBanner> {
               ])),
             ]),
             Align(alignment:Alignment.centerRight,child:TextButton.icon(
-              key:ValueKey('sponsor_link_'+widget.placement),
+              key:ValueKey('sponsor_link_${widget.placement}'),
               onPressed:() async {
                 final raw=ad['destination_url'] as String;
                 if(!safeUrl(raw))return;
