@@ -779,7 +779,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           button: true,
           selected: selected,
           label:
-              '${d.label}။ ${q == null ? 'မတင်ရသေးပါ' : uiRateLabel(context, q)}',
+              "${uiText(context, d.label)}။ ${q == null ? uiText(context, 'မတင်ရသေးပါ') : uiRateLabel(context, q)}",
           onTap: () => changeDirection(d),
           child: ExcludeSemantics(
             child: Material(
