@@ -2,13 +2,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart' hide Text;
+
 import 'user_language.dart' show Text, uiText;
+
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import 'models.dart';
 import 'phone_notifications.dart';
 import 'rate_history.dart';
@@ -264,6 +268,10 @@ class _DailyToolsState extends State<DailyTools> {
     if (active && amountMinor > 0) {
       try {
         received = q!.payout(amountMinor);
+        if (received <= 0) {
+          received = null;
+          amountError = 'ပေးမယ့်ငွေက နုတ်ငွေထက် နည်းနေပါတယ်။';
+        }
       } on FormatException {
         amountError =
             'ဒီပမာဏက များလွန်းနေတယ်။ နည်းနည်းလျှော့ပြီး ပြန်တွက်ပေးပါ။';
@@ -313,13 +321,16 @@ class _DailyToolsState extends State<DailyTools> {
                   ),
                   onChanged: setAmount,
                   decoration: InputDecoration(
-                    labelText: uiText(context, 'ပေးမယ့်ငွေ (${widget.direction.from})'),
-                    errorText: inputError,
+                    labelText:
+                        '${uiText(context, 'ပေးမယ့်ငွေ')} (${uiText(context, widget.direction.from)})',
+                    errorText: inputError == null
+                        ? null
+                        : uiText(context, inputError),
                     errorMaxLines: 3,
                     hintText: widget.direction == ExchangeDirection.thbMmk
-                        ? 'ဥပမာ 10000'
-                        : 'ဥပမာ 100000',
-                    suffixText: widget.direction.from,
+                        ? uiText(context, 'ဥပမာ 10000')
+                        : uiText(context, 'ဥပမာ 100000'),
+                    suffixText: uiText(context, widget.direction.from),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -384,53 +395,65 @@ class _DailyToolsState extends State<DailyTools> {
                   style: TextStyle(fontSize: 11),
                 ),
                 const Divider(height: 24),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
+                ExpansionTile(
+                  key: const PageStorageKey('daily_secondary_tools'),
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text(
+                    'အသိပေးချက် / မျှဝေ / ရက်မှတ်',
+                    style: TextStyle(fontSize: 13),
+                  ),
                   children: [
-                    TextButton.icon(
-                      onPressed: () =>
-                          showRateAlerts(context, widget.direction),
-                      icon: const Icon(
-                        Icons.notifications_active_outlined,
-                        size: 19,
-                      ),
-                      label: const Text('ဈေးအသိပေးမယ်'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () =>
+                              showRateAlerts(context, widget.direction),
+                          icon: const Icon(
+                            Icons.notifications_active_outlined,
+                            size: 19,
+                          ),
+                          label: const Text('ဈေးအသိပေးမယ်'),
+                        ),
+                        TextButton.icon(
+                          onPressed: widget.quotes.isEmpty
+                              ? null
+                              : () => showRateShare(context, widget.quotes),
+                          icon: const Icon(Icons.ios_share, size: 19),
+                          label: const Text('ဈေးနှုန်း မျှဝေမယ်'),
+                        ),
+                        TextButton.icon(
+                          onPressed: plan,
+                          icon: const Icon(Icons.event_outlined, size: 19),
+                          label: Text(
+                            plannedDay == null
+                                ? 'လဲဖို့ရက် မှတ်ထားမယ်'
+                                : 'စဉ်းစားထားတဲ့ရက် · ${planned!.day}/${planned.month}/${planned.year}',
+                          ),
+                        ),
+                        if (plannedDay != null)
+                          TextButton(
+                            onPressed: () async {
+                              final side = widget.direction;
+                              try {
+                                final ok =
+                                    await (await SharedPreferences.getInstance())
+                                        .remove('planned_day_${side.key}');
+                                if (!ok) {
+                                  throw const FormatException('Save failed');
+                                }
+                                if (mounted && widget.direction == side) {
+                                  setState(() => plannedDay = null);
+                                }
+                              } catch (_) {
+                                message('ဖျက်မရသေးဘူး။ ပြန်စမ်းပေးပါ။');
+                              }
+                            },
+                            child: const Text('ရက်မှတ်ထားတာ ဖယ်မယ်'),
+                          ),
+                      ],
                     ),
-                    TextButton.icon(
-                      onPressed: widget.quotes.isEmpty
-                          ? null
-                          : () => showRateShare(context, widget.quotes),
-                      icon: const Icon(Icons.ios_share, size: 19),
-                      label: const Text('ဈေးနှုန်း မျှဝေမယ်'),
-                    ),
-                    TextButton.icon(
-                      onPressed: plan,
-                      icon: const Icon(Icons.event_outlined, size: 19),
-                      label: Text(
-                        plannedDay == null
-                            ? 'လဲဖို့ရက် မှတ်ထားမယ်'
-                            : 'စဉ်းစားထားတဲ့ရက် · ${planned!.day}/${planned.month}/${planned.year}',
-                      ),
-                    ),
-                    if (plannedDay != null)
-                      TextButton(
-                        onPressed: () async {
-                          final side = widget.direction;
-                          try {
-                            final ok =
-                                await (await SharedPreferences.getInstance())
-                                    .remove('planned_day_${side.key}');
-                            if (!ok) throw const FormatException('Save failed');
-                            if (mounted && widget.direction == side) {
-                              setState(() => plannedDay = null);
-                            }
-                          } catch (_) {
-                            message('ဖျက်မရသေးဘူး။ ပြန်စမ်းပေးပါ။');
-                          }
-                        },
-                        child: const Text('ရက်မှတ်ထားတာ ဖယ်မယ်'),
-                      ),
                   ],
                 ),
                 if (plannedDayMessage(plannedDay) != null)
@@ -496,7 +519,10 @@ Future<void> showRateAlerts(
               children: [
                 const PhoneNotifications(),
                 const Divider(height: 28),
-                const Text('Telegram နဲ့ စောင့်မယ်', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text(
+                  'Telegram နဲ့ စောင့်မယ်',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   direction.label,

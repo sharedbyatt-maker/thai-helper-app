@@ -1,13 +1,16 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart' hide Text;
-import 'user_language.dart' show Text, uiText;
+
+import 'user_language.dart'
+    show Text, uiText, uiRateLabel, uiPerBahtLabel, uiFormat;
 import 'models.dart';
 import 'rate_history.dart';
 
 class TrendCard extends StatefulWidget {
   final List<ExchangeQuote> quotes;
   final RateHistory? history;
-  final bool loading, unavailable;
+  final bool loading, unavailable, cached;
   final void Function(ExchangeQuote) onCalculate;
   const TrendCard({
     super.key,
@@ -15,6 +18,7 @@ class TrendCard extends StatefulWidget {
     required this.history,
     required this.loading,
     required this.unavailable,
+    this.cached = false,
     required this.onCalculate,
   });
   @override
@@ -25,371 +29,421 @@ class _TrendCardState extends State<TrendCard> {
   String? selected;
   int days = 7;
   int? hovered;
+  @override
+  void didUpdateWidget(covariant TrendCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.quotes.firstOrNull?.direction !=
+        widget.quotes.firstOrNull?.direction) {
+      selected = null;
+      hovered = null;
+    }
+  }
+
   String identity(ExchangeQuote q) => '${q.direction.key}:${q.id}';
   static const pale = Color(0xffbbebe0);
   String formatted(double n) => rateValueText(n, ExchangeDirection.mmkThb);
   @override
-  Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 600;
-    final q =
-        widget.quotes.where((q) => identity(q) == selected).firstOrNull ??
-        widget.quotes.where((q) => q.activeAt(DateTime.now())).firstOrNull ??
-        widget.quotes.firstOrNull;
-    final history = widget.history ?? const RateHistory([]);
-    final points = q == null ? <RatePoint>[] : history.referenceSeries(q, days);
-    final values = points.map((p) => referenceRateValue(p.rateMicros)).toList();
-    final low = values.isEmpty ? null : values.reduce(math.min);
-    final high = values.isEmpty ? null : values.reduce(math.max);
-    final change = values.length < 2
-        ? null
-        : (values.last - values.first) / values.first * 100;
-    final active = q?.activeAt(DateTime.now()) ?? false;
-    final focus = hovered != null && hovered! < points.length
-        ? points[hovered!]
-        : null;
-    return Container(
-      key: const ValueKey('rate_trend_card'),
-      padding: EdgeInsets.all(compact ? 16 : 22),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xff06493f), Color(0xff078d77)],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xff08765f).withValues(alpha: .15),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 600;
+      final q =
+          widget.quotes.where((q) => identity(q) == selected).firstOrNull ??
+          widget.quotes.where((q) => q.activeAt(DateTime.now())).firstOrNull ??
+          widget.quotes.firstOrNull;
+      final history = widget.history ?? const RateHistory([]);
+      final points = q == null
+          ? <RatePoint>[]
+          : history.referenceSeries(q, days);
+      final values = points
+          .map((p) => referenceRateValue(p.rateMicros))
+          .toList();
+      final low = values.isEmpty ? null : values.reduce(math.min);
+      final high = values.isEmpty ? null : values.reduce(math.max);
+      final change = values.length < 2
+          ? null
+          : (values.last - values.first) / values.first * 100;
+      final active = q?.activeAt(DateTime.now()) ?? false;
+      final focus = hovered != null && hovered! < points.length
+          ? points[hovered!]
+          : null;
+      return Container(
+        key: const ValueKey('rate_trend_card'),
+        padding: EdgeInsets.all(compact ? 16 : 22),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xff06493f), Color(0xff078d77)],
           ),
-        ],
-      ),
-      child: DefaultTextStyle(
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium!.copyWith(color: Colors.white),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const Icon(
-                  Icons.currency_exchange_rounded,
-                  color: pale,
-                  size: 19,
-                ),
-                const Text(
-                  'နောက်ဆုံးဈေး',
-                  style: TextStyle(color: pale, fontWeight: FontWeight.w600),
-                ),
-                if (q != null)
-                  tag(active ? 'စစ်ထားပြီး' : 'ပြန်စစ်ဖို့လိုနေပြီ'),
-              ],
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xff08765f).withValues(alpha: .15),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
-            SizedBox(height: compact ? 8 : 16),
-            Text(
-              q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : quoteRateLabel(q),
-              style: TextStyle(
-                fontSize: compact ? 24 : 29,
-                fontWeight: FontWeight.w700,
-                height: 1.6,
-                letterSpacing: -.3,
-              ),
-            ),
-            if (q != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                quotePerBahtLabel(q),
-                key: const ValueKey('per_baht_equivalent'),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: compact ? 15 : 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (!compact) ...[
-                const SizedBox(height: 6),
-                Text(
-                  q.direction.label,
-                  style: const TextStyle(color: pale, fontSize: 13),
-                ),
-              ],
-              const SizedBox(height: 6),
-              Text(
-                '${compact ? '' : 'နောက်ဆုံးစစ်ချိန် '}${bangkokLabel(q.observedAt)}',
-                style: const TextStyle(color: pale, fontSize: 12),
-              ),
-              if (!active)
-                const Padding(
-                  padding: EdgeInsets.only(top: 10),
-                  child: Text(
-                    'ဈေးအသစ် မတင်ရသေးပါ။ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ကြည့်နိုင်ပါတယ်။',
-                    style: TextStyle(color: pale, height: 1.8),
-                  ),
-                ),
-            ],
-            if (widget.quotes.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey(q == null ? 'empty' : identity(q)),
-                  initialValue: q == null ? null : identity(q),
-                  isExpanded: true,
-                  dropdownColor: const Color(0xff075e52),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Noto Sans Myanmar',
-                    fontSize: 13,
-                  ),
-                  iconEnabledColor: pale,
-                  decoration: InputDecoration(
-                    labelText: uiText(context, 'ကြည့်ချင်တဲ့ဈေး'),
-                    labelStyle: const TextStyle(color: pale),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: .08),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: .2),
-                      ),
-                    ),
-                  ),
-                  items: widget.quotes
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: identity(e),
-                          child: Text(e.label, overflow: TextOverflow.ellipsis),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() {
-                    selected = value;
-                    hovered = null;
-                  }),
-                ),
-              ),
-            SizedBox(height: compact ? 12 : 22),
-            if (!compact) ...[
-              const Text(
-                'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              ),
-              const SizedBox(height: 10),
-            ],
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final n in [1, 7, 30])
-                  Semantics(
-                    selected: days == n,
-                    child: TextButton(
-                      onPressed: () => setState(() {
-                        days = n;
-                        hovered = null;
-                      }),
-                      style: TextButton.styleFrom(
-                        foregroundColor: days == n
-                            ? const Color(0xff075d4d)
-                            : Colors.white,
-                        backgroundColor: days == n
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: .10),
-                        minimumSize: Size(compact ? 48 : 60, compact ? 36 : 40),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compact ? 10 : 14,
-                          vertical: compact ? 6 : 8,
-                        ),
-                      ),
-                      child: Text(n == 1 ? 'ဒီနေ့' : '$n ရက်'),
-                    ),
-                  ),
-                if (change != null)
-                  tag(
-                    '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}%${compact ? '' : ' · မှတ်တမ်းကာလ'}',
-                  ),
-              ],
-            ),
-            if (!compact || focus != null) ...[
-              SizedBox(height: compact ? 6 : 14),
-              Text(
-                focus != null
-                    ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ်'
-                    : points.length == 1
-                    ? 'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။ အမှတ်လေးကို ထိကြည့်ပါ။'
-                    : points.isEmpty
-                    ? (widget.loading
-                          ? 'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်'
-                          : 'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။')
-                    : 'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်',
-                style: const TextStyle(color: pale, fontSize: 12, height: 1.8),
-              ),
-            ],
-            const SizedBox(height: 8),
-            LayoutBuilder(
-              builder: (context, c) => Semantics(
-                label: points.isEmpty
-                    ? 'ဈေးမှတ်တမ်း မရှိသေးဘူး'
-                    : 'ဈေး ${points.length} ကြိမ်တင်ထားပါတယ်။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
-                child: MouseRegion(
-                  onHover: (event) =>
-                      selectPoint(event.localPosition.dx, c.maxWidth, points),
-                  onExit: (_) => setState(() => hovered = null),
-                  child: GestureDetector(
-                    onTapDown: (event) =>
-                        selectPoint(event.localPosition.dx, c.maxWidth, points),
-                    onHorizontalDragUpdate: (event) =>
-                        selectPoint(event.localPosition.dx, c.maxWidth, points),
-                    child: SizedBox(
-                      height: compact ? 108 : 158,
-                      width: double.infinity,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: CustomPaint(
-                              key: const ValueKey('reference_rate_graph'),
-                              painter: RateTrendPainter(
-                                points,
-                                hovered,
-                                direction:
-                                    q?.direction ?? ExchangeDirection.thbMmk,
-                              ),
-                            ),
-                          ),
-                          if (points.length == 1)
-                            Align(
-                              alignment: const Alignment(0, -.62),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: .12),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${formatted(values.first)} ဘတ်',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (points.isEmpty)
-                            Center(
-                              child: Text(
-                                widget.loading
-                                    ? 'ရယူနေပါတယ်…'
-                                    : 'ဈေးအသစ်တင်ရင် ဒီနေရာမှာ ပြပေးမယ်။',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: pale,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (points.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ],
+        ),
+        child: DefaultTextStyle(
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium!.copyWith(color: Colors.white),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(
-                    pointLabel(points.first),
-                    style: const TextStyle(color: pale, fontSize: 11),
+                  const Icon(
+                    Icons.currency_exchange_rounded,
+                    color: pale,
+                    size: 19,
                   ),
-                  if (points.length > 1)
-                    Text(
-                      pointLabel(points.last),
-                      style: const TextStyle(color: pale, fontSize: 11),
+                  const Text(
+                    'နောက်ဆုံးဈေး',
+                    style: TextStyle(color: pale, fontWeight: FontWeight.w600),
+                  ),
+                  if (q != null)
+                    tag(
+                      widget.cached
+                          ? 'သိမ်းထားတဲ့ဈေး'
+                          : active
+                          ? 'စစ်ထားပြီး'
+                          : 'ပြန်စစ်ဖို့လိုနေပြီ',
                     ),
                 ],
               ),
               SizedBox(height: compact ? 8 : 16),
+              Text(
+                q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : uiRateLabel(context, q),
+                style: TextStyle(
+                  fontSize: compact ? 24 : 29,
+                  fontWeight: FontWeight.w700,
+                  height: 1.6,
+                  letterSpacing: -.3,
+                ),
+              ),
+              if (q != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  uiPerBahtLabel(context, q),
+                  key: const ValueKey('per_baht_equivalent'),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: compact ? 15 : 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!compact) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    q.direction.label,
+                    style: const TextStyle(color: pale, fontSize: 13),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Text(
+                  '${compact ? '' : 'နောက်ဆုံးစစ်ချိန် '}${bangkokLabel(q.observedAt)}',
+                  style: const TextStyle(color: pale, fontSize: 12),
+                ),
+                if (!active)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Text(
+                      'ဈေးအသစ် မတင်ရသေးပါ။ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ကြည့်နိုင်ပါတယ်။',
+                      style: TextStyle(color: pale, height: 1.8),
+                    ),
+                  ),
+              ],
+              if (q != null)
+                Padding(
+                  padding: EdgeInsets.only(top: compact ? 12 : 18),
+                  child: FilledButton.icon(
+                    onPressed: () => widget.onCalculate(q),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xff075d4d),
+                      minimumSize: compact
+                          ? const Size(double.infinity, 44)
+                          : null,
+                      padding: compact
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            )
+                          : null,
+                    ),
+                    icon: const Icon(Icons.calculate_outlined, size: 18),
+                    label: Text(
+                      active
+                          ? 'ဒီနှုန်းနဲ့ တွက်မယ်'
+                          : 'နောက်ဆုံးဈေးနဲ့ တွက်မယ်',
+                    ),
+                  ),
+                ),
+              if (widget.quotes.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey(q == null ? 'empty' : identity(q)),
+                    initialValue: q == null ? null : identity(q),
+                    isExpanded: true,
+                    dropdownColor: const Color(0xff075e52),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Noto Sans Myanmar',
+                      fontSize: 13,
+                    ),
+                    iconEnabledColor: pale,
+                    decoration: InputDecoration(
+                      labelText: uiText(context, 'ကြည့်ချင်တဲ့ဈေး'),
+                      labelStyle: const TextStyle(color: pale),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: .08),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: .2),
+                        ),
+                      ),
+                    ),
+                    items: widget.quotes
+                        .map(
+                          (e) => DropdownMenuItem(
+                            value: identity(e),
+                            child: Text(
+                              e.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => setState(() {
+                      selected = value;
+                      hovered = null;
+                    }),
+                  ),
+                ),
+              SizedBox(height: compact ? 12 : 22),
+              if (!compact) ...[
+                const Text(
+                  'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                const SizedBox(height: 10),
+              ],
               Wrap(
-                spacing: compact ? 12 : 22,
-                runSpacing: 10,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  compact
-                      ? Text(
-                          'အနိမ့် ${formatted(low!)}',
-                          style: const TextStyle(color: pale, fontSize: 12),
-                        )
-                      : metric('အနိမ့်', formatted(low!)),
-                  compact
-                      ? Text(
-                          'အမြင့် ${formatted(high!)}',
-                          style: const TextStyle(color: pale, fontSize: 12),
-                        )
-                      : metric('အမြင့်', formatted(high!)),
-                  if (compact)
-                    Text(
-                      '${points.length} ${days == 1 ? 'ခု' : 'ရက်'}',
-                      style: const TextStyle(color: pale, fontSize: 12),
-                    )
-                  else
-                    metric(
-                      days == 1 ? 'ဈေးတင်ထားတာ' : 'ဈေးတင်ထားတဲ့ရက်',
-                      '${points.length} ${days == 1 ? 'ခု' : 'ရက်'}',
+                  for (final n in [1, 7, 30])
+                    Semantics(
+                      selected: days == n,
+                      child: TextButton(
+                        onPressed: () => setState(() {
+                          days = n;
+                          hovered = null;
+                        }),
+                        style: TextButton.styleFrom(
+                          foregroundColor: days == n
+                              ? const Color(0xff075d4d)
+                              : Colors.white,
+                          backgroundColor: days == n
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: .10),
+                          minimumSize: Size(
+                            compact ? 48 : 60,
+                            compact ? 36 : 40,
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compact ? 10 : 14,
+                            vertical: compact ? 6 : 8,
+                          ),
+                        ),
+                        child: Text(
+                          n == 1
+                              ? 'ဒီနေ့'
+                              : uiFormat(context, 'days', {'count': n}),
+                        ),
+                      ),
+                    ),
+                  if (change != null)
+                    tag(
+                      '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}%${compact ? '' : ' · မှတ်တမ်းကာလ'}',
                     ),
                 ],
               ),
-            ],
-            SizedBox(height: compact ? 8 : 12),
-            Text(
-              '${history.cached ? 'သိမ်းထားတဲ့မှတ်တမ်း · ' : ''}${q?.direction == ExchangeDirection.thbMmk ? '၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်' : '၁ သိန်းပေးရင် ရမယ့်ဘတ်'}${compact ? '' : ' · ထိုင်းအချိန်'}',
-              style: TextStyle(
-                color: pale,
-                fontSize: compact ? 10 : 11,
-                height: 1.6,
-              ),
-            ),
-            if (widget.unavailable)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'အရင်ဈေးတွေ ယူမရသေးဘူး။ နောက်ဆုံးရထားတဲ့ဈေးကိုတော့ ပြထားပါတယ်။',
-                  style: TextStyle(color: pale, fontSize: 12),
-                ),
-              ),
-            if (q != null)
-              Padding(
-                padding: EdgeInsets.only(top: compact ? 12 : 18),
-                child: FilledButton.icon(
-                  onPressed: () => widget.onCalculate(q),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xff075d4d),
-                    minimumSize: compact
-                        ? const Size(double.infinity, 44)
-                        : null,
-                    padding: compact
-                        ? const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          )
-                        : null,
+              if (!compact || focus != null) ...[
+                SizedBox(height: compact ? 6 : 14),
+                Text(
+                  focus != null
+                      ? '${bangkokLabel(focus.timestamp, includeTime: focus.observedAt != null)} · ${formatted(referenceRateValue(focus.rateMicros))} ဘတ်'
+                      : points.length == 1
+                      ? 'ဈေးတစ်ကြိမ်ပဲ တင်ထားသေးတယ်။ အမှတ်လေးကို ထိကြည့်ပါ။'
+                      : points.isEmpty
+                      ? (widget.loading
+                            ? 'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်'
+                            : 'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။')
+                      : 'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်',
+                  style: const TextStyle(
+                    color: pale,
+                    fontSize: 12,
+                    height: 1.8,
                   ),
-                  icon: const Icon(Icons.calculate_outlined, size: 18),
-                  label: Text(active ? 'ဒီနှုန်းနဲ့ တွက်မယ်' : 'နောက်ဆုံးဈေးနဲ့ တွက်မယ်'),
+                ),
+              ],
+              const SizedBox(height: 8),
+              LayoutBuilder(
+                builder: (context, c) => Semantics(
+                  label: points.isEmpty
+                      ? 'ဈေးမှတ်တမ်း မရှိသေးဘူး'
+                      : 'ဈေး ${points.length} ကြိမ်တင်ထားပါတယ်။ အနိမ့် ${formatted(low!)}၊ အမြင့် ${formatted(high!)}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
+                  child: MouseRegion(
+                    onHover: (event) =>
+                        selectPoint(event.localPosition.dx, c.maxWidth, points),
+                    onExit: (_) => setState(() => hovered = null),
+                    child: GestureDetector(
+                      onTapDown: (event) => selectPoint(
+                        event.localPosition.dx,
+                        c.maxWidth,
+                        points,
+                      ),
+                      onHorizontalDragUpdate: (event) => selectPoint(
+                        event.localPosition.dx,
+                        c.maxWidth,
+                        points,
+                      ),
+                      child: SizedBox(
+                        height: compact ? 108 : 158,
+                        width: double.infinity,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CustomPaint(
+                                key: const ValueKey('reference_rate_graph'),
+                                painter: RateTrendPainter(
+                                  points,
+                                  hovered,
+                                  direction:
+                                      q?.direction ?? ExchangeDirection.thbMmk,
+                                ),
+                              ),
+                            ),
+                            if (points.length == 1)
+                              Align(
+                                alignment: const Alignment(0, -.62),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: .12),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${formatted(values.first)} ဘတ်',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (points.isEmpty)
+                              Center(
+                                child: Text(
+                                  widget.loading
+                                      ? 'ရယူနေပါတယ်…'
+                                      : 'ဈေးအသစ်တင်ရင် ဒီနေရာမှာ ပြပေးမယ်။',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: pale,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-          ],
+              if (points.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      pointLabel(points.first),
+                      style: const TextStyle(color: pale, fontSize: 11),
+                    ),
+                    if (points.length > 1)
+                      Text(
+                        pointLabel(points.last),
+                        style: const TextStyle(color: pale, fontSize: 11),
+                      ),
+                  ],
+                ),
+                SizedBox(height: compact ? 8 : 16),
+                Wrap(
+                  spacing: compact ? 12 : 22,
+                  runSpacing: 10,
+                  children: [
+                    compact
+                        ? Text(
+                            'အနိမ့် ${formatted(low!)}',
+                            style: const TextStyle(color: pale, fontSize: 12),
+                          )
+                        : metric('အနိမ့်', formatted(low!)),
+                    compact
+                        ? Text(
+                            'အမြင့် ${formatted(high!)}',
+                            style: const TextStyle(color: pale, fontSize: 12),
+                          )
+                        : metric('အမြင့်', formatted(high!)),
+                    if (compact)
+                      Text(
+                        uiFormat(context, days == 1 ? 'updates' : 'days', {
+                          'count': points.length,
+                        }),
+                        style: const TextStyle(color: pale, fontSize: 12),
+                      )
+                    else
+                      metric(
+                        days == 1 ? 'ဈေးတင်ထားတာ' : 'ဈေးတင်ထားတဲ့ရက်',
+                        uiFormat(context, days == 1 ? 'updates' : 'days', {
+                          'count': points.length,
+                        }),
+                      ),
+                  ],
+                ),
+              ],
+              SizedBox(height: compact ? 8 : 12),
+              Text(
+                '${history.cached ? 'သိမ်းထားတဲ့မှတ်တမ်း · ' : ''}${q?.direction == ExchangeDirection.thbMmk ? '၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်' : '၁ သိန်းပေးရင် ရမယ့်ဘတ်'}${compact ? '' : ' · ထိုင်းအချိန်'}',
+                style: TextStyle(
+                  color: pale,
+                  fontSize: compact ? 10 : 11,
+                  height: 1.6,
+                ),
+              ),
+              if (widget.unavailable)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'အရင်ဈေးတွေ ယူမရသေးဘူး။ နောက်ဆုံးရထားတဲ့ဈေးကိုတော့ ပြထားပါတယ်။',
+                    style: TextStyle(color: pale, fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 
   Widget tag(String text) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

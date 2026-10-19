@@ -1,3 +1,4 @@
+import 'support/calculator_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -240,6 +241,7 @@ void main() {
       await start(t, revision: () => revision);
       await t.tap(find.text('ငွေတွက်'));
       await t.pumpAndSettle();
+      await openRateEditor(t);
       await reveal(t, find.byKey(const ValueKey('rate_0')));
       expect(
         t
@@ -269,6 +271,7 @@ void main() {
             .text,
         '130',
       );
+      await openRateEditor(t);
       await reveal(t, find.byKey(const ValueKey('rate_0')));
       expect(
         t

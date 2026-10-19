@@ -165,7 +165,8 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('မှတ်တမ်း 1 ခု'), findsOneWidget);
       await reveal(t, find.byKey(const ValueKey('record_amount_mmk')));
-      expect(find.text('100,000 ကျပ် → 714.28 ဘတ်'), findsOneWidget);
+      expect(find.text('100,000 ကျပ်'), findsOneWidget);
+      expect(find.text('714.28 ဘတ်'), findsOneWidget);
       expect(find.byKey(const ValueKey('personal_record_thb')), findsNothing);
       expect((await RecordStore().load()).length, 2);
       final delete = find.byKey(const ValueKey('record_delete_mmk'));
@@ -184,7 +185,8 @@ void main() {
       await t.tap(find.byKey(const ValueKey('records_filter_thb_mmk')));
       await t.pumpAndSettle();
       await reveal(t, find.byKey(const ValueKey('record_amount_thb')));
-      expect(find.text('1,000 ဘတ် → 125,000 ကျပ်'), findsOneWidget);
+      expect(find.text('1,000 ဘတ်'), findsOneWidget);
+      expect(find.text('125,000 ကျပ်'), findsOneWidget);
       expect(t.takeException(), isNull);
       await close(t);
     },

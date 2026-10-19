@@ -1,3 +1,4 @@
+import 'support/calculator_fixture.dart';
 import 'support/app_update_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -121,6 +122,7 @@ void main() {
       await tester.tap(find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('amount')), '100000');
+      await openRateEditor(tester);
       final rate = tester.widget<TextField>(
         find.byKey(const ValueKey('rate_0')),
       );
@@ -208,6 +210,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(link);
         await tester.pumpAndSettle();
+        await openRateEditor(tester);
         final rate = tester.widget<TextField>(find.byKey(const ValueKey('rate_0')));
         expect(rate.controller!.text, side == ExchangeDirection.mmkThb ? '726' : '748');
         expect(find.byKey(const ValueKey('last_rate_notice_0')), findsOneWidget);
@@ -232,6 +235,7 @@ void main() {
       await start(tester, stale: true);
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
+      await openRateEditor(tester);
       final rate = find.byKey(const ValueKey('rate_0'));
       expect(tester.widget<TextField>(rate).controller!.text, '726');
       expect(find.byKey(const ValueKey('last_rate_notice_0')), findsOneWidget);

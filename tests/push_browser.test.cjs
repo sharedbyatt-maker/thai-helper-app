@@ -6,6 +6,26 @@ const {webcrypto}=require('node:crypto');
 const {execFileSync}=require('node:child_process');
 const os=require('node:os');
 const path=require('node:path');
+test('Each changed web build uses fresh loader and main URLs without changing app scope',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'bahtzay-release-'));
+ try{
+  fs.copyFileSync('flutter_app/web/bahtzay-push-sw.js',path.join(root,'bahtzay-push-sw.js'));
+  fs.writeFileSync(path.join(root,'main.dart.js'),'first build');
+  fs.writeFileSync(path.join(root,'flutter_bootstrap.js'),'_flutter.buildConfig={"builds":[{"mainJsPath":"main.dart.js"}]}');
+  fs.writeFileSync(path.join(root,'index.html'),'<base href="/thai-helper-app/"><script src="flutter_bootstrap.js" async></script>');
+  const run=()=>execFileSync(process.execPath,['scripts/prepare_web_push.mjs',root]);
+  run();
+  const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),loader=fs.readFileSync(path.join(root,'flutter_bootstrap.js'),'utf8');
+  const revision=html.match(/flutter_bootstrap.js\?v=([a-f0-9]{16})/)[1];
+  assert.ok(loader.includes(`main.dart.js?v=${revision}`));
+  assert.ok(html.includes('<base href="/thai-helper-app/">'));
+  const worker=fs.readFileSync(path.join(root,'flutter_service_worker.js'),'utf8');
+  run();assert.equal(fs.readFileSync(path.join(root,'flutter_service_worker.js'),'utf8'),worker);
+  fs.writeFileSync(path.join(root,'main.dart.js'),'second build');run();
+  assert.ok(!fs.readFileSync(path.join(root,'index.html'),'utf8').includes(revision));
+  assert.ok(!fs.readFileSync(path.join(root,'flutter_bootstrap.js'),'utf8').includes(revision));
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
 test('Build replaces Flutter retirement workers and preserves older caching workers',()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'bahtzay-worker-'));
  try{

@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   web: ^1.1.1
   http: ^1.1.0
   url_launcher: ^6.3.0
@@ -29,11 +31,15 @@ flutter:
     - assets/data/exchange_snapshot.json
     - assets/fonts/OFL.txt
     - assets/fonts/Symbols-OFL.txt
+    - assets/fonts/UI-SYMBOLS-LICENSE.txt
 
   fonts:
     - family: Noto Sans Myanmar
       fonts:
         - asset: assets/fonts/NotoSansMyanmar.ttf
+    - family: Bahtzay UI Symbols
+      fonts:
+        - asset: assets/fonts/BahtzayUISymbols.ttf
     - family: Noto Sans Symbols 2
       fonts:
         - asset: assets/fonts/NotoSansSymbols2-Regular.ttf

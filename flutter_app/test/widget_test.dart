@@ -1,3 +1,4 @@
+import 'support/calculator_fixture.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,6 +81,7 @@ void main() {
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('amount')), '10000');
+      await openRateEditor(tester);
       await reveal(tester, find.byKey(const ValueKey('rate_0')), 200);
       await tester.enterText(find.byKey(const ValueKey('rate_0')), '125');
       expect(find.text('ကူးထားတဲ့စာကနေ ဈေးထည့်မယ်'), findsNothing);
@@ -98,8 +100,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('မှတ်တမ်း'));
       await tester.pumpAndSettle();
-      await reveal(tester, find.text('10,000 ဘတ် → 1,250,000 ကျပ်'), 200);
-      expect(find.text('10,000 ဘတ် → 1,250,000 ကျပ်'), findsOneWidget);
+      await reveal(tester, find.text('1,250,000 ကျပ်'), 200);
+      expect(find.text('10,000 ဘတ်'), findsOneWidget);
+      expect(find.text('1,250,000 ကျပ်'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       tester.view.resetPhysicalSize();
@@ -114,6 +117,7 @@ void main() {
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
       final amount = find.byKey(const ValueKey('amount'));
+      await openRateEditor(tester);
       final rate = find.byKey(const ValueKey('rate_0'));
       final button = find.byKey(const ValueKey('calculate'));
       await tester.enterText(amount, '1000');
@@ -160,6 +164,7 @@ void main() {
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('amount')), '0');
+      await openRateEditor(tester);
       await reveal(tester, find.byKey(const ValueKey('rate_0')), 180);
       await tester.enterText(find.byKey(const ValueKey('rate_0')), '125');
       await reveal(tester, find.byKey(const ValueKey('calculate')), 180);
@@ -181,11 +186,13 @@ void main() {
       await start(tester, dark: true);
       await tester.tap(find.text('ငွေတွက်'));
       await tester.pumpAndSettle();
+      await openRateEditor(tester);
       await reveal(tester, find.byKey(const ValueKey('rate_0')), 200);
       await tester.enterText(find.byKey(const ValueKey('rate_0')), '125');
       await reveal(tester, find.text('ကျပ်ပေး → ဘတ်ယူ'), -300);
       await tester.tap(find.text('ကျပ်ပေး → ဘတ်ယူ'));
       await tester.pumpAndSettle();
+      await openRateEditor(tester);
       await reveal(tester, find.byKey(const ValueKey('rate_0')), 200);
       final field = tester.widget<TextField>(
         find.byKey(const ValueKey('rate_0')),
