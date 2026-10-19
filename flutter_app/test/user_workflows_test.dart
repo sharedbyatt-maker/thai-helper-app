@@ -48,8 +48,12 @@ void main() {
     await revealControl(t, calculate);
     await t.tap(calculate);
     await t.pumpAndSettle();
-    expect(find.text('You pay 10,000 THB'), findsOneWidget);
-    expect(find.text('You receive 1,250,000 MMK'), findsOneWidget);
+    // Inspect rendered paragraphs, excluding the translating Text wrapper.
+    Finder paragraph(String text) => find.byWidgetPredicate(
+      (widget) => widget is RichText && widget.text.toPlainText() == text,
+    );
+    expect(paragraph('You pay 10,000 THB'), findsOneWidget);
+    expect(paragraph('You receive 1,250,000 MMK'), findsOneWidget);
     // Published names are data and keep their original language.
     expect(find.text(quote().label), findsWidgets);
     final save = find.text('Save record');
