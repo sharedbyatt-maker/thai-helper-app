@@ -1683,7 +1683,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
     key: key,
     padding: const EdgeInsets.only(top: 12),
     child: Text(
-      'ဈေးအသစ် မတင်ရသေးလို့ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်။\nဈေးတင်ချိန် ${when(quote.observedAt)} · ထိုင်းအချိန်',
+      uiFormat(context, 'lastRateNotice', {'date': when(quote.observedAt)}),
       style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.8),
     ),
   );
@@ -1734,9 +1734,17 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   : 'ဒီဈေးနဲ့ဆို ရမယ့်ငွေ အများဆုံးပါ',
             ),
           const SizedBox(height: 12),
-          Text('${money(result.budget)} ${result.quote.direction.from} ပေးရင်'),
           Text(
-            'ရငွေ ${money(result.received)} ${result.quote.direction.to}',
+            uiFormat(context, 'resultPaid', {
+              'amount': money(result.budget),
+              'currency': uiText(context, result.quote.direction.from),
+            }),
+          ),
+          Text(
+            uiFormat(context, 'resultReceived', {
+              'amount': money(result.received),
+              'currency': uiText(context, result.quote.direction.to),
+            }),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: schemeColor(context),
@@ -1751,7 +1759,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
             ),
           if (result.quote.feeFor(result.budget) > 0)
             Text(
-              'သီးသန့်နုတ်ငွေ ${money(result.quote.feeFor(result.budget))} ${result.quote.direction.from} ကို နုတ်ပြီးသားပါ။',
+              uiFormat(context, 'resultDeduction', {
+                'amount': money(result.quote.feeFor(result.budget)),
+                'currency': uiText(context, result.quote.direction.from),
+              }),
             ),
           const SizedBox(height: 12),
           Wrap(
