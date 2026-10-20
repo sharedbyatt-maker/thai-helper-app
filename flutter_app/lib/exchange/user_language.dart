@@ -328,6 +328,8 @@ const _en = <String, String>{
   'မတင်ရသေးဘူး': 'Not published yet',
   'ဒီဘက်ဈေး မတင်ရသေးဘူး': 'No rate has been published for this direction.',
   'ဒီဘက်ဈေး မတင်ရသေးပါ': 'No rate has been published for this direction.',
+  'ဒီဈေးကို ပြန်မစစ်ရသေးလို့ ရငွေ မတွက်ပြသေးဘူး။':
+      'This rate needs rechecking, so the quick estimate is unavailable.',
   'ဒီဘက်ဈေး တင်လာရင် တွက်ပြပေးမယ်။':
       'A result will appear when a rate is published.',
   'ဈေးအသစ် မတင်ရသေးပါ။ နောက်ဆုံးတင်ထားတဲ့ဈေးနဲ့ တွက်ကြည့်နိုင်ပါတယ်။':
