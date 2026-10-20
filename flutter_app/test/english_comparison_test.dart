@@ -57,4 +57,28 @@ void main() {
     expect(comparisonDay(previous, now: now, english: true), date);
     expect(dailyRateBrief(current, previous, english: true), 'Same rate as $date.');
   });
+
+  testWidgets('An expired quote explains the unavailable English quick estimate', (t) async {
+    final expired = quote(ExchangeDirection.thbMmk, 125000000,
+        DateTime.now().toUtc().subtract(const Duration(days: 2)));
+    await t.pumpWidget(
+      language.UserLanguageScope(
+        language: language.UserLanguage.english,
+        onChanged: (_) {},
+        child: MaterialApp(home: Scaffold(body: SingleChildScrollView(
+          child: DailyTools(quote: expired, history: const RateHistory([]),
+              quotes: [expired], direction: expired.direction),
+        ))),
+      ),
+    );
+    await t.pumpAndSettle();
+    final paragraphs = t.widgetList<RichText>(find.byType(RichText))
+        .map((widget) => widget.text.toPlainText()).toList();
+    expect(paragraphs, contains(
+        'This rate needs rechecking, so the quick estimate is unavailable.'));
+    expect(paragraphs.where((text) => RegExp(r'[\u1000-\u109f]').hasMatch(text)), isEmpty);
+    expect(find.byKey(const ValueKey('watch_payout')), findsNothing);
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
 }
