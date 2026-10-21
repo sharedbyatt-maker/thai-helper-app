@@ -30,6 +30,7 @@ function setup(initial=config()){
    }
    return {ok:true,json:async()=>({config:structuredClone(settings),version,updated_at:'2026-10-18T00:00:00Z'})};
  };
+ w.eval(fs.readFileSync(path.join(root,'runtime.js'),'utf8'));
  w.eval(source);
  const $=id=>w.document.getElementById(id);
  return {dom,w,$,getSettings:()=>settings,requests:()=>calls};
@@ -86,5 +87,26 @@ test('Multi-placement campaign edit preserves both slots; OFF ignores invalid un
   const image=w.document.querySelector('input[type=url]');image.value='broken';image.dispatchEvent(new w.Event('input',{bubbles:true}));
   $('ad-emergency-off').click();await settle();assert.equal(getSettings().enabled,false);
   assert.equal(getSettings().sponsors[0].image_url,'https://example.com/a.png');
+ }finally{dom.window.close();}
+});
+test('Admin scripts and styles use current content hashes so an old cached asset cannot mask an upgrade',()=>{
+ const {createHash}=require('node:crypto');
+ for(const file of ['runtime.js','app.js','app-release.js','telegram.js','control-center.js','style.css']){
+  const version=createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex').slice(0,16);
+  assert.ok(html.includes('/admin/'+file+'?v='+version),file+' needs node scripts/stamp_admin_assets.mjs');
+ }
+});
+
+test('Ad form changes are protected on close and a late reload cannot erase them',async()=>{
+ const initial=config();initial.sponsors=[{id:'s1',name:'Partner',label:'Sponsored',placements:['home'],language:'both',priority:0,enabled:false,image_url:'https://example.com/a.png',destination_url:'https://example.com',start_at:null,end_at:null}];
+ const {dom,w,$}=setup(initial);
+ try{
+  w.bahtzayAdminNavigate('advertising');await settle();
+  let resolve;w.fetch=()=>new Promise(r=>resolve=r);$('ad-config-reload').click();
+  const input=w.document.querySelector('.control-sponsor-grid input');input.value='Keep this name';input.dispatchEvent(new w.Event('input',{bubbles:true}));
+  resolve({ok:true,status:200,json:async()=>({config:initial,version:0,updated_at:'2026-10-21T00:00:00Z'})});await settle();
+  assert.equal(w.document.querySelector('.control-sponsor-grid input').value,'Keep this name');
+  assert.equal(w.AdminRuntime.hasUnsaved(),true);
+  const closing=new w.Event('beforeunload',{cancelable:true});w.dispatchEvent(closing);assert.equal(closing.defaultPrevented,true);
  }finally{dom.window.close();}
 });

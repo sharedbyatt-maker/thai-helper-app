@@ -51,3 +51,14 @@ These are compile proofs, not physical-device/store tests. iOS Simulator .app ca
 
 ## Workspace continuity
 A transient workspace reset lost an earlier unpushed attempt; changes were recovered from remote master, re-tested and committed. Do not depend on old scratch paths or print/transmit binary/base64 assets through chat. No new repository or Site was created. Keep credentials only in session memory and the source helper's hidden stdin. Preserve the unrelated working-tree deletion backend/.venv/bin/python3; do not include it in task commits.
+
+## Follow-up: Admin stability upgrade (2026-10-21)
+User requested a further Admin Dashboard update because it felt stale/unstable. Work starts from b934b5fe6823e1f0deb7383174f33760b83b6232.
+- Add shared 15-second bounded JSON transport (including body parsing), no automatic write retries, no-store requests and sign-in handling. A timed-out write reports an uncertain result rather than pretending it failed safely.
+- Add timestamped connection/refresh status, offline/error feedback, safe 60-second/focus/resume refresh. Pending reads cannot overwrite edits or a newer mutation; publishing preview pauses refresh.
+- Protect unsaved rates, sponsor, Telegram, announcement and app release edits on close/logout/background refresh. Serialize ad writes, protect inputs while writes run, ignore stale ad reloads and preserve Emergency OFF's independent request.
+- Improve Myanmar navigation, real-data overview attention cards, mobile sticky navigation/action toolbar and modal sizing. Do not invent analytics or counts.
+- Stamp admin JS/CSS URLs by source hash; tests fail if a source changes without running node scripts/stamp_admin_assets.mjs.
+- Local checks: 19 admin tests and 68 backend tests pass. Existing rate math, data, owner auth, public app and notification APIs unchanged; no database migration needed.
+- Browser visual QA remains unverified: managed preview reported running, but the cloud browser received connection refused, and recovery of its chrome-error tab was blocked by URL policy. No browser workaround or auth bypass attempted. Temporary local-only mock fixture removed before building; never publish it.
+- PR, CI and actual Sites deployment must be verified separately before claiming this follow-up is live. Continue using the same Sites project/audience/DB binding above.

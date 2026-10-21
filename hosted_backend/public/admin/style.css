@@ -123,3 +123,17 @@ main>header p{font-size:13px;color:var(--admin-muted)}
   .control-fieldset{padding:13px 10px}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Connection and ownership status stay visible without interrupting editors. */
+.admin-connection{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;margin:14px 0;background:#e7f4ed;border:1px solid #b9dacb;border-radius:14px;font-size:13px}
+.admin-connection.error{background:#fff3e8;border-color:#e8caa9;color:#834316}
+.admin-connection button{flex-shrink:0;background:white}
+.admin-health{border-left:4px solid #08735c!important;background:linear-gradient(120deg,#eef9f3,#fff)!important}
+.admin-health[data-attention=true]{border-left-color:#ba7a23!important}
+.admin-health h3{font-size:19px;margin:0 0 10px}.admin-health p{margin:6px 0;line-height:1.9}
+.control-nav .control-link{line-height:1.7;text-align:left}
+.control-sponsor-preview{width:min(560px,calc(100% - 32px));border:1px solid #bed8ce;border-radius:18px;padding:24px;color:#12322f;box-shadow:0 20px 80px #12322f44}
+.control-sponsor-preview::backdrop{background:#082b2666}.control-sponsor-preview a{display:inline-block;margin:12px 18px 12px 0}
+.control-ad-history{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.control-ad-history h3{width:100%;margin-bottom:0}
+[aria-busy=true]{cursor:progress}.control-page .toolbar{position:sticky;bottom:8px;z-index:4;background:#fff}
+@media(max-width:780px){.admin-connection{align-items:flex-start;flex-direction:column;padding:12px}.admin-connection button{width:100%}.control-nav{position:sticky;top:0;z-index:5;background:#f4faf7}.control-link{min-width:112px}.control-page .toolbar{bottom:4px}.control-page{scroll-margin-top:100px}}

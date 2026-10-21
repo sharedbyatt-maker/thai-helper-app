@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="my"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ဘတ်ဈေး · Admin</title><link rel="stylesheet" href="/admin/style.css"><script defer src="/admin/app.js"></script><script defer src="/admin/app-release.js"></script><script defer src="/admin/telegram.js"></script><script defer src="/admin/control-center.js"></script></head>
+<html lang="my"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ဘတ်ဈေး · Admin</title><link rel="stylesheet" href="/admin/style.css?v=234edb23b055766c"><script defer src="/admin/runtime.js?v=7354f57b3ad85da3"></script><script defer src="/admin/app.js?v=20ea7fc00116e7c9"></script><script defer src="/admin/app-release.js?v=dff9e76c79c8f87a"></script><script defer src="/admin/telegram.js?v=732dc2110c943655"></script><script defer src="/admin/control-center.js?v=8079bfad2ade977a"></script></head>
 <body><main>
-<header><div><span class="eyebrow">ဘတ်ဈေး / ADMIN</span><h1>နေ့စဉ် ငွေလဲနှုန်း</h1><p>နှုန်းဖြည့်ပါ → နမူနာစစ်ပါ → အတည်ပြုတင်ပါ။</p></div><button id="logout" hidden>ထွက်မယ်</button></header>
+<header><div><span class="eyebrow">ဘတ်ဈေး / ADMIN</span><h1>ဘတ်ဈေး စီမံခန့်ခွဲမှု</h1><p>နှုန်းဖြည့်ပါ → နမူနာစစ်ပါ → အတည်ပြုတင်ပါ။</p></div><button id="logout" hidden>ထွက်မယ်</button></header>
+<section id="admin-connection" class="admin-connection" aria-label="ချိတ်ဆက်မှု အခြေအနေ"><span id="admin-sync" role="status" aria-live="polite">နောက်ဆုံးအခြေအနေ ရယူနေပါတယ်…</span><button id="admin-refresh" type="button">နောက်ဆုံးအခြေအနေ စစ်မယ်</button></section>
 <div id="message" role="status" aria-live="polite"></div>
 <section id="login-panel" class="panel"><h2>Admin ဝင်ရန်</h2><p><a href="/signin-with-chatgpt?return_to=%2Fadmin%2Findex.html" target="_top">ChatGPT အကောင့်ဖြင့် ဝင်မယ် →</a></p><p class="muted">ဤ Site ကို ပိုင်ဆိုင်သော ChatGPT အကောင့်ဖြင့်သာ စီမံနိုင်ပါသည်။</p></section>
 <div id="workspace" hidden>

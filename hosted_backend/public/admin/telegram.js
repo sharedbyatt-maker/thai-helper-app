@@ -1,17 +1,19 @@
 'use strict';
 (() => {
  const el=id=>document.getElementById(id);
- let status=null,working=false;
+ let status=null,working=false,editing=false;
+ window.AdminRuntime.track('telegram',()=>editing);
+ for(const id of ['tg-token','tg-source','tg-url','tg-direction'])el(id).addEventListener('input',()=>editing=true);
  const feedback=(text,error=false)=>{el('tg-feedback').textContent=text;el('tg-feedback').classList.toggle('error',error);};
  function render(s){
-  status=s;
+  status=s;editing=false;
   el('tg-status').textContent=!s.configured?'Bot မချိတ်ရသေးပါ။ ပထမတစ်ခါ Bot ချိတ်ဆက်ရန်ကို ဖွင့်ပါ။':!s.enabled?'Bot ရပ်ထားပါသည်။':`@${s.username} · ${s.paired?'မင်း Telegram ချိတ်ဆက်ပြီးပါပြီ ✓':'Telegram account ချိတ်ရန် ကျန်ပါသည်။'}`;
   el('tg-source').value=s.source_name||'';el('tg-url').value=s.source_url||'';el('tg-direction').value=s.direction||'mmk_thb';
   el('tg-pair').disabled=!s.configured||!s.enabled;el('tg-disconnect').disabled=!s.enabled;
   if(!s.configured||!s.paired)el('tg-setup').open=true;
  }
  async function run(fn){if(working)return;working=true;el('tg-setup').inert=true;el('tg-refresh').disabled=true;try{await fn();}catch(e){feedback(e.message,true);}finally{working=false;el('tg-setup').inert=false;el('tg-refresh').disabled=false;}}
- async function refresh(){render(await api('telegram'));feedback('ချိတ်ဆက်မှု စစ်ပြီးပါပြီ။');}
+ async function refresh(){if(editing&&!confirm('မသိမ်းရသေးတဲ့ Telegram settings ကို အစားထိုးမလား?'))return;render(await api('telegram'));feedback('ချိတ်ဆက်မှု စစ်ပြီးပါပြီ။');}
  el('tg-refresh').addEventListener('click',()=>run(refresh));
  el('tg-connect').addEventListener('click',()=>run(async()=>{
   feedback('Telegram ကို ချိတ်ဆက်နေပါသည်…');

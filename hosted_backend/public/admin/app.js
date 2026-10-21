@@ -2,15 +2,17 @@
 const $ = id => document.getElementById(id);
 let state, csrf = '', dirty = false, previewed = false, busy = false;
 function message(text, error=false) { $('message').textContent=text; $('message').classList.toggle('error',error); }
+window.AdminRuntime.track('rates',()=>dirty);
+window.AdminRuntime.track('announcement',()=>Boolean($('announcement-text')?.value.trim()));
+window.addEventListener('admin:unauthorized',()=>{$('workspace').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;});
 function changed() { dirty=true; previewed=false; $('publish').disabled=true; $('dirty').textContent='ပြင်ထားတာ မသိမ်းရသေးဘူး'; }
 async function api(path, method='GET', body) {
-  const response=await fetch('/api/admin/'+path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-Admin-Request':'1','X-CSRF-Token':csrf},body:body===undefined?undefined:JSON.stringify(body)});
-  const data=await response.json();
-  if(!response.ok) { if(data.bootstrap_ready&&path!=='login'){await api('login','POST',{});return api(path,method,body);} if(response.status===401){$('workspace').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;} throw new Error(data.error||'လုပ်ဆောင်မှု မအောင်မြင်ပါ'); }
+  const {response,data}=await window.AdminRuntime.fetchJson('/api/admin/'+path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-Admin-Request':'1','X-CSRF-Token':csrf},body:body===undefined?undefined:JSON.stringify(body)});
+  if(!response.ok) { if(data.bootstrap_ready&&path!=='login'){await api('login','POST',{});return api(path,method,body);} if(response.status===401){$('workspace').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;} const e=new Error(response.status===409?'တခြားနေရာမှာ ပြောင်းထားပါတယ်။ ပြင်ထားတာတွေ မပျောက်အောင် အရင်ကူးထားပြီး Reload နဲ့ ပြန်စစ်ပေးပါ။':data.error||'လုပ်ဆောင်မှု မအောင်မြင်ပါ');e.status=response.status;throw e; }
   if(data.csrf_token)csrf=data.csrf_token;
   return data;
 }
-async function action(fn) { if(busy)return;busy=true;$('workspace').inert=true;$('login-panel').inert=true;try{await fn();}catch(e){message(e.message,true);}finally{busy=false;$('workspace').inert=false;$('login-panel').inert=false;} }
+async function action(fn) { if(busy)return;busy=true;$('workspace').inert=true;$('workspace').setAttribute('aria-busy','true');$('admin-refresh').disabled=true;$('login-panel').inert=true;try{await fn();}catch(e){message(e.message,true);}finally{busy=false;$('workspace').inert=false;$('workspace').setAttribute('aria-busy','false');$('admin-refresh').disabled=refreshing;$('login-panel').inert=false;} }
 function localTime(iso) { const d=new Date(iso); const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
 function thaiTime(iso){return new Date(iso).toLocaleString('en-GB',{timeZone:'Asia/Bangkok'})+' (ထိုင်း)';}
 function element(tag,text,cls) {const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;}
@@ -101,7 +103,32 @@ function renderHistory(){
  if(!state.trash?.length)$('trash').append(element('p','ဖျက်ထားတဲ့တင်ချက် မရှိသေးဘူး။','muted'));
 }
 $('delete-latest').addEventListener('click',()=>action(()=>deleteRevision({...state.published,id:state.published.revision})));
-async function load(){state=await api('state');render();}
+let stateRequest=0,lastSynced=null;
+function syncStatus(text,error=false){$('admin-sync').textContent=text;$('admin-connection').classList.toggle('error',error);}
+function synced(){lastSynced=new Date();syncStatus('ချိတ်ဆက်ပြီး · '+thaiTime(lastSynced.toISOString()));window.dispatchEvent(new CustomEvent('admin:state',{detail:state}));}
+async function load(){const request=++stateRequest;const next=await api('state');if(request!==stateRequest)return;state=next;render();synced();}
+let refreshing=false;
+async function refreshState(manual=false){
+ if(busy||refreshing||document.hidden)return;
+ if(window.AdminRuntime.hasUnsaved()||previewed){syncStatus('ပြင်ဆင်မှုကို ထိန်းထားပါတယ် · အလိုအလျောက် Reload ခဏရပ်ထားပါတယ်');return;}
+ refreshing=true;$('admin-refresh').disabled=true;
+ const request=++stateRequest;
+ try{
+  const next=await api('state');
+  if(request!==stateRequest||busy||window.AdminRuntime.hasUnsaved()||previewed)return;
+  const changedVersion=!state||state.draft_version!==next.draft_version||state.published.revision!==next.published.revision;
+  state=next;if(changedVersion)render();else {renderPublished();if(typeof renderAppRelease==='function')renderAppRelease(state.app_release);}
+  synced();if(manual)message('နောက်ဆုံးအခြေအနေ စစ်ပြီးပါပြီ။');
+ }catch(e){syncStatus('ချိတ်ဆက်မှု မအောင်မြင် · ပြထားသော data သည် အဟောင်း ဖြစ်နိုင်ပါတယ်',true);if(manual)message(e.message,true);}
+ finally{refreshing=false;$('admin-refresh').disabled=busy;}
+}
+$('admin-refresh').addEventListener('click',()=>refreshState(true));
+window.addEventListener('online',()=>refreshState());
+window.addEventListener('offline',()=>syncStatus('အင်တာနက် မရှိပါ · ပြင်ထားတာတွေ မပိတ်ပါနဲ့',true));
+window.addEventListener('focus',()=>refreshState());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshState();});
+setInterval(()=>refreshState(),60000);
+window.bahtzayAdminRefresh=refreshState;
 async function save(){const sheet=readSheet();const result=await api('draft','PUT',{sheet,expected_version:state.draft_version});state.draft_version=result.draft_version;state.draft=sheet;dirty=false;$('dirty').textContent='မူကြမ်း သိမ်းထားပြီး';$('draft-count').textContent=sheet.quotes.length+' နှုန်း';return sheet;}
 $('notice').addEventListener('input',changed);
 $('add').addEventListener('click',()=>addDirection('thb_mmk'));
@@ -116,10 +143,10 @@ $('preview-button').addEventListener('click',()=>action(async()=>{
  $('preview').hidden=false;previewed=true;$('publish').disabled=false;message('User မြင်ရမယ့်နှုန်းကို စစ်ပြီး အတည်ပြုတင်ပေးပါ။');
 }));
 $('publish').addEventListener('click',()=>action(async()=>{if(dirty||!previewed)return;if(!confirm('ဤနှုန်းများကို user အားလုံးဆီ ထုတ်ပြမလား?'))return;const result=await api('publish','POST',{expected_version:state.draft_version});await load();message('Publish အောင်မြင်ပြီ။ Version '+result.published.revision);}));
-$('logout').addEventListener('click',()=>{if(dirty&&!confirm('မသိမ်းရသေးတာရှိသည်။ ထွက်မလား?'))return;window.location.href='/signout-with-chatgpt?return_to=%2Fadmin%2Findex.html';});
+$('logout').addEventListener('click',()=>{if(window.AdminRuntime.hasUnsaved()&&!confirm('မသိမ်းရသေးတာရှိသည်။ ထွက်မလား?'))return;window.location.href='/signout-with-chatgpt?return_to=%2Fadmin%2Findex.html';});
 $('export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(state.published,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='bahtzay-rates-v'+state.published.revision+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
-load().catch(e=>{if(!/ပြန်ဝင်/.test(e.message))message(e.message,true);});
+load().catch(e=>{syncStatus('ချိတ်ဆက်မှု မအောင်မြင် · ပြန်စစ်မယ်ကို နှိပ်ပါ',true);if(!/ပြန်ဝင်/.test(e.message))message(e.message,true);});
 
 $('insights-refresh').addEventListener('click',()=>action(async()=>{const data=await api('insights');const delivered=data.deliveries.find(x=>x.status===1)?.count||0;const pending=data.deliveries.find(x=>x.status===0)?.count||0;const phones=data.phone_subscribers||0,phoneSent=(data.phone_deliveries||[]).find(x=>x.status===1)?.count||0,phonePending=(data.phone_deliveries||[]).find(x=>x.status===0)?.count||0;$('insights-text').textContent=`ဖုန်း noti ဖွင့်ထားသူ ${phones} ဦး · ပို့ပြီး ${phoneSent} စောင် · စောင့်နေ ${phonePending} စောင်\nTelegram အသိပေးမှု ဖွင့်ထားသူ ${data.active_subscribers} ဦး · ပို့ပြီး ${delivered} စောင် · စောင့်နေ ${pending} စောင်`; }));
 
