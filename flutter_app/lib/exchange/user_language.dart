@@ -99,14 +99,23 @@ String uiPerBahtLabel(BuildContext context, ExchangeQuote quote) =>
 // the language, so notes, names and financial values are never translated.
 const _messages = <String, (String, String)>{
   'watchSame': ('{date}နဲ့ ရမယ့်ငွေတူတယ်', 'Same amount as {date}.'),
-  'watchMore': ('{date}ထက် {amount} {currency} ပိုရမယ်', '{amount} {currency} more than {date}.'),
-  'watchLess': ('{date}ထက် {amount} {currency} လျော့ရမယ်', '{amount} {currency} less than {date}.'),
+  'watchMore': (
+    '{date}ထက် {amount} {currency} ပိုရမယ်',
+    '{amount} {currency} more than {date}.',
+  ),
+  'watchLess': (
+    '{date}ထက် {amount} {currency} လျော့ရမယ်',
+    '{amount} {currency} less than {date}.',
+  ),
   'graphSummary': (
     'ဈေး {count} ကြိမ်တင်ထားပါတယ်။ အနိမ့် {low}၊ အမြင့် {high}။ ကျပ် ၁ သိန်းအတွက် ဘတ်။',
     '{count} published rates. Lowest {low}, highest {high} THB per 100,000 MMK.',
   ),
   'resultPaid': ('{amount} {currency} ပေးရင်', 'You pay {amount} {currency}'),
-  'resultReceived': ('ရငွေ {amount} {currency}', 'You receive {amount} {currency}'),
+  'resultReceived': (
+    'ရငွေ {amount} {currency}',
+    'You receive {amount} {currency}',
+  ),
   'resultDeduction': (
     'သီးသန့်နုတ်ငွေ {amount} {currency} ကို နုတ်ပြီးသားပါ။',
     'A deduction of {amount} {currency} has already been applied.',
@@ -235,6 +244,8 @@ class LanguageMenu extends material.StatelessWidget {
 }
 
 const _en = <String, String>{
+  'Share menu ကနေ Backup ဖိုင်ကို သိမ်းပေးပါ။ အောက်ကစာကိုလည်း ကူးသိမ်းနိုင်ပါတယ်။':
+      'Save the backup file from the share menu. You can also copy the text below.',
   'ဒီဈေးနဲ့ဆို ပေးရမယ့်ငွေ အနည်းဆုံးပါ': 'Lowest payment at this rate',
   'ဒီဈေးနဲ့ဆို ရမယ့်ငွေ အများဆုံးပါ': 'Highest amount received at this rate',
   "ဥပမာ အခန်းခ / မီတာခ 3000": "e.g. rent and utility bills: 3000",

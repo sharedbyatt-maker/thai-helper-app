@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
@@ -48,11 +49,19 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
       final raw = await service.exportAll();
       if (!mounted) return;
       setState(() => exported = raw);
+      final name =
+          'bahtzay-all-${DateTime.now().toIso8601String().substring(0, 10)}.json';
+      final bytes = Uint8List.fromList(utf8.encode(raw));
       if (kIsWeb) {
-        downloadBytes(
-          Uint8List.fromList(utf8.encode(raw)),
-          'bahtzay-all-${DateTime.now().toIso8601String().substring(0, 10)}.json',
-          'application/json',
+        downloadBytes(bytes, name, 'application/json');
+      } else {
+        final box = context.findRenderObject() as RenderBox?;
+        await Share.shareXFiles(
+          [XFile.fromData(bytes, mimeType: 'application/json', name: name)],
+          fileNameOverrides: [name],
+          sharePositionOrigin: box == null
+              ? const Rect.fromLTWH(1, 1, 1, 1)
+              : box.localToGlobal(Offset.zero) & box.size,
         );
       }
       if (mounted) {
@@ -61,7 +70,7 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
             content: Text(
               kIsWeb
                   ? 'Backup ဖိုင် ထုတ်ပေးပြီးပြီ။ ဖိုင်ကို လုံခြုံတဲ့နေရာမှာ သိမ်းပေးပါ။'
-                  : 'Backup စာကို အောက်မှာ ကူးပြီး လုံခြုံတဲ့နေရာမှာ သိမ်းပေးပါ။',
+                  : 'Share menu ကနေ Backup ဖိုင်ကို သိမ်းပေးပါ။ အောက်ကစာကိုလည်း ကူးသိမ်းနိုင်ပါတယ်။',
             ),
           ),
         );
@@ -187,13 +196,12 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
               style: TextStyle(height: 1.8),
             ),
             const SizedBox(height: 12),
-            if (kIsWeb)
-              OutlinedButton.icon(
-                key: const ValueKey('complete_backup_pick'),
-                onPressed: busy ? null : chooseFile,
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Backup ဖိုင် ရွေးမယ်'),
-              ),
+            OutlinedButton.icon(
+              key: const ValueKey('complete_backup_pick'),
+              onPressed: busy ? null : chooseFile,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Backup ဖိုင် ရွေးမယ်'),
+            ),
             const SizedBox(height: 10),
             if (kIsWeb)
               Card(

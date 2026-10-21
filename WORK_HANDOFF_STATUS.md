@@ -8,7 +8,13 @@ Continue on latest master. Keep approved Concept A logo, app name, actual rates/
 - Backend: independent authoritative Emergency OFF, server-side private ad draft, recoverable published history/rollback, multi-placement editor, actual owner banner preview, explicit UTC campaign fields.
 - Additive migrations: existing 0007 ads configuration and new 0008 draft/history with atomic audit trigger. Historical migrations unchanged.
 - Local Node: 68 backend tests + 3 Admin tests pass. Deployment not yet performed at this checkpoint.
-- Remaining: bounded sponsor refresh/expiry/resume in app, Flutter/remote CI, merge, deploy existing backend, verify native foundations/builds.
+- PR33 merged as f1d52d02671cda97d8c1bb6bafb377780952d66b after backend + Flutter CI success.
+- Existing backend deployed successfully as Sites version 21, source fde149544b3d09669349e02a98c838f9405341c8, deployment appgdep_6ad89169f78c8191b91c0456beb2fee1. Live D1 overview confirms ad_configuration/ad_draft/ad_history. All prior tables remain. Direct HTTP verification from executor returns 403; do not claim that route was verified via executor. Owner browser preview requires sign-in; no production fake rates or ad campaign was published.
+- App now bounds sponsor visibility to 60 seconds, refreshes on resume, hides on expiry/failure and rejects late requests. Six sponsor widget checks pass.
+- Committed native runner sources use io.github.sharedbyattmaker.bahtzay and ဘတ်ဈေး. Icons/launch image generated from hash-verified approved pixels by scripts/prepare_native_icons.py before builds. Production Android release no longer silently uses debug signing.
+- Native combined backup adds selected-file import (2 MB bound) and user-initiated JSON file sharing with an iPad anchor. Backup schemas and storage logic unchanged. Explicit paste/copy fallback remains.
+- Flutter analyze clean and all 115 local Flutter tests pass. Native CI proof builds are still pending at this checkpoint. No store signing/publication or real ad SDK/delivery claimed.
+- Remaining: app/native PR CI, debug APK and iOS Simulator builds; merge/deploy PWA; verify final live version and record exact outcomes.
 
 ## Deployment identities
 - Public PWA: https://sharedbyatt-maker.github.io/thai-helper-app/
