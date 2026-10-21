@@ -321,7 +321,7 @@
 
   const health=el('section','admin-health panel');health.id='admin-health';
   health.append(el('h3','','အခု လုပ်ရန်'),el('p','','နှုန်းနဲ့ မူကြမ်းကို စစ်ဆေးနေပါတယ်…'));
-  panels.get('overview').prepend(health);
+  panels.get('overview').insertBefore(health,panels.get('overview').children[2]||null);
   window.addEventListener('admin:state',event=>{
     const state=event.detail;const quotes=state.published?.quotes||[];
     const expired=quotes.filter(q=>!Number.isFinite(Date.parse(q.valid_until))||Date.parse(q.valid_until)<=Date.now()).length;

@@ -48,6 +48,7 @@ test('Admin reorganizes existing working tools into six responsive sections with
    assert.equal($('announcement-publish').closest('[data-page]').dataset.page,'notifications');
    assert.equal($('release-save').closest('[data-page]').dataset.page,'system');
    assert.equal($('control-overview').hidden,false);
+   assert.equal($('control-overview').firstElementChild.tagName,'H2');
    w.bahtzayAdminNavigate('rates');
    assert.equal($('control-rates').hidden,false);
    assert.equal($('control-overview').hidden,true);
