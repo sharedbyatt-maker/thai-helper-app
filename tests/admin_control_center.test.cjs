@@ -12,14 +12,15 @@ const config=()=>({
  placements:{home:false,history:false,calculator:false,budget:false},
  sponsors_enabled:false,sponsors:[],
 });
-function setup(){
+function setup(initial=config()){
  const dom=new JSDOM(html,{url:'https://rates.example/admin/index.html',runScripts:'outside-only'});
  const w=dom.window;
  w.structuredClone=structuredClone;
  w.confirm=()=>true;
- let version=0,settings=config(),calls=0;
+ let version=0,settings=initial,calls=0;
  w.fetch=async(url,init={})=>{
-   assert.match(String(url),/\/api\/admin\/ads$/);
+   assert.match(String(url),/\/api\/admin\/ads(?:\/off)?$/);
+   if(String(url).endsWith('/off')){settings.enabled=false;settings.sponsors_enabled=false;settings.platforms={web:false,android:false,ios:false};version++;}
    calls++;
    if(init.method==='PUT'){
       const data=JSON.parse(init.body);
@@ -70,5 +71,20 @@ test('Ads settings load default OFF, save platform switches, then emergency-disa
    assert.equal(getSettings().enabled,false);
    assert.equal(getSettings().platforms.android,false);
    assert.equal(getSettings().sponsors_enabled,false);
+ }finally{dom.window.close();}
+});
+
+test('Multi-placement campaign edit preserves both slots; OFF ignores invalid unsaved creative',async()=>{
+ const initial=config();initial.enabled=true;
+ initial.sponsors=[{id:'s1',name:'Partner',label:'Sponsored',placements:['home','history'],language:'both',priority:0,enabled:true,image_url:'https://example.com/a.png',destination_url:'https://example.com',start_at:null,end_at:null}];
+ const {dom,w,$,getSettings}=setup(initial);
+ try{
+  w.bahtzayAdminNavigate('advertising');await settle();
+  const input=w.document.querySelector('.control-sponsor-grid input');input.value='Changed';input.dispatchEvent(new w.Event('input',{bubbles:true}));
+  $('ad-config-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();
+  assert.deepEqual(getSettings().sponsors[0].placements,['home','history']);
+  const image=w.document.querySelector('input[type=url]');image.value='broken';image.dispatchEvent(new w.Event('input',{bubbles:true}));
+  $('ad-emergency-off').click();await settle();assert.equal(getSettings().enabled,false);
+  assert.equal(getSettings().sponsors[0].image_url,'https://example.com/a.png');
  }finally{dom.window.close();}
 });

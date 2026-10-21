@@ -1,5 +1,5 @@
 import { readRelease,saveRelease } from './app-release.mjs';
-import { readAds,saveAds } from './ad-config.mjs';
+import { readAds,saveAds,emergencyOff,saveAdDraft,rollbackAds } from './ad-config.mjs';
 import { pushApi,schedulePush } from './push.mjs';
 import { eventInsert,publishAnnouncement } from './notification-events.mjs';
 import { deletePublishedRevision } from './revision-management.mjs';
@@ -84,6 +84,13 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const trash=await db.prepare('SELECT id,payload,published_at,deleted_at FROM revision_trash ORDER BY deleted_at DESC LIMIT 30').all();
    const summary=r=>({id:r.id,published_at:r.published_at,...(r.deleted_at?{deleted_at:r.deleted_at}:{}),...JSON.parse(r.payload)});
    return json({draft:JSON.parse(row.payload),draft_version:row.version,published:await publicSheet(),history:history.results.map(summary),trash:trash.results.map(summary),app_release:await readRelease(db),csrf_token:'same-origin'});
+  }
+  if(path==='/api/admin/ads/off'&&req.method==='POST'){
+   const result=await emergencyOff(db);return json(result.data,result.status);
+  }
+  if((path==='/api/admin/ads/draft'&&req.method==='PUT')||(path==='/api/admin/ads/rollback'&&req.method==='POST')){
+   let input;try{input=JSON.parse(await bodyText(req,65536));}catch(e){if(e instanceof TooLarge)throw e;return json({error:'JSON required'},400);}
+   const result=await (path.endsWith('/draft')?saveAdDraft(db,input):rollbackAds(db,input));return json(result.data,result.status);
   }
   if(path==='/api/admin/ads'&&req.method==='GET')return json(await readAds(db));
   if(path==='/api/admin/ads'&&req.method==='PUT'){

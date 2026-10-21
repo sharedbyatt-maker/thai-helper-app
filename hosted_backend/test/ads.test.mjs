@@ -88,3 +88,20 @@ test('Rejects unsafe sponsor creatives and date ranges; owner controls stay sepa
   assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM revisions').get().n,0);
   db.sqlite.close();
 });
+test('Private draft, recoverable publication, and emergency OFF stay independent of browser drafts and rates',async()=>{
+ const db=new D1();await call(db,'/api/admin/login','POST',{});
+ assert.equal((await call(db,'/api/admin/ads/draft','PUT',{expected_version:0,config:config()})).status,200);
+ assert.equal((await call(db,'/api/v2/ads','GET',undefined,null)).data.enabled,false);
+ assert.equal((await call(db,'/api/admin/ads/draft','PUT',{expected_version:0,config:config()})).status,409);
+ assert.equal((await call(db,'/api/admin/ads','PUT',{expected_version:0,config:config()})).status,200);
+ assert.equal((await call(db,'/api/admin/ads/off','POST',{},null)).status,401);
+ const off=await call(db,'/api/admin/ads/off','POST',{config:{sponsors:[{image_url:'broken'}]},expected_version:999});
+ assert.equal(off.status,200);assert.equal(off.data.config.enabled,false);
+ assert.equal(off.data.draft.config.enabled,true);assert.equal(off.data.history.length,3);
+ assert.equal((await call(db,'/api/admin/ads/rollback','POST',{revision:1,expected_version:1})).status,409);
+ assert.equal((await call(db,'/api/admin/ads/rollback','POST',{revision:1,expected_version:2})).status,200);
+ assert.equal((await call(db,'/api/v2/ads','GET',undefined,null)).data.enabled,true);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM revisions').get().n,0);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM notification_events').get().n,0);
+ db.sqlite.close();
+});
