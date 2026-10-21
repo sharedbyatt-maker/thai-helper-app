@@ -67,6 +67,7 @@
       btn.setAttribute('aria-current',active?'page':'false');
       btn.classList.toggle('active',active);
     }
+    if(id==='advertising'&&!loaded)refreshAds();
     if(window.innerWidth<780)panels.get(id).scrollIntoView({behavior:'auto',block:'start'});
   }
   activate('overview');
@@ -111,8 +112,11 @@
   save.type='submit';save.id='ad-config-save';
   const reload=el('button','','Reload configuration');
   reload.type='button';reload.id='ad-config-reload';
-  const row=el('div','control-action-row');row.append(save,reload,emergency);
-  controls.append(row);adPage.append(controls);
+  const draftSave=el('button','','Save draft only');draftSave.type='button';draftSave.id='ad-draft-save';
+  const draftLoad=el('button','','Load saved draft');draftLoad.type='button';draftLoad.id='ad-draft-load';
+  const row=el('div','control-action-row');row.append(draftSave,draftLoad,save,reload,emergency);
+  const revisions=el('div','control-ad-history');revisions.id='ad-revisions';
+  controls.append(row);adPage.append(controls,revisions);
 
   const sponsorPanel=el('section','panel control-sponsors');
   sponsorPanel.append(el('h3','','Direct Sponsor Campaigns'));
@@ -152,7 +156,7 @@
     return input;
   };
   const toInputDate=(iso)=>iso?new Date(iso).toISOString().slice(0,16):'';
-  const toIso=(value)=>value?new Date(value).toISOString():null;
+  const toIso=(value)=>value?new Date(value+'Z').toISOString():null;
   function renderSponsors(){
     sponsorList.replaceChildren();
     for(const sponsor of loaded.config.sponsors){
@@ -164,16 +168,18 @@
       const label=formField(fields,'Ad description','text',sponsor.label);
       const image=formField(fields,'Creative image HTTPS URL','url',sponsor.image_url);
       const destination=formField(fields,'Destination HTTPS URL','url',sponsor.destination_url);
-      const start=formField(fields,'Start (optional)','datetime-local',toInputDate(sponsor.start_at));
-      const end=formField(fields,'End (optional)','datetime-local',toInputDate(sponsor.end_at));
+      const start=formField(fields,'Start UTC (optional)','datetime-local',toInputDate(sponsor.start_at));
+      const end=formField(fields,'End UTC (optional)','datetime-local',toInputDate(sponsor.end_at));
       const priority=formField(fields,'Priority 0-100','number',String(sponsor.priority||0));
       priority.min='0';priority.max='100';
-      const placementLabel=el('label','control-ad-field','Placement');
-      const placement=el('select');
+      const placementLabel=el('fieldset','control-ad-field');placementLabel.append(el('legend','','Placements'));
+      const placementBoxes=[];
       for(const val of ['home','history','calculator','budget']){
-        const o=el('option','',val);o.value=val;placement.append(o);
+        const wrap=el('label','control-switch-row');const box=el('input');box.type='checkbox';box.value=val;
+        box.checked=sponsor.placements.includes(val);box.dataset.sponsorPlacement=val;
+        placementBoxes.push(box);wrap.append(box,el('span','',val));placementLabel.append(wrap);
       }
-      placement.value=sponsor.placements[0]||'home';placementLabel.append(placement);fields.append(placementLabel);
+      fields.append(placementLabel);
       const languageLabel=el('label','control-ad-field','Language');
       const language=el('select');
       for(const val of ['both','my','en']){
@@ -187,17 +193,29 @@
         sponsor.name=name.value.trim();sponsor.label=label.value.trim();
         sponsor.image_url=image.value.trim();sponsor.destination_url=destination.value.trim();
         sponsor.start_at=toIso(start.value);sponsor.end_at=toIso(end.value);
-        sponsor.priority=Number(priority.value)||0;sponsor.placements=[placement.value];
+        sponsor.priority=Number(priority.value)||0;sponsor.placements=placementBoxes.filter(x=>x.checked).map(x=>x.value);
         sponsor.language=language.value;sponsor.enabled=enabled.checked;
         heading.textContent=(sponsor.name||'Untitled')+' · '+(sponsor.enabled?'Enabled':'Paused');
         markDirty();
       };
-      fields.addEventListener('change',update);
+      fields.addEventListener('change',()=>{try{update();}catch(e){indicator('Check campaign dates before saving',true);}});
       fields.addEventListener('input',()=>{try{update();}catch(e){indicator('Check campaign date fields before saving',true);}});
       editor.append(fields);
       const buttons=el('div','control-action-row');
-      const preview=el('button','','Preview link');preview.type='button';
-      preview.addEventListener('click',()=>{const url=destination.value.trim();if(!url.startsWith('https://')){indicator('HTTPS link required',true);return;}window.open(url,'_blank','noopener,noreferrer');});
+      const preview=el('button','','Preview banner');preview.type='button';
+      preview.addEventListener('click',()=>{
+        const safe=value=>{try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}};
+        if(!safe(image.value)||!safe(destination.value)){indicator('Valid HTTPS image and destination required',true);return;}
+        const dialog=el('dialog','control-sponsor-preview');
+        dialog.append(el('h3','','Private preview — not published'),el('p','','Language: '+language.value+' · Placements: '+sponsor.placements.join(', ')),el('small','','Sponsored'));
+        const creative=el('img');creative.src=image.value;creative.alt=name.value;creative.referrerPolicy='no-referrer';
+        creative.style.cssText='display:block;max-width:100%;max-height:220px;object-fit:contain';
+        dialog.append(creative,el('h4','',name.value),el('p','',label.value));
+        const visit=el('a','','Visit sponsor');visit.href=destination.value;visit.target='_blank';visit.rel='noopener noreferrer';
+        const close=el('button','','Close preview');close.type='button';close.addEventListener('click',()=>dialog.close());
+        dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+        dialog.append(visit,close);document.body.append(dialog);dialog.showModal();
+      });
       const remove=el('button','control-danger','Delete campaign');remove.type='button';
       remove.addEventListener('click',()=>{
         if(!confirm('Remove this sponsor from your draft ads settings?'))return;
@@ -225,30 +243,59 @@
     indicator('Loading advertising settings…');
     try{
       loaded=await request('ads');dirty=false;
-      displayControls();renderSponsors();
+      displayControls();renderSponsors();renderHistory();
       indicator('Config v'+loaded.version+' · Last saved '+loaded.updated_at+' · Off by default / API-backed');
     }catch(e){indicator('Could not load ads: '+e.message,true);}
   }
   async function saveAds(configOverride){
     if(!loaded)return;
+    if(!confirm('Publish these advertising settings to allowed app placements?'))return;
     try{
       const config=configOverride||getConfigFromForm();
       const res=await request('ads','PUT',{config,expected_version:loaded.version});
       loaded.version=res.version;loaded.config=config;loaded.updated_at=res.updated_at;dirty=false;
-      displayControls();renderSponsors();
-      indicator('Ads settings saved — version '+res.version);
+      displayControls();renderSponsors();renderHistory();
+      await refreshAds();indicator('Ads settings published — version '+res.version);
     }catch(e){indicator('Save failed: '+e.message,true);}
   }
   controls.addEventListener('submit',event=>{event.preventDefault();saveAds();});
   reload.addEventListener('click',()=>{
     if(dirty&&!confirm('Discard unsaved ad settings?'))return;refreshAds();
   });
-  emergency.addEventListener('click',()=>{
-    if(!loaded||!confirm('Turn OFF advertising globally, all platforms and sponsors now?'))return;
-    const config=getConfigFromForm();config.enabled=false;
-    config.sponsors_enabled=false;
-    config.platforms={web:false,android:false,ios:false};
-    saveAds(config);
+  function renderHistory(){
+    revisions.replaceChildren(el('h3','','Published advertising history'));
+    for(const revision of loaded.history||[]){
+      const restore=el('button','','Restore v'+revision.version+' · '+revision.updated_at);restore.type='button';
+      restore.addEventListener('click',async()=>{
+        if(!confirm('Publish advertising revision '+revision.version+' again? Campaign dates still apply.'))return;
+        try{await request('ads/rollback','POST',{revision:revision.version,expected_version:loaded.version});await refreshAds();}
+        catch(e){indicator('Restore failed: '+e.message,true);}
+      });revisions.append(restore);
+    }
+  }
+  draftSave.addEventListener('click',async()=>{
+    if(!loaded)return;
+    try{
+      const config=getConfigFromForm();
+      const result=await request('ads/draft','PUT',{config,expected_version:loaded.draft?.version||0});
+      loaded.draft={config:structuredClone(config),version:result.version,updated_at:result.updated_at};dirty=false;
+      indicator('Draft saved — public advertising unchanged');
+    }catch(e){indicator('Draft save failed: '+e.message,true);}
+  });
+  draftLoad.addEventListener('click',()=>{
+    if(!loaded?.draft){indicator('No saved draft yet');return;}
+    if(dirty&&!confirm('Replace unsaved fields with saved draft?'))return;
+    loaded.config=structuredClone(loaded.draft.config);displayControls();renderSponsors();markDirty();
+  });
+  emergency.addEventListener('click',async()=>{
+    if(!confirm('Turn OFF all advertising now? Unsaved fields will be discarded.'))return;
+    emergency.disabled=true;
+    try{
+      loaded=await request('ads/off','POST',{});dirty=false;
+      displayControls();renderSponsors();renderHistory();
+      indicator('All advertising OFF. Online apps refresh within 60 seconds plus network time. Saved drafts remain separate.');
+    }catch(e){indicator('Emergency OFF failed: '+e.message,true);}
+    finally{emergency.disabled=false;}
   });
   addSponsor.addEventListener('click',()=>{
     if(!loaded)return;
@@ -261,8 +308,7 @@
     markDirty();renderSponsors();
     sponsorList.lastElementChild.open=true;
   });
-  const adNav=aside.querySelector('[data-page=advertising]');
-  adNav?.addEventListener('click',()=>{if(!loaded)refreshAds();});
+
   // Expose navigation only to integration tests; no remote scripting.
   window.bahtzayAdminNavigate=activate;
 })();

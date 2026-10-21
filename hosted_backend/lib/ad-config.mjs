@@ -35,10 +35,12 @@ export function validateAds(input){
     const id=text(s.id,64),name=text(s.name,100),label=text(s.label,160);
     if(!/^[A-Za-z0-9_-]{1,64}$/.test(id)||!name)throw Error('Sponsor ID/Name လိုပါသည်');
     if(!Array.isArray(s.placements)||s.placements.length===0||s.placements.length>4||s.placements.some(v=>!slots.has(v)))throw Error('Sponsor placement မမှန်ပါ');
-    const language=languages.has(s.language)?s.language:'both';
+    if(!languages.has(s.language))throw Error('Invalid sponsor language');
+    const language=s.language;
     const start_at=dateString(s.start_at),end_at=dateString(s.end_at);
     if(start_at&&end_at&&Date.parse(end_at)<=Date.parse(start_at))throw Error('Sponsor end date သည် start ထက် နောက်ကျရမည်');
-    const priority=Number.isSafeInteger(s.priority)&&s.priority>=0&&s.priority<=100?s.priority:0;
+    if(!Number.isSafeInteger(s.priority)||s.priority<0||s.priority>100)throw Error('Priority must be 0-100');
+    const priority=s.priority;
     return {id,name,label,language,placements:[...new Set(s.placements)],image_url:safeHttps(s.image_url),destination_url:safeHttps(s.destination_url),start_at,end_at,priority,enabled:asBool(s.enabled)};
   });
   if(new Set(sponsors.map(x=>x.id)).size!==sponsors.length)throw Error('Sponsor ID တူနေပါသည်');
@@ -59,15 +61,21 @@ export async function readAds(db, publicView=false){
   await seed(db);
   const row=await db.prepare('SELECT version,payload,updated_at FROM ad_configuration WHERE id=1').first();
   const config=validateAds(JSON.parse(row.payload));
-  if (!publicView)return {config,version:row.version,updated_at:row.updated_at};
+  if (!publicView){
+    const draft=await db.prepare('SELECT version,payload,updated_at FROM ad_draft WHERE id=1').first();
+    const history=await db.prepare('SELECT version,updated_at FROM ad_history ORDER BY version DESC LIMIT 30').all();
+    return {config,version:row.version,updated_at:row.updated_at,
+      draft:draft?{config:JSON.parse(draft.payload),version:draft.version,updated_at:draft.updated_at}:null,
+      history:history.results};
+  }
   const now=Date.now();
   const sponsors = config.enabled&&config.sponsors_enabled
     ?config.sponsors.filter(s=>s.enabled&&(s.start_at==null||Date.parse(s.start_at)<=now)&&(s.end_at==null||Date.parse(s.end_at)>now)&&s.placements.some(x=>config.placements[x]))
-      .sort((a,b)=>b.priority-a.priority).map(({id,name,label,language,placements,image_url,destination_url})=>({id,name,label,language,placements,image_url,destination_url}))
+      .sort((a,b)=>b.priority-a.priority).map(({id,name,label,language,placements,image_url,destination_url,end_at})=>({id,name,label,language,placements,image_url,destination_url,end_at}))
     :[];
   // Public controls are purely advisory until actual platform-specific SDKs
   // are integrated, and must never contain AdMob credentials or secrets.
-  return {version:row.version,enabled:config.enabled,platforms:config.platforms,formats:config.formats,placements:config.placements,sponsors};
+  return {max_age_seconds:60,version:row.version,enabled:config.enabled,platforms:config.platforms,formats:config.formats,placements:config.placements,sponsors};
 }
 export async function saveAds(db, input){
   const {config,expected_version}=input||{};
@@ -80,4 +88,25 @@ export async function saveAds(db, input){
     .bind(JSON.stringify(validated),updated_at,expected_version).run();
   if(!result.meta.changes)return {status:409,data:{error:'Ads settings ကို တခြားနေရာက ပြောင်းထားပြီ။ Reload လုပ်ပါ'}};
   return {status:200,data:{ok:true,version:expected_version+1,updated_at}};
+}
+
+// Disable authoritative persisted settings independently of any browser draft.
+export async function emergencyOff(db){
+ await seed(db);
+ await db.prepare("UPDATE ad_configuration SET payload=json_set(payload,'$.enabled',json('false'),'$.sponsors_enabled',json('false'),'$.platforms.web',json('false'),'$.platforms.android',json('false'),'$.platforms.ios',json('false')),version=version+1,updated_at=? WHERE id=1").bind(new Date().toISOString()).run();
+ return {status:200,data:await readAds(db)};
+}
+export async function saveAdDraft(db,input){
+ if(!Number.isSafeInteger(input?.expected_version)||input.expected_version<0)return {status:400,data:{error:'Draft version required'}};
+ let config;try{config=validateAds(input.config);}catch(e){return {status:400,data:{error:e.message}};}
+ await db.prepare('INSERT OR IGNORE INTO ad_draft(id,version,payload,updated_at) VALUES(1,0,?,?)').bind(JSON.stringify(defaultConfig),new Date(0).toISOString()).run();
+ const updated_at=new Date().toISOString();
+ const result=await db.prepare('UPDATE ad_draft SET payload=?,version=version+1,updated_at=? WHERE id=1 AND version=?').bind(JSON.stringify(config),updated_at,input.expected_version).run();
+ return result.meta.changes?{status:200,data:{ok:true,version:input.expected_version+1,updated_at}}:{status:409,data:{error:'Draft changed; reload before saving'}};
+}
+export async function rollbackAds(db,input){
+ if(!Number.isSafeInteger(input?.revision))return {status:400,data:{error:'Revision required'}};
+ const row=await db.prepare('SELECT payload FROM ad_history WHERE version=?').bind(input.revision).first();
+ if(!row)return {status:404,data:{error:'Revision not found'}};
+ return saveAds(db,{config:JSON.parse(row.payload),expected_version:input.expected_version});
 }

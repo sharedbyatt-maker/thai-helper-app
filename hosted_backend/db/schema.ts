@@ -87,3 +87,12 @@ export const adConfiguration = sqliteTable('ad_configuration', {
   payload: text('payload').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+export const adDraft = sqliteTable('ad_draft', {
+ id: integer('id').primaryKey(), version: integer('version').notNull().default(0),
+ payload: text('payload').notNull(), updatedAt: text('updated_at').notNull(),
+});
+export const adHistory = sqliteTable('ad_history', {
+ version: integer('version').primaryKey(), payload: text('payload').notNull(),
+ updatedAt: text('updated_at').notNull(),
+});
