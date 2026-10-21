@@ -1,8 +1,17 @@
 name: Native platform previews (unsigned)
 
-# Optional manual proof-of-build. This does NOT sign a release or publish to stores.
+# PR/master proof-of-build with optional manual reruns. This does NOT sign a release or publish to stores.
 on:
   workflow_dispatch:
+  pull_request:
+    paths: ['flutter_app/**', 'scripts/prepare_native_icons.py', '.github/workflows/native-previews.yml']
+  push:
+    branches: [master]
+    paths: ['flutter_app/android/**', 'flutter_app/ios/**', 'flutter_app/lib/exchange/platform_files_native.dart', 'scripts/prepare_native_icons.py', '.github/workflows/native-previews.yml']
+
+env:
+  FLUTTER_SUPPRESS_ANALYTICS: "true"
+  DART_SUPPRESS_ANALYTICS: "true"
 
 permissions:
   contents: read
@@ -22,9 +31,12 @@ jobs:
           channel: stable
           cache: true
       - run: python3 scripts/fetch_fonts.py
-      - name: Create temporary Android and iOS Flutter runners
-        working-directory: flutter_app
-        run: flutter create --platforms=android,ios --project-name=thai_helper .
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow==12.3.0
+      - name: Export approved native app icons
+        run: python scripts/prepare_native_icons.py
       - name: Get dependencies
         working-directory: flutter_app
         run: flutter pub get
@@ -47,9 +59,12 @@ jobs:
           channel: stable
           cache: true
       - run: python3 scripts/fetch_fonts.py
-      - name: Create temporary Android and iOS Flutter runners
-        working-directory: flutter_app
-        run: flutter create --platforms=android,ios --project-name=thai_helper .
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow==12.3.0
+      - name: Export approved native app icons
+        run: python scripts/prepare_native_icons.py
       - working-directory: flutter_app
         run: flutter pub get
       - name: Build iOS Simulator app without Apple account

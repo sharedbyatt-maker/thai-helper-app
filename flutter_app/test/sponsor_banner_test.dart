@@ -7,52 +7,152 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:thai_helper/exchange/sponsor_banner.dart';
 
-Map<String,dynamic> conf({bool enabled=false,bool web=false,
-    bool home=false,String image='https://example.com/banner.png',
-    String destination='https://example.com/sponsor'})=> {
-  'enabled':enabled,
-  'platforms':{'web':web,'android':web,'ios':false},
-  'placements':{'home':home,'history':false,'calculator':false,'budget':false},
-  'sponsors':[{
-    'id':'s1','name':'Example Sponsor','label':'An advertised service',
-    'image_url':image,'destination_url':destination,
-    'language':'both','placements':['home'],
-  }],
+Map<String, dynamic> conf({
+  bool enabled = false,
+  bool web = false,
+  bool home = false,
+  String image = 'https://example.com/banner.png',
+  String destination = 'https://example.com/sponsor',
+}) => {
+  'enabled': enabled,
+  'platforms': {'web': web, 'android': web, 'ios': false},
+  'placements': {
+    'home': home,
+    'history': false,
+    'calculator': false,
+    'budget': false,
+  },
+  'sponsors': [
+    {
+      'id': 's1',
+      'name': 'Example Sponsor',
+      'label': 'An advertised service',
+      'image_url': image,
+      'destination_url': destination,
+      'language': 'both',
+      'placements': ['home'],
+    },
+  ],
 };
-Future<void> mount(WidgetTester tester,Map<String,dynamic> config)async{
-  final client=MockClient((request)async{
-    expect(request.url.path,'/api/v2/ads');
-    return http.Response(jsonEncode(config),200,
-       headers:{'content-type':'application/json'});
+Future<void> mount(WidgetTester tester, Map<String, dynamic> config) async {
+  final client = MockClient((request) async {
+    expect(request.url.path, '/api/v2/ads');
+    return http.Response(
+      jsonEncode(config),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
   });
-  await tester.pumpWidget(MaterialApp(home:Scaffold(body:SponsorBanner(
-    placement:'home',apiBase:'https://rates.example',client:client,
-  ))));
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SponsorBanner(
+          placement: 'home',
+          apiBase: 'https://rates.example',
+          client: client,
+        ),
+      ),
+    ),
+  );
   // Flush the mocked HTTP completion independently of image loading.
   await tester.pump();
   await tester.pumpAndSettle();
 }
-void main(){
-  testWidgets('Ads default OFF: no sponsor banner, no layout placeholder', (tester)async{
-    await mount(tester,conf());
-    expect(find.text('Example Sponsor'),findsNothing);
-    expect(find.byKey(const ValueKey('sponsor_home')),findsNothing);
-    expect(tester.takeException(),isNull);
+
+void main() {
+  testWidgets('Ads default OFF: no sponsor banner, no layout placeholder', (
+    tester,
+  ) async {
+    await mount(tester, conf());
+    expect(find.text('Example Sponsor'), findsNothing);
+    expect(find.byKey(const ValueKey('sponsor_home')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-  testWidgets('Explicitly enabled sponsor is clearly labeled', (tester)async{
-    await mount(tester,conf(enabled:true,web:true,home:true));
-    expect(find.text('Example Sponsor'),findsOneWidget);
-    expect(find.text('Sponsored'),findsOneWidget);
-    expect(find.byKey(const ValueKey('sponsor_link_home')),findsOneWidget);
-    expect(tester.takeException(),isNull);
+  testWidgets('Explicitly enabled sponsor is clearly labeled', (tester) async {
+    await mount(tester, conf(enabled: true, web: true, home: true));
+    expect(find.text('Example Sponsor'), findsOneWidget);
+    expect(find.text('Sponsored'), findsOneWidget);
+    expect(find.byKey(const ValueKey('sponsor_link_home')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-  testWidgets('Unsafe sponsor URLs never render', (tester)async{
-    await mount(tester,conf(enabled:true,web:true,home:true,destination:'javascript:alert(1)'));
-    expect(find.text('Example Sponsor'),findsNothing);
-    expect(tester.takeException(),isNull);
+  testWidgets('Unsafe sponsor URLs never render', (tester) async {
+    await mount(
+      tester,
+      conf(
+        enabled: true,
+        web: true,
+        home: true,
+        destination: 'javascript:alert(1)',
+      ),
+    );
+    expect(find.text('Example Sponsor'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('A late sponsor response cannot replace the selected language', (tester) async {
+  testWidgets('Emergency OFF refresh removes an already visible sponsor', (
+    tester,
+  ) async {
+    var enabled = true;
+    final client = MockClient(
+      (_) async => http.Response(
+        jsonEncode(conf(enabled: enabled, web: true, home: true)),
+        200,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SponsorBanner(
+            placement: 'home',
+            apiBase: 'https://rates.example',
+            client: client,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Example Sponsor'), findsOneWidget);
+    enabled = false;
+    await tester.pump(const Duration(seconds: 60));
+    await tester.pumpAndSettle();
+    expect(find.text('Example Sponsor'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('Campaign expires locally before the next API refresh', (
+    tester,
+  ) async {
+    final config = conf(enabled: true, web: true, home: true);
+    (config['sponsors'] as List).single['end_at'] = DateTime.now()
+        .add(const Duration(seconds: 2))
+        .toIso8601String();
+    final client = MockClient(
+      (_) async => http.Response(jsonEncode(config), 200),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SponsorBanner(
+            placement: 'home',
+            apiBase: 'https://rates.example',
+            client: client,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Example Sponsor'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Example Sponsor'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('A late sponsor response cannot replace the selected language', (
+    tester,
+  ) async {
     final requests = <Completer<http.Response>>[];
     final client = MockClient((request) {
       final response = Completer<http.Response>();
@@ -60,23 +160,33 @@ void main(){
       return response.future;
     });
     Future<void> show(Locale locale) async {
-      await tester.pumpWidget(MaterialApp(
-        locale: locale,
-        supportedLocales: const [Locale('my'), Locale('en')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: Scaffold(body: SponsorBanner(
-          placement: 'home', apiBase: 'https://rates.example', client: client,
-        )),
-      ));
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: locale,
+          supportedLocales: const [Locale('my'), Locale('en')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: SponsorBanner(
+              placement: 'home',
+              apiBase: 'https://rates.example',
+              client: client,
+            ),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
     }
+
     http.Response response(String language, String name) {
       final config = conf(enabled: true, web: true, home: true);
       final sponsor = (config['sponsors'] as List).single as Map;
       sponsor['language'] = language;
       sponsor['name'] = name;
-      return http.Response(jsonEncode(config), 200,
-          headers: {'content-type': 'application/json'});
+      return http.Response(
+        jsonEncode(config),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
     }
 
     await show(const Locale('my'));
