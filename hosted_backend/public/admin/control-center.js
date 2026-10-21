@@ -17,12 +17,12 @@
   const pageArea=el('div','control-content');
   const panels=new Map();
   const info=[
-    ['overview','⌂','Overview','Live rates, draft and daily tasks'],
-    ['rates','⇄','Exchange Rates','Edit, preview and publish'],
-    ['advertising','▣','Ads & Sponsors','Web, Android, iOS configuration'],
-    ['notifications','♧','Notifications','Announcements and Telegram'],
-    ['history','◷','Publication History','Previous rates and recovery'],
-    ['system','⚙','App & System','App release and admin access'],
+    ['overview','⌂','အနှစ်ချုပ်','နောက်ဆုံးနှုန်း၊ မူကြမ်းနဲ့ လုပ်ရန်များ'],
+    ['rates','⇄','ငွေလဲနှုန်း','နှုန်းဖြည့် → နမူနာစစ် → အတည်ပြုတင်'],
+    ['advertising','▣','ကြော်ငြာ / Sponsor','မူကြမ်း၊ campaign နဲ့ အရေးပေါ်ပိတ်ခြင်း'],
+    ['notifications','♧','အသိပေးမှု','ကြေညာချက်နဲ့ Telegram ချိတ်ဆက်မှု'],
+    ['history','◷','တင်ထားသောမှတ်တမ်း','ယခင်နှုန်းနဲ့ ပြန်ယူနိုင်သောတင်ချက်များ'],
+    ['system','⚙','App / ဆက်တင်','App version၊ download link နဲ့ owner settings'],
   ];
   for(const [id,icon,name,description] of info){
     const link=el('button','control-link');
@@ -68,7 +68,7 @@
       btn.classList.toggle('active',active);
     }
     if(id==='advertising'&&!loaded)refreshAds();
-    if(window.innerWidth<780)panels.get(id).scrollIntoView({behavior:'auto',block:'start'});
+    if(window.innerWidth<780)panels.get(id).scrollIntoView?.({behavior:'auto',block:'start'});
   }
   activate('overview');
 
@@ -128,7 +128,10 @@
   sponsorPanel.append(sponsorList,addSponsor);
   adPage.append(sponsorPanel);
 
-  let loaded=null,dirty=false;
+  let loaded=null,dirty=false,adWorking=false,adLoading=false,adEpoch=0;
+  function ready(){for(const group of controls.querySelectorAll('fieldset'))group.disabled=!loaded;for(const button of [save,draftSave,draftLoad,addSponsor])button.disabled=!loaded;}
+  ready();
+  window.AdminRuntime?.track('advertising',()=>dirty);
   function indicator(t,error=false){status.textContent=t;status.classList.toggle('error',error);}
   function getConfigFromForm(){
     const data=structuredClone(loaded.config);
@@ -145,7 +148,7 @@
       field.checked=keys.length===1?loaded.config[keys[0]]:loaded.config[keys[0]][keys[1]];
     }
   }
-  function markDirty(){dirty=true;indicator('Unsaved changes — click Save & Publish');}
+  function markDirty(){adEpoch++;dirty=true;indicator('Unsaved changes — click Save & Publish');}
   controls.addEventListener('change',markDirty);
 
   const formField=(parent,title,type='text',value='')=>{
@@ -228,31 +231,37 @@
     if(!loaded.config.sponsors.length)sponsorList.append(el('p','muted','No sponsors yet. Add a campaign with an image URL and an approved link.'));
   }
   async function request(path,method='GET',body){
-    const response=await fetch('/api/admin/'+path,{
-      method,credentials:'same-origin',
-      headers:{'Content-Type':'application/json','X-Admin-Request':'1'},
-      ...(body===undefined?{}:{body:JSON.stringify(body)}),
-    });
-    const data=await response.json();
+    const write=method!=='GET'&&path!=='ads/off';
+    if(write&&adWorking)throw Error('Request တစ်ခု လုပ်ဆောင်နေပါတယ်။ ပြီးမှ ထပ်လုပ်ပေးပါ။');
+    const locked=[];
+    if(write){adWorking=true;for(const node of [...controls.querySelectorAll('input,select,button'),...sponsorPanel.querySelectorAll('input,select,button')]){if(node!==emergency){locked.push([node,node.disabled]);node.disabled=true;}}}
+    try{
+    const options={method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-Admin-Request':'1'},...(body===undefined?{}:{body:JSON.stringify(body)})};
+    const {response,data}=window.AdminRuntime?await window.AdminRuntime.fetchJson('/api/admin/'+path,options):await (async()=>{const response=await fetch('/api/admin/'+path,options);return {response,data:await response.json()};})();
     if(!response.ok)throw Error(data.error||'Request failed');
     return data;
+    }finally{if(write){adWorking=false;for(const [node,disabled]of locked)node.disabled=disabled;}}
   }
   // Owner identity is checked by the server for every request. Never cache
   // admin advertising settings in the public app's browser storage.
   async function refreshAds(){
+    if(adLoading)return;adLoading=true;const epoch=adEpoch;
     indicator('Loading advertising settings…');
     try{
-      loaded=await request('ads');dirty=false;
+      const next=await request('ads');
+      if(epoch!==adEpoch){indicator('New edits kept — reload skipped');return;}loaded=next;dirty=false;ready();
       displayControls();renderSponsors();renderHistory();
       indicator('Config v'+loaded.version+' · Last saved '+loaded.updated_at+' · Off by default / API-backed');
-    }catch(e){indicator('Could not load ads: '+e.message,true);}
+    }catch(e){indicator('Could not load ads: '+e.message,true);}finally{adLoading=false;}
   }
   async function saveAds(configOverride){
     if(!loaded)return;
+    const epoch=adEpoch;
     if(!confirm('Publish these advertising settings to allowed app placements?'))return;
     try{
       const config=configOverride||getConfigFromForm();
       const res=await request('ads','PUT',{config,expected_version:loaded.version});
+      if(epoch!==adEpoch)return;
       loaded.version=res.version;loaded.config=config;loaded.updated_at=res.updated_at;dirty=false;
       displayControls();renderSponsors();renderHistory();
       await refreshAds();indicator('Ads settings published — version '+res.version);
@@ -289,9 +298,9 @@
   });
   emergency.addEventListener('click',async()=>{
     if(!confirm('Turn OFF all advertising now? Unsaved fields will be discarded.'))return;
-    emergency.disabled=true;
+    adEpoch++;emergency.disabled=true;
     try{
-      loaded=await request('ads/off','POST',{});dirty=false;
+      loaded=await request('ads/off','POST',{});dirty=false;ready();
       displayControls();renderSponsors();renderHistory();
       indicator('All advertising OFF. Online apps refresh within 60 seconds plus network time. Saved drafts remain separate.');
     }catch(e){indicator('Emergency OFF failed: '+e.message,true);}
@@ -309,6 +318,19 @@
     sponsorList.lastElementChild.open=true;
   });
 
+
+  const health=el('section','admin-health panel');health.id='admin-health';
+  health.append(el('h3','','အခု လုပ်ရန်'),el('p','','နှုန်းနဲ့ မူကြမ်းကို စစ်ဆေးနေပါတယ်…'));
+  panels.get('overview').insertBefore(health,panels.get('overview').children[2]||null);
+  window.addEventListener('admin:state',event=>{
+    const state=event.detail;const quotes=state.published?.quotes||[];
+    const expired=quotes.filter(q=>!Number.isFinite(Date.parse(q.valid_until))||Date.parse(q.valid_until)<=Date.now()).length;
+    health.replaceChildren(el('h3','','အခု လုပ်ရန်'));
+    for(const text of [quotes.length?'User မြင်နေရသောနှုန်း '+quotes.length+' ခု':'နှုန်း မတင်ရသေးပါ',!quotes.length?'User app အတွက် အတည်ပြုပြီးသောနှုန်း ထည့်ပေးပါ':expired?expired+' နှုန်းကို ပြန်စစ်ဖို့ လိုနေပါတယ်':'ရှိသောနှုန်းများ သက်တမ်းအတွင်း ဖြစ်ပါတယ်','မူကြမ်း v'+state.draft_version+' · တင်ထားသော version '+state.published.revision])health.append(el('p','',text));
+    health.dataset.attention=String(expired>0||quotes.length===0);
+  });
+
+  if(typeof state!=='undefined'&&state)window.dispatchEvent(new CustomEvent('admin:state',{detail:state}));
   // Expose navigation only to integration tests; no remote scripting.
   window.bahtzayAdminNavigate=activate;
 })();

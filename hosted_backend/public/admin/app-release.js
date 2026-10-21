@@ -1,5 +1,6 @@
 'use strict';
 let releaseState,releaseEditing=false;
+window.AdminRuntime.track('release',()=>releaseEditing);
 const releaseBlank=()=>({enabled:false,version:'',build:0,url:'',notes:''});
 function renderAppRelease(value){
  if(releaseEditing)return;

@@ -7,7 +7,7 @@ const root=path.resolve(__dirname,'../hosted_backend/public/admin');
 const pause=()=>new Promise(r=>setTimeout(r,5));
 async function until(check){for(let i=0;i<150;i++){if(check())return;await pause();}throw Error('Admin UI did not settle');}
 function setup(quotes=[],options={}){
- const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'https://rates.example/admin/index.html',runScripts:'outside-only'}),w=dom.window;
+ const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'https://rates.example/admin/index.html',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
  w.confirm=()=>true;
  const state={draft:{notice:'',quotes},draft_version:0,published:{revision:0,quotes:[],published_at:null},history:[],trash:[],...options};
  w.fetch=async(url,options={})=>{
@@ -24,7 +24,7 @@ function setup(quotes=[],options={}){
   throw Error('Unexpected endpoint '+endpoint);
  };
  // Strict eval has its own declaration scope; expose the classic-script API as a browser would.
- w.eval(fs.readFileSync(path.join(root,'app.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app-release.js'),'utf8')+'\nwindow.api=api;');
+ w.eval(fs.readFileSync(path.join(root,'runtime.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app.js'),'utf8')+'\n'+fs.readFileSync(path.join(root,'app-release.js'),'utf8')+'\nwindow.api=api;');
  return {dom,w,state,$:id=>w.document.getElementById(id),get:(card,key)=>card.querySelector(`[data-key="${key}"]`)};
 }
 test('Daily form uses lakh units, generic provenance, no provider or fee inputs, and requires explicit publish',async()=>{
@@ -126,5 +126,38 @@ test('Android release form keeps channels separate, confirms publication and pre
   assert.equal($('release-version').value,'');assert.match($('release-url').placeholder,/play.google.com/);
   $('release-channel').value='apk';$('release-channel').dispatchEvent(new w.Event('change'));
   assert.equal($('release-version').value,'1.0.1');
+ }finally{dom.window.close();}
+});
+test('Safe refresh updates remote state and never overwrites editing that begins during a request',async()=>{
+ const {dom,w,state,$}=setup();try{
+  await until(()=>$('workspace').hidden===false);
+  state.draft_version++;state.draft.notice='Updated remotely';
+  await w.bahtzayAdminRefresh(true);assert.equal($('notice').value,'Updated remotely');
+  let resolve;const original=w.fetch;
+  w.fetch=(url,options)=>url.endsWith('/state')?new Promise(r=>resolve=r):original(url,options);
+  const refresh=w.bahtzayAdminRefresh();
+  $('notice').value='My unsaved text';$('notice').dispatchEvent(new w.Event('input',{bubbles:true}));
+  resolve({ok:true,status:200,json:async()=>structuredClone({...state,draft:{notice:'Different remote text',quotes:[]},draft_version:99})});
+  await refresh;assert.equal($('notice').value,'My unsaved text');
+  assert.equal(w.AdminRuntime.hasUnsaved(),true);
+ }finally{dom.window.close();}
+});
+test('A timed-out write releases Dashboard controls and never retries a mutation',async()=>{
+ const {dom,w,$}=setup();try{
+  await until(()=>$('workspace').hidden===false);
+  const request=w.AdminRuntime.fetchJson;w.AdminRuntime.fetchJson=(url,options)=>request(url,options,10);
+  let calls=0;w.fetch=async(url,options)=>{calls++;return new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(new w.DOMException('aborted','AbortError'))));};
+  $('save').click();await until(()=>$('message').textContent.includes('ရလဒ် အတည်မပြုနိုင်'));
+  assert.equal($('workspace').inert,false);assert.equal($('admin-refresh').disabled,false);assert.equal(calls,1);
+ }finally{dom.window.close();}
+});
+test('Failed refresh retains visible data and advertises stale connection status',async()=>{
+ const {dom,w,$}=setup();try{
+  await until(()=>$('workspace').hidden===false);
+  const before=$('published-version').textContent;
+  w.fetch=async()=>({ok:false,status:503,json:async()=>({error:'temporarily unavailable'})});
+  await w.bahtzayAdminRefresh(true);
+  assert.equal($('published-version').textContent,before);assert.equal($('workspace').hidden,false);
+  assert.equal($('admin-connection').classList.contains('error'),true);
  }finally{dom.window.close();}
 });
