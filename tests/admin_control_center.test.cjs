@@ -53,6 +53,12 @@ test('Admin reorganizes existing working tools into six responsive sections with
    assert.equal($('control-rates').hidden,false);
    assert.equal($('control-overview').hidden,true);
    assert.equal(w.document.querySelectorAll('[aria-current=page]').length,1);
+   const notifications=w.document.querySelector('button.control-link[data-page=notifications]');
+   notifications.click();
+   assert.equal(notifications.getAttribute('aria-controls'),'control-notifications');
+   assert.equal(w.document.activeElement.id,'control-title-notifications');
+   assert.equal($('control-notifications').getAttribute('aria-labelledby'),'control-title-notifications');
+   assert.equal($('control-rates').hidden,true);
  }finally{dom.window.close();}
 });
 test('Ads settings load default OFF, save platform switches, then emergency-disable all',async()=>{

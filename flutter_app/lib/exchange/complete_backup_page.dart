@@ -15,7 +15,8 @@ import 'ux_widgets.dart';
 /// Optional combined backup. Existing individual backup screens remain usable.
 class CompleteBackupPage extends StatefulWidget {
   final CompleteBackupService? service;
-  const CompleteBackupPage({super.key, this.service});
+  final Future<String?> Function()? pickFile;
+  const CompleteBackupPage({super.key, this.service, this.pickFile});
 
   @override
   State<CompleteBackupPage> createState() => _CompleteBackupPageState();
@@ -102,11 +103,18 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
 
   Future<void> chooseFile() async {
     if (busy) return;
+    setState(() => busy = true);
     try {
-      final raw = await pickBackup();
+      final raw = await (widget.pickFile?.call() ?? pickBackup());
       if (raw == null || !mounted) return;
-      text.text = raw;
-      await check();
+      setState(() {
+        text.text = raw;
+        preview = null;
+        accepted = false;
+        error = null;
+      });
+      final next = await service.preview(raw);
+      if (mounted) setState(() => preview = next);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -115,6 +123,8 @@ class _CompleteBackupPageState extends State<CompleteBackupPage> {
           accepted = false;
         });
       }
+    } finally {
+      if (mounted) setState(() => busy = false);
     }
   }
 

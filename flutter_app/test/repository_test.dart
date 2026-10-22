@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +36,79 @@ void main() {
       final result = await repo.load();
       expect(result.origin, SheetOrigin.cache);
       expect(result.sheet.revision, 4);
+      repo.close();
+    },
+  );
+  test(
+    'Offline refresh retains the last live sheet when storage is blocked',
+    () async {
+      var online = true;
+      final repo = RatesRepository(
+        preferences: () async => throw StateError('blocked storage'),
+        client: MockClient(
+          (_) async =>
+              http.Response(online ? raw : 'offline', online ? 200 : 503),
+        ),
+      );
+      expect((await repo.load()).origin, SheetOrigin.server);
+      online = false;
+      final offline = await repo.load();
+      expect(offline.origin, SheetOrigin.cache);
+      expect(offline.sheet.revision, 4);
+      repo.close();
+    },
+  );
+  test(
+    'A deliberate server withdrawal replaces the session fallback too',
+    () async {
+      var response = raw;
+      var online = true;
+      final repo = RatesRepository(
+        preferences: () async => throw StateError('blocked storage'),
+        client: MockClient(
+          (_) async =>
+              http.Response(online ? response : 'offline', online ? 200 : 503),
+        ),
+      );
+      await repo.load();
+      response = jsonEncode({
+        'schema_version': 2,
+        'revision': 5,
+        'published_at': '2026-10-15T10:00:00Z',
+        'notice': 'Withdrawn',
+        'quotes': [],
+      });
+      expect((await repo.load()).sheet.revision, 5);
+      online = false;
+      expect((await repo.load()).sheet.revision, 5);
+      repo.close();
+    },
+  );
+  test(
+    'An older overlapping response cannot replace the newer session fallback',
+    () async {
+      final first = Completer<http.Response>(),
+          second = Completer<http.Response>();
+      var calls = 0;
+      final repo = RatesRepository(
+        preferences: () async => throw StateError('blocked storage'),
+        client: MockClient((_) {
+          calls++;
+          return calls == 1
+              ? first.future
+              : calls == 2
+              ? second.future
+              : Future.value(http.Response('offline', 503));
+        }),
+      );
+      final older = repo.load(), newer = repo.load();
+      second.complete(
+        http.Response(raw.replaceFirst('"revision":4', '"revision":5'), 200),
+      );
+      await newer;
+      first.complete(http.Response(raw, 200));
+      await older;
+      expect((await repo.load()).sheet.revision, 5);
       repo.close();
     },
   );

@@ -1558,11 +1558,13 @@ class BudgetRestorePage extends StatefulWidget {
   final BudgetStore store;
   final int currentCount;
   final Future<void> Function(BudgetData) onRestore;
+  final Future<String?> Function()? pickFile;
   const BudgetRestorePage({
     super.key,
     required this.store,
     required this.currentCount,
     required this.onRestore,
+    this.pickFile,
   });
   @override
   State<BudgetRestorePage> createState() => _BudgetRestorePageState();
@@ -1597,6 +1599,27 @@ class _BudgetRestorePageState extends State<BudgetRestorePage> {
     }
   }
 
+  Future<void> chooseFile() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final raw = await (widget.pickFile?.call() ?? pickBackup());
+      if (raw == null || !mounted) return;
+      text.text = raw;
+      check();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          preview = null;
+          accepted = false;
+          error = e is FormatException ? e.message : 'ဖိုင် ဖတ်မရသေးဘူး။';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> restore() async {
     if (preview == null || !accepted || busy) return;
     setState(() => busy = true);
@@ -1626,30 +1649,12 @@ class _BudgetRestorePageState extends State<BudgetRestorePage> {
           'လက်ရှိ ကိုယ့်ငွေစာရင်းကို ဒီ backup နဲ့ အစားထိုးမှာပါ။ လက်ရှိစာရင်းကိုလည်း အရင် Backup သိမ်းထားနိုင်တယ်။ ငွေလဲမှတ်တမ်းနဲ့ နေ့စဉ်ဈေးကို မပြောင်းပါဘူး။',
           style: TextStyle(height: 1.8),
         ),
-        if (kIsWeb)
-          OutlinedButton.icon(
-            onPressed: busy
-                ? null
-                : () async {
-                    try {
-                      final raw = await pickBackup();
-                      if (raw != null && mounted) {
-                        text.text = raw;
-                        check();
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        setState(
-                          () => error = e is FormatException
-                              ? e.message
-                              : 'ဖိုင် ဖတ်မရသေးဘူး။',
-                        );
-                      }
-                    }
-                  },
-            icon: const Icon(Icons.upload_file),
-            label: const Text('Backup ဖိုင် ရွေးမယ်'),
-          ),
+        OutlinedButton.icon(
+          key: const ValueKey('budget_backup_pick'),
+          onPressed: busy ? null : chooseFile,
+          icon: const Icon(Icons.upload_file),
+          label: const Text('Backup ဖိုင် ရွေးမယ်'),
+        ),
         const SizedBox(height: 14),
         TextField(
           key: const ValueKey('budget_backup_text'),

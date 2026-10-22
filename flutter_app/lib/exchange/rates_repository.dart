@@ -17,6 +17,8 @@ class RatesRepository {
   static const apiBase = String.fromEnvironment('RATES_API');
   static const cacheKey = 'published_exchange_sheet_v2';
   final http.Client client;
+  QuoteSheet? _lastServerSheet;
+  int _requestId = 0, _lastServerRequest = 0;
   final Future<SharedPreferences> Function() preferences;
   RatesRepository({
     http.Client? client,
@@ -35,6 +37,7 @@ class RatesRepository {
       ? Uri.base.resolve('/api/v2/rates')
       : Uri.parse('$apiBase/api/v2/rates');
   Future<LoadedSheet> load() async {
+    final request = ++_requestId;
     final pendingPreferences = _preferences();
     try {
       final response = await client
@@ -52,14 +55,28 @@ class RatesRepository {
         throw const FormatException('Server unavailable');
       }
       final sheet = QuoteSheet.decode(response.body);
+      // Storage is optional. Retain the last verified response in this session
+      // so an offline refresh cannot resurrect an older bundled sheet.
+      if (request >= _lastServerRequest) {
+        _lastServerSheet = sheet;
+        _lastServerRequest = request;
+      }
       // Valid server data remains usable if storage is full/blocked.
       try {
-        await (await pendingPreferences)?.setString(cacheKey, response.body);
+        final prefs = await pendingPreferences;
+        if (request == _lastServerRequest) {
+          await prefs
+              ?.setString(cacheKey, response.body)
+              .timeout(const Duration(seconds: 1));
+        }
       } catch (_) {
         /* optional cache */
       }
       return LoadedSheet(sheet, SheetOrigin.server);
     } catch (_) {
+      if (_lastServerSheet != null) {
+        return LoadedSheet(_lastServerSheet!, SheetOrigin.cache);
+      }
       String? cache;
       try {
         cache = (await pendingPreferences)?.getString(cacheKey);
@@ -98,7 +115,9 @@ class RatesRepository {
       }
       final result = RateHistory.decode(r.body);
       try {
-        await (await pendingPreferences)?.setString(key, r.body);
+        await (await pendingPreferences)
+            ?.setString(key, r.body)
+            .timeout(const Duration(seconds: 1));
       } catch (_) {
         /* optional cache */
       }

@@ -137,3 +137,8 @@ main>header p{font-size:13px;color:var(--admin-muted)}
 .control-ad-history{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.control-ad-history h3{width:100%;margin-bottom:0}
 [aria-busy=true]{cursor:progress}.control-page .toolbar{position:sticky;bottom:8px;z-index:4;background:#fff}
 @media(max-width:780px){.admin-connection{align-items:flex-start;flex-direction:column;padding:12px}.admin-connection button{width:100%}.control-nav{position:sticky;top:0;z-index:5;background:#f4faf7}.control-link{min-width:112px}.control-page .toolbar{bottom:4px}.control-page{scroll-margin-top:100px}}
+
+/* Keep long Myanmar labels and focus targets usable on narrow screens. */
+.control-page-title:focus{outline:3px solid #2ca792;outline-offset:5px;border-radius:4px}
+.control-page-title,.control-link-name{overflow-wrap:anywhere}
+@media(max-width:780px){.control-page-title{scroll-margin-top:110px}.control-page input,.control-page select,.control-page textarea{font-size:16px}}

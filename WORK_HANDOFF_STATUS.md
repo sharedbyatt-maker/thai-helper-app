@@ -65,3 +65,10 @@ User requested a further Admin Dashboard update because it felt stale/unstable. 
 - Sites version 23 deployed successfully (version 22 was saved only and never deployed). Source 3ff620830b67c7a1cc03dc800fe1d5612dedaa6c; deployment appgdep_6ad8dad1866c8191a53d446ba2f9f586; environment revision remains 3. Same public Site/project/DB binding retained.
 - Deployed archive was checked byte-for-byte against tested Admin index/runtime/app/control-center/style/Telegram/release assets; no temporary fixture included. Native deployment result confirms successful publishing. Owner browser interaction and visual QA remain unverified for the reasons above; do not claim those passed.
 - User App source and Pages deployment unchanged by this Admin-only release. Reload the existing Admin tab once to receive the new versioned assets. No dummy production writes, owner resets, migrations or ad activation performed.
+
+## User/Admin review and polish (22 October 2026, Bangkok)
+- Resumed from latest master b2e01e9 after workspace maintenance removed the prior unpushed attempt. Recovered source from GitHub; unrelated backend/.venv/bin/python3 deletion preserved.
+- See CODE_REVIEW_2026-10-22.md for findings and verification scope. Retained live rates offline when caching is blocked; bounded optional cache writes; protected both backup pickers; bounded/shared owner enrollment; corrected discarded release package ID; improved Admin focus, error feedback and narrow-screen forms.
+- Flutter analyze clean, 121 Flutter tests, 21 Admin DOM tests, 77 hosted-backend/branding/push checks and 23 Python backend tests pass locally. No dummy writes, data migration, ad activation or monetization integration.
+- Browser preview reports running but cloud browser gets ERR_CONNECTION_REFUSED. Preview stopped. Live owner/visual interaction remains unverified.
+- Publication is pending; do not infer merge/deployment success from local checks.
