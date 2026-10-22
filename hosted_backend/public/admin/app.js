@@ -1,14 +1,36 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let state, csrf = '', dirty = false, previewed = false, busy = false;
-function message(text, error=false) { $('message').textContent=text; $('message').classList.toggle('error',error); }
+let state, csrf = '', dirty = false, previewed = false, busy = false, bootstrapRequest = null;
+function message(text, error=false) {
+  const feedback=$('message');
+  feedback.setAttribute('role',error?'alert':'status');
+  feedback.setAttribute('aria-live',error?'assertive':'polite');
+  feedback.textContent=text;
+  feedback.classList.toggle('error',error);
+  if(error)feedback.scrollIntoView?.({block:'nearest'});
+}
 window.AdminRuntime.track('rates',()=>dirty);
 window.AdminRuntime.track('announcement',()=>Boolean($('announcement-text')?.value.trim()));
 window.addEventListener('admin:unauthorized',()=>{$('workspace').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;});
 function changed() { dirty=true; previewed=false; $('publish').disabled=true; $('dirty').textContent='ပြင်ထားတာ မသိမ်းရသေးဘူး'; }
-async function api(path, method='GET', body) {
+async function api(path, method='GET', body, allowBootstrap=true) {
   const {response,data}=await window.AdminRuntime.fetchJson('/api/admin/'+path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-Admin-Request':'1','X-CSRF-Token':csrf},body:body===undefined?undefined:JSON.stringify(body)});
-  if(!response.ok) { if(data.bootstrap_ready&&path!=='login'){await api('login','POST',{});return api(path,method,body);} if(response.status===401){$('workspace').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;} const e=new Error(response.status===409?'တခြားနေရာမှာ ပြောင်းထားပါတယ်။ ပြင်ထားတာတွေ မပျောက်အောင် အရင်ကူးထားပြီး Reload နဲ့ ပြန်စစ်ပေးပါ။':data.error||'လုပ်ဆောင်မှု မအောင်မြင်ပါ');e.status=response.status;throw e; }
+  if(!response.ok) {
+    // First-time enrollment is shared across reads and bounded to one retry.
+    // A network failure never retries a mutation whose result is uncertain.
+    if(data.bootstrap_ready&&path!=='login'&&allowBootstrap){
+      if(!bootstrapRequest)bootstrapRequest=api('login','POST',{},false)
+        .finally(()=>{bootstrapRequest=null;});
+      await bootstrapRequest;
+      return api(path,method,body,false);
+    }
+    if(response.status===401){$('workspace').hidden=true;$('login-panel').hidden=false;$('logout').hidden=true;}
+    const e=new Error(response.status===409
+      ?'တခြားနေရာမှာ ပြောင်းထားပါတယ်။ ပြင်ထားတာတွေ မပျောက်အောင် အရင်ကူးထားပြီး Reload နဲ့ ပြန်စစ်ပေးပါ။'
+      :data.error||'လုပ်ဆောင်မှု မအောင်မြင်ပါ');
+    e.status=response.status;
+    throw e;
+  }
   if(data.csrf_token)csrf=data.csrf_token;
   return data;
 }

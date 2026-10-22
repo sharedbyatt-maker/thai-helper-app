@@ -15,7 +15,7 @@ function showReleaseChannel(){
  $('release-url').placeholder=channel==='apk'?'https://github.com/owner/repo/releases/download/v1.0.1/bahtzay.apk':'https://play.google.com/store/apps/details?id=com.yourname.bahtzay';
  $('release-state').textContent=v.enabled?`User များကို ပြနေတယ် · v${v.version} (${v.build})`:'ဒီ channel မှာ update မဖြန့်ရသေးဘူး။';
 }
-$('release-channel').addEventListener('change',()=>{if(releaseEditing&&!confirm('ဒီ channel မှာ မသိမ်းရသေးတာ ပျောက်မယ်။ ပြောင်းမလား?')){$('release-channel').value=$('release-channel').value==='apk'?'play':'apk';return;}releaseEditing=false;showReleaseChannel();});
+$('release-channel').addEventListener('change',()=>{if(releaseEditing&&!confirm('ဒီ channel မှာ မသိမ်းရသေးတာ ပျောက်မယ်။ ပြောင်းမလား?')){$('release-channel').value=$('release-channel').value==='apk'?'play':'apk';return;}releaseEditing=false;if(releaseState)$('release-package').value=releaseState.release.package_id;showReleaseChannel();});
 for(const id of ['release-package','release-enabled','release-version','release-build','release-url','release-notes'])$(id).addEventListener('input',()=>releaseEditing=true);
 $('release-reload').addEventListener('click',()=>action(async()=>{if(releaseEditing&&!confirm('မသိမ်းရသေးတာ ပျောက်မယ်။ ပြန်ယူမလား?'))return;const value=await api('app-release');releaseEditing=false;renderAppRelease(value);message('App update စာရင်း ပြန်ယူပြီးပြီ။');}));
 $('release-save').addEventListener('click',()=>action(async()=>{

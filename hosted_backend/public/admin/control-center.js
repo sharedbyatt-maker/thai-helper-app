@@ -26,14 +26,17 @@
   ];
   for(const [id,icon,name,description] of info){
     const link=el('button','control-link');
-    link.type='button';link.dataset.page=id;
+    link.type='button';link.dataset.page=id;link.setAttribute('aria-controls','control-'+id);
     link.append(el('span','control-icon',icon),el('span','control-link-name',name));
-    link.addEventListener('click',()=>activate(id));
+    link.firstElementChild.setAttribute('aria-hidden','true');
+    link.addEventListener('click',()=>activate(id,true));
     aside.append(link);
     const page=el('section','control-page');
     page.id='control-'+id;page.dataset.page=id;
     page.hidden=true;
-    page.append(el('h2','control-page-title',name),el('p','control-page-description',description));
+    const title=el('h2','control-page-title',name);title.id='control-title-'+id;title.tabIndex=-1;
+    page.setAttribute('aria-labelledby',title.id);
+    page.append(title,el('p','control-page-description',description));
     pageArea.append(page);panels.set(id,page);
   }
   const nodes=[...workspace.children];
@@ -59,7 +62,7 @@
   shell.append(aside,pageArea);
   workspace.append(shell);
 
-  function activate(id){
+  function activate(id,focus=false){
     if(!panels.has(id))id='overview';
     for(const [key,page] of panels)page.hidden=key!==id;
     for(const btn of aside.querySelectorAll('button[data-page]')){
@@ -67,6 +70,7 @@
       btn.setAttribute('aria-current',active?'page':'false');
       btn.classList.toggle('active',active);
     }
+    if(focus)panels.get(id).querySelector('.control-page-title').focus({preventScroll:true});
     if(id==='advertising'&&!loaded)refreshAds();
     if(window.innerWidth<780)panels.get(id).scrollIntoView?.({behavior:'auto',block:'start'});
   }
@@ -75,7 +79,7 @@
   const overviewActions=el('div','control-shortcuts');
   for(const [label,target] of [['ပြင်ဆင် / Publish','rates'],['Ads Control','advertising'],['Telegram / Noti','notifications'],['History','history']]){
     const button=el('button','control-shortcut',label);
-    button.type='button';button.addEventListener('click',()=>activate(target));
+    button.type='button';button.addEventListener('click',()=>activate(target,true));
     overviewActions.append(button);
   }
   panels.get('overview').insertBefore(overviewActions,panels.get('overview').children[2]||null);

@@ -161,3 +161,29 @@ test('Failed refresh retains visible data and advertises stale connection status
   assert.equal($('admin-connection').classList.contains('error'),true);
  }finally{dom.window.close();}
 });
+
+test('Owner bootstrap is shared by concurrent reads and stops after one retry',async()=>{
+ const {dom,w,$}=setup();try{
+  await until(()=>$('workspace').hidden===false);
+  let logins=0,reads=0,complete;
+  w.fetch=async url=>{
+   if(url.endsWith('/login')){logins++;await new Promise(r=>complete=r);return {ok:true,status:200,json:async()=>({ok:true})};}
+   reads++;return {ok:false,status:403,json:async()=>({bootstrap_ready:true,error:'Owner unavailable'})};
+  };
+  const a=w.api('state'),b=w.api('state');
+  await until(()=>logins===1);complete();
+  const results=await Promise.allSettled([a,b]);
+  assert.equal(logins,1);assert.equal(reads,4);assert.ok(results.every(r=>r.status==='rejected'));
+ }finally{dom.window.close();}
+});
+test('Discarding release edits restores the shared package ID and cancel preserves all edits',async()=>{
+ const {dom,w,$}=setup([],{app_release:{release:{package_id:'io.original.bahtzay',apk:{enabled:false,version:'',build:0,url:'',notes:''},play:{enabled:false,version:'',build:0,url:'',notes:''}},release_version:0}});try{
+  await until(()=>$('workspace').hidden===false);
+  $('release-package').value='io.unsaved.bahtzay';$('release-package').dispatchEvent(new w.Event('input'));
+  $('release-version').value='2.0.0';$('release-version').dispatchEvent(new w.Event('input'));
+  w.confirm=()=>false;$('release-channel').value='play';$('release-channel').dispatchEvent(new w.Event('change'));
+  assert.equal($('release-channel').value,'apk');assert.equal($('release-package').value,'io.unsaved.bahtzay');assert.equal($('release-version').value,'2.0.0');
+  w.confirm=()=>true;$('release-channel').value='play';$('release-channel').dispatchEvent(new w.Event('change'));
+  assert.equal($('release-package').value,'io.original.bahtzay');assert.equal($('release-version').value,'');assert.equal(w.AdminRuntime.hasUnsaved(),false);
+ }finally{dom.window.close();}
+});
