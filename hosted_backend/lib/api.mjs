@@ -71,7 +71,8 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   if(path==='/api/admin/push-preview'&&req.method==='POST'){
    let input;try{input=JSON.parse(await bodyText(req,131072));}catch{return json({error:'JSON required'},400);}
    const sheet=validate(input.sheet);const now=Date.now();
-   return json({preview:pushPayload({kind:'rates',payload:JSON.stringify(sheet),expires_at:now+86400000},now)});
+   const previous=await publicSheet();const kind=sheet.notice&&sheet.notice!==previous.notice?'announcement':'rates';
+   return json({preview:pushPayload({kind,payload:JSON.stringify(sheet),expires_at:now+86400000},now)});
   }
   if(path==='/api/admin/push-history'&&req.method==='GET')return json(await pushHistory(db));
   if(path==='/api/admin/push-test'&&req.method==='POST'){

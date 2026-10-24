@@ -186,7 +186,7 @@ $('announcement-template').addEventListener('change',event=>{
  const next=event.target.value,field=$('announcement-text');
  if(!next)return;
  if(field.value.trim()&&field.value!==next&&!confirm('ရေးထားတဲ့စာကို ဒီစာတိုနဲ့ အစားထိုးမလား?')){event.target.value='';return;}
- field.value=next;$('announcement-target').value=next.includes('မှတ်')?'wallet':next.includes('တွက်')?'calculator':'rates';field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();event.target.value='';
+ field.value=next;$('announcement-target').value=(next.includes('မှတ်')||next.includes('စီမံ'))?'wallet':next.includes('တွက်')?'calculator':'rates';field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();event.target.value='';
 });
 
 function updateNotificationPreview(){
