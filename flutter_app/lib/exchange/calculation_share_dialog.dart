@@ -38,11 +38,13 @@ class _CalculationShareDialogState extends State<CalculationShareDialog> {
       final box = context.findRenderObject() as RenderBox?;
       final result = await Share.share(widget.receipt,
         sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size);
-      if (mounted) setState(() => status = result.status == ShareResultStatus.success
+      if (mounted) {
+        setState(() => status = result.status == ShareResultStatus.success
           ? 'မျှဝေပြီးပါပြီ။'
           : result.status == ShareResultStatus.dismissed
           ? 'မျှဝေမှုကို ပယ်ဖျက်ထားပါတယ်။'
           : 'မျှဝေမရသေးပါ။ စာသားကို ကူးပြီး ပို့နိုင်ပါတယ်။');
+      }
     } catch (_) {
       if (mounted) setState(() => status = 'မျှဝေမရသေးပါ။ စာသားကို ကူးပြီး ပို့နိုင်ပါတယ်။');
     } finally {

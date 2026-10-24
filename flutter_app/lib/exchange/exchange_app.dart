@@ -4,6 +4,7 @@ import 'quote_freshness.dart';
 import 'app_theme.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/material.dart' as raw show Text;
