@@ -1497,7 +1497,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             const SizedBox(height: 6),
             raw.Text(
               line.original!.sourceName.isEmpty
-                  ? uiText(context, line.original!.label)
+                  ? line.original!.label
                   : line.original!.sourceName,
               style: TextStyle(
                 fontSize: 12,
