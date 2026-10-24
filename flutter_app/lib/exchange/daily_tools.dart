@@ -812,9 +812,9 @@ class RateShareCard extends StatelessWidget {
             style: TextStyle(fontSize: 11),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             publicAppUrl,
-            style: TextStyle(fontSize: 10, fontFamily: 'sans-serif'),
+            style: const TextStyle(fontSize: 10, fontFamily: 'sans-serif'),
           ),
         ],
       ),
