@@ -10,7 +10,7 @@ const random = () => hex(crypto.getRandomValues(new Uint8Array(24)));
 const sha = async s => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(s))));
 const fail = s => { throw new Invalid(s); };
 const directionName = d => d === 'mmk_thb' ? 'ကျပ်ပေး → ဘတ်ယူ' : 'ဘတ်ပေး → ကျပ်ယူ';
-const APP_URL = 'https://sharedbyatt-maker.github.io/thai-helper-app/';
+const APP_URL = 'https://thai-helper-app.pages.dev/';
 const DEFAULT_SOURCE = 'နေ့စဉ်ရည်ညွှန်းနှုန်း';
 export const normalize = s => s.replace(/[၀-၉๐-๙]/g, c => '၀၁၂၃၄၅၆၇၈၉'.includes(c) ? '၀၁၂၃၄၅၆၇၈၉'.indexOf(c) : '๐๑๒๓๔๕๖๗๘๙'.indexOf(c)).replace(/(?<=\d),(?=\d)/g, '');
 export function parseRates(input, defaultDirection = 'mmk_thb') {

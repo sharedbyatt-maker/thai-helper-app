@@ -7,6 +7,6 @@ void main() {
   });
   test('Native links require a configured HTTPS URL', () {
     expect(resolveAppUrl(page: Uri(), web: false, configured: 'https://app.example'), 'https://app.example/');
-    expect(resolveAppUrl(page: Uri(), web: false, configured: 'javascript:evil'), legacyAppUrl);
+    expect(resolveAppUrl(page: Uri(), web: false, configured: 'javascript:evil'), productionAppUrl);
   });
 }

@@ -1,4 +1,4 @@
-export const APP_URL='https://sharedbyatt-maker.github.io/thai-helper-app/';
+export const APP_URL='https://thai-helper-app.pages.dev/';
 export function eventInsert(db,kind,request,now,revisionSql,args=[],target='rates'){
  return db.prepare(`INSERT OR IGNORE INTO notification_events(revision,request_id,payload,kind,created_at,expires_at) SELECT id,?,json_set(payload,'$.notification_target',?),?,?,? FROM revisions WHERE ${revisionSql}`).bind(request,target,kind,now,now+86400000,...args);
 }

@@ -15,7 +15,7 @@ export async function pushApi(req,db,path,data,runtime={}){
  }
  if(req.method!=='POST')return {status:404,data:{error:'Not found'}};
  const origin=req.headers.get('Origin');
- if(!origin||![new URL(APP_URL).origin,new URL(req.url).origin].includes(origin))return {status:403,data:{error:'Origin rejected'}};
+ if(!origin||![new URL(APP_URL).origin,'https://sharedbyatt-maker.github.io',new URL(req.url).origin].includes(origin))return {status:403,data:{error:'Origin rejected'}};
  if(!data||!tokenOK(data.token))return {status:400,data:{error:'Invalid device token'}};
  const manage=await hash(data.token);
  if(path==='/api/v2/push/subscribe'){

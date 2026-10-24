@@ -64,7 +64,7 @@ test('every single rate stays private until explicit paired-owner confirmation, 
   assert.match(preview.data.text,/Public မတင်ရသေး/);assert.match(preview.data.text,/ကျပ် ၁ သိန်း = ဘတ် 726/);assert.match(preview.data.text,/ကျပ်ပေး → ဘတ်ယူ/);
   assert.equal((await call(f,'/api/v2/rates')).data.revision,0);assert.equal((await call(f,'/api/admin/state')).data.draft_version,0);assert.equal((await call(f,'/api/v2/history')).data.points.length,0);
   await confirm(f,secret,11,preview,99);assert.equal((await call(f,'/api/v2/rates')).data.revision,0);
-  const published=await confirm(f,secret,12,preview);assert.match(published.data.text,/တင်ပြီး/);assert.match(published.data.reply_markup.inline_keyboard[0][0].url,/github.io/);
+  const published=await confirm(f,secret,12,preview);assert.match(published.data.text,/တင်ပြီး/);assert.equal(published.data.reply_markup.inline_keyboard[0][0].url,'https://thai-helper-app.pages.dev/');
   const sheet=(await call(f,'/api/v2/rates')).data;assert.equal(sheet.revision,1);assert.equal(sheet.quotes.length,1);assert.equal(sheet.quotes[0].direction,'mmk_thb');assert.equal(sheet.quotes[0].rate_micros,Math.round(100000/726*1e6));assert.equal(sheet.quotes[0].fee_bps,0);assert.equal(sheet.quotes[0].flat_fee_minor,0);
   assert.equal((await call(f,'/api/admin/state')).data.draft.quotes[0].rate_micros,sheet.quotes[0].rate_micros);
   await confirm(f,secret,12,preview);await confirm(f,secret,13,preview);assert.equal((await call(f,'/api/v2/rates')).data.revision,1);

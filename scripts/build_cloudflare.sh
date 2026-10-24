@@ -12,7 +12,7 @@ if ! command -v flutter >/dev/null 2>&1; then
   fi
   export PATH="$BAHTZAY_FLUTTER_DIR/bin:$PATH"
 fi
-BAHTZAY_BUILD_URL="${PUBLIC_APP_URL:-${CF_PAGES_URL:-}}"
+BAHTZAY_BUILD_URL="${PUBLIC_APP_URL:-https://thai-helper-app.pages.dev/}"
 if [ -z "$BAHTZAY_BUILD_URL" ]; then
   echo 'PUBLIC_APP_URL or Cloudflare CF_PAGES_URL is required.' >&2
   exit 1

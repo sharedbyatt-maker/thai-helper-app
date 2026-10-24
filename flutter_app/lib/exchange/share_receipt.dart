@@ -1,5 +1,5 @@
 import 'models.dart';
-import 'app_links.dart' show legacyAppUrl;
+import 'app_links.dart' show productionAppUrl;
 
 /// Translate receipt labels before inserting names and financial values.
 String calculationReceipt({
@@ -9,7 +9,7 @@ String calculationReceipt({
   required bool english,
   required DateTime now,
   required String rateLabel,
-  String appUrl = legacyAppUrl,
+  String appUrl = productionAppUrl,
   required String Function(DateTime) formatTime,
 }) {
   final thbFirst = quote.direction == ExchangeDirection.thbMmk;
