@@ -88,3 +88,16 @@ test('Notification clicks allow only known tabs within the exact app path, inclu
  }
  assert.equal(opened.length,0);
 });
+
+test('Startup branding stays until the app runs and exposes retry if initialization fails',async()=>{
+ const source=fs.readFileSync('flutter_app/web/flutter_bootstrap.js','utf8').replace(/\{\{flutter_js\}\}|\{\{flutter_build_config\}\}/g,'');
+ for(const failed of [false,true]){
+  let loaded,removed=false,ran=false;
+  const message={textContent:''},retry={hidden:true};
+  const document={getElementById:id=>id==='bahtzay-startup'?{remove:()=>removed=true}:id==='startup-message'?message:retry};
+  vm.runInNewContext(source,{document,console:{error(){}},_flutter:{loader:{load:opts=>loaded=opts}}});
+  assert.equal(removed,false);
+  await loaded.onEntrypointLoaded({initializeEngine:async()=>{if(failed)throw Error('offline');return{runApp:async()=>{ran=true;assert.equal(removed,false);}};}});
+  assert.equal(removed,!failed);assert.equal(ran,!failed);assert.equal(retry.hidden,!failed);
+ }
+});

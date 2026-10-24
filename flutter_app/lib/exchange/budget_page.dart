@@ -1,3 +1,4 @@
+import 'backup_reminder.dart';
 import 'dart:convert';
 import 'dart:math';
 
@@ -151,6 +152,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   Future<void> entry(BudgetKind kind, {BudgetEntry? original}) async {
     if (!ready || loading || busy || editing) return;
     editing = true;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     final before = data;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -178,6 +181,11 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
       ),
     );
     editing = false;
+    if (mounted && before.entries.isEmpty && data.entries.isNotEmpty) {
+      await remindBackup(context, () {
+        Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => const CompleteBackupPage()));
+      });
+    }
   }
 
   Future<void> plan({bool create = false, BudgetPlan? selected}) async {
@@ -205,6 +213,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   Future<void> remove(BudgetEntry value) async {
     if (loading || busy || editing) return;
     editing = true;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     final before = data;
     try {
       final confirmed = await showDialog<bool>(
@@ -245,6 +255,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   Future<void> removePlan(BudgetPlan value) async {
     if (loading || busy || editing) return;
     editing = true;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     final before = data;
     try {
       final confirmed = await showDialog<bool>(
@@ -998,6 +1010,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
                             ),
                             PopupMenuButton<String>(
                               key: ValueKey('budget_menu_${e.id}'),
+                              constraints: const BoxConstraints(minWidth: 168),
+                              style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
                               tooltip: uiText(context, 'မှတ်တမ်း ပြင် / ဖျက်'),
                               onSelected: (v) {
                                 if (v == 'edit') entry(e.kind, original: e);
@@ -1006,10 +1020,12 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
                               itemBuilder: (_) => [
                                 const PopupMenuItem(
                                   value: 'edit',
+                                  height: 56,
                                   child: Text('ပြင်မယ်'),
                                 ),
                                 const PopupMenuItem(
                                   value: 'delete',
+                                  height: 56,
                                   child: Text('ဖျက်မယ်'),
                                 ),
                               ],

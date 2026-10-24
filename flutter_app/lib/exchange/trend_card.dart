@@ -68,7 +68,7 @@ class _TrendCardState extends State<TrendCard> {
           : null;
       return Container(
         key: const ValueKey('rate_trend_card'),
-        padding: EdgeInsets.all(compact ? 16 : 22),
+        padding: EdgeInsets.all(compact ? 14 : 22),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -392,6 +392,8 @@ class _TrendCardState extends State<TrendCard> {
                   ],
                 ),
                 SizedBox(height: compact ? 8 : 16),
+                const Text('ကျပ် ၁ သိန်းအတွက် ဘတ် အနိမ့် / အမြင့်', style: TextStyle(color: pale, fontSize: 12)),
+                const SizedBox(height: 6),
                 Wrap(
                   spacing: compact ? 12 : 22,
                   runSpacing: 10,

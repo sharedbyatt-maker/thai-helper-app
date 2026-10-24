@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart' hide Text;
 
@@ -718,30 +719,19 @@ Future<void> showRateShare(
                       }
                       if (!ctx.mounted) return;
                       final bytes = Uint8List.view(data.buffer);
-                      try {
+                      if (kIsWeb) {
+                        downloadBytes(bytes, 'bahtzay-rates.png', 'image/png');
+                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('ပုံဖိုင် ဒေါင်းလုဒ် တောင်းဆိုပြီးပါပြီ။ Downloads မှာ စစ်ကြည့်ပါ။')));
+                      } else {
                         final box = ctx.findRenderObject() as RenderBox?;
                         final result = await Share.shareXFiles(
-                          [
-                            XFile.fromData(
-                              bytes,
-                              mimeType: 'image/png',
-                              name: 'bahtzay-rates.png',
-                            ),
-                          ],
+                          [XFile.fromData(bytes, mimeType: 'image/png', name: 'bahtzay-rates.png')],
+                          fileNameOverrides: ['bahtzay-rates.png'],
                           text: publicAppUrl,
-                          sharePositionOrigin: box == null
-                              ? null
-                              : box.localToGlobal(Offset.zero) & box.size,
+                          sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
                         );
-                        if (result.status == ShareResultStatus.unavailable) {
-                          downloadBytes(
-                            bytes,
-                            'bahtzay-rates.png',
-                            'image/png',
-                          );
-                        }
-                      } catch (_) {
-                        downloadBytes(bytes, 'bahtzay-rates.png', 'image/png');
+                        if (result.status == ShareResultStatus.unavailable) throw const FormatException('Share unavailable');
+                        if (ctx.mounted && result.status == ShareResultStatus.dismissed) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('မျှဝေမှုကို ပယ်ဖျက်ထားပါတယ်။')));
                       }
                     } catch (_) {
                       if (ctx.mounted) {
@@ -756,7 +746,7 @@ Future<void> showRateShare(
                     }
                   },
             icon: const Icon(Icons.ios_share, size: 18),
-            label: Text(busy ? 'ပုံပြင်ဆင်နေပါတယ်' : 'ပုံအဖြစ် မျှဝေမယ်'),
+            label: Text(busy ? 'ပုံပြင်ဆင်နေပါတယ်' : kIsWeb ? 'ပုံဖိုင်ယူမယ်' : 'ပုံအဖြစ် မျှဝေမယ်'),
           ),
         ],
       ),
