@@ -95,3 +95,18 @@ test('Each independently entered direction keeps its own observation time in a p
  for(const q of [older,newer])assert.ok(payload.body.includes(new Date(q.observed_at).toLocaleString('en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})));
  assert.match(payload.body,/724/);assert.match(payload.body,/748/);assert.equal(payload.expires_at,Date.parse(older.valid_until));
 });
+
+test('Short announcement previews preserve full published text and do not split Myanmar graphemes',()=>{
+ const notice='မင်္ဂလာပါ '.repeat(120).trim();
+ const event={revision:10,kind:'announcement',payload:JSON.stringify({quotes:[],notice}),expires_at:now+86400000};
+ const payload=pushPayload(event,now);
+ assert.equal(payload.title,'ဘတ်ဈေး');assert.ok(payload.body.endsWith('…'));
+ assert.ok([...new Intl.Segmenter('my',{granularity:'grapheme'}).segment(payload.body)].length<=90);
+ assert.equal(JSON.parse(event.payload).notice,notice);assert.equal(payload.url,'https://sharedbyatt-maker.github.io/thai-helper-app/');
+});
+test('Rate copy stays compact without inventing price movement; expired rates still never notify',()=>{
+ const q=quote('thb_mmk',748,now);
+ const payload=pushPayload({revision:11,kind:'rates',payload:JSON.stringify({quotes:[q]}),expires_at:now+86400000},now);
+ assert.equal(payload.title,'ဘတ်ဈေး တင်ထားပြီ 🔔');assert.match(payload.body,/748/);assert.ok(!payload.body.includes('နှုန်းတစ်ဘက်ချင်း'));
+ assert.equal(pushPayload({revision:11,kind:'rates',payload:JSON.stringify({quotes:[q]}),expires_at:now+86400000},now+2*86400000),null);
+});

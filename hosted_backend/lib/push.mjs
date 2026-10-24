@@ -43,7 +43,7 @@ export async function pushApi(req,db,path,data,runtime={}){
   if(!claimed.meta.changes)return {status:429,data:{error:'ခဏစောင့်ပြီး ပြန်စမ်းပါ။'}};
   const config=await ensurePushConfig(db,runtime.telegramKey),keys=await unseal(config.sealed,runtime.telegramKey);
   try{
-   const request=await webPushRequest({endpoint:row.endpoint,keys:JSON.parse(row.keys_json)},{title:'ဘတ်ဈေး · စမ်းသပ်အသိပေးချက်',body:'Noti ချိတ်ဆက်ထားပြီ။ ဈေးနဲ့ ကြေညာချက်အသစ်တင်ရင် ဒီဖုန်းကို အသိပေးမယ်။',url:APP_URL,tag:'bahtzay-test'},keys);
+   const request=await webPushRequest({endpoint:row.endpoint,keys:JSON.parse(row.keys_json)},{title:'ဘတ်ဈေး 🔔',body:'Noti ချိတ်ဆက်ပြီးပြီနော်။',url:APP_URL,tag:'bahtzay-test'},keys);
    const response=await (runtime.fetcher||fetch)(row.endpoint,request);
    return response.status>=200&&response.status<300?{status:200,data:{ok:true}}:{status:503,data:{error:'ဖုန်းကို ပို့မရသေးဘူး။ Browser noti ခွင့်ကို ပြန်စစ်ပေးပါ။'}};
   }catch{return {status:503,data:{error:'လိုင်းမရသေးဘူး။ ခဏနေ ပြန်စမ်းပေးပါ။'}};}

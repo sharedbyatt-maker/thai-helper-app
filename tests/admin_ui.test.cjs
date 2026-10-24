@@ -187,3 +187,14 @@ test('Discarding release edits restores the shared package ID and cancel preserv
   assert.equal($('release-package').value,'io.original.bahtzay');assert.equal($('release-version').value,'');assert.equal(w.AdminRuntime.hasUnsaved(),false);
  }finally{dom.window.close();}
 });
+
+test('Choosing short copy only fills a private composition; cancelling replacement preserves existing text',async()=>{
+ const {dom,w,state,$}=setup();try{
+  await until(()=>$('workspace').hidden===false);
+  const picker=$('announcement-template');picker.selectedIndex=1;const copy=picker.value;
+  picker.dispatchEvent(new w.Event('change'));
+  assert.equal($('announcement-text').value,copy);assert.equal(state.published.revision,0);assert.equal(w.AdminRuntime.hasUnsaved(),true);
+  w.confirm=()=>false;picker.selectedIndex=2;picker.dispatchEvent(new w.Event('change'));
+  assert.equal($('announcement-text').value,copy);assert.equal(state.published.revision,0);
+ }finally{dom.window.close();}
+});

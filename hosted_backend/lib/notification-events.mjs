@@ -2,6 +2,10 @@ export const APP_URL='https://sharedbyatt-maker.github.io/thai-helper-app/';
 export function eventInsert(db,kind,request,now,revisionSql,args=[]){
  return db.prepare(`INSERT OR IGNORE INTO notification_events(revision,request_id,payload,kind,created_at,expires_at) SELECT id,?,payload,?,?,? FROM revisions WHERE ${revisionSql}`).bind(request,kind,now,now+86400000,...args);
 }
+export function shortPushText(text,limit=90){
+ const parts=[...new Intl.Segmenter('my',{granularity:'grapheme'}).segment(text.replace(/\s+/gu,' ').trim())].map(x=>x.segment);
+ return parts.length>limit?parts.slice(0,limit-1).join('')+'…':parts.join('');
+}
 export function pushPayload(event,now=Date.now()){
  const sheet=JSON.parse(event.payload);
  const fresh=(sheet.quotes||[]).filter(q=>Date.parse(q.observed_at)<=now&&Date.parse(q.valid_until)>now);
@@ -9,7 +13,7 @@ export function pushPayload(event,now=Date.now()){
  const notice=typeof sheet.notice==='string'?sheet.notice.trim():'';
  if(event.kind==='rates'&&!fresh.length)return null;
  if(event.kind==='announcement'&&!notice)return null;
- return {title:event.kind==='announcement'?'ဘတ်ဈေး · ကြေညာချက်':'ဘတ်ဈေး · ဈေးနှုန်း တင်ထားပြီ',body:event.kind==='announcement'?notice:prices+'\nနှုန်းတစ်ဘက်ချင်းရဲ့ စစ်ချိန် · ထိုင်းအချိန်',url:APP_URL,tag:'bahtzay-'+event.kind,revision:event.revision,kind:event.kind,expires_at:Math.min(event.expires_at,...(event.kind==='rates'?fresh.map(q=>Date.parse(q.valid_until)):[]))};
+ return {title:event.kind==='announcement'?'ဘတ်ဈေး':'ဘတ်ဈေး တင်ထားပြီ 🔔',body:event.kind==='announcement'?shortPushText(notice):prices,url:APP_URL,tag:'bahtzay-'+event.kind,revision:event.revision,kind:event.kind,expires_at:Math.min(event.expires_at,...(event.kind==='rates'?fresh.map(q=>Date.parse(q.valid_until)):[]))};
 }
 export async function publishAnnouncement(db,notice,expectedRevision,expectedVersion,now=Date.now()){
  if(typeof notice!=='string'||!notice.trim()||notice.trim().length>500||!Number.isSafeInteger(expectedRevision))return {status:400,data:{error:'ကြေညာစာကို စာလုံး ၅၀၀ အတွင်း ဖြည့်ပေးပါ။'}};
