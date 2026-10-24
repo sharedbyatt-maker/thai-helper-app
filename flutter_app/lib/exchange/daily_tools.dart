@@ -680,10 +680,12 @@ Future<void> showRateShare(
 ) async {
   final key = GlobalKey();
   bool busy = false;
+  String? status;
   await showDialog<void>(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, update) => AlertDialog(
+        title: status == null ? null : Text(status!, style: const TextStyle(fontSize: 14, height: 1.7)),
         contentPadding: const EdgeInsets.all(12),
         content: SizedBox(
           width: 360,
@@ -703,7 +705,7 @@ Future<void> showRateShare(
             onPressed: busy
                 ? null
                 : () async {
-                    update(() => busy = true);
+                    update(() { busy = true; status = null; });
                     try {
                       await WidgetsBinding.instance.endOfFrame;
                       final boundary =
@@ -721,7 +723,7 @@ Future<void> showRateShare(
                       final bytes = Uint8List.view(data.buffer);
                       if (kIsWeb) {
                         downloadBytes(bytes, 'bahtzay-rates.png', 'image/png');
-                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('ပုံဖိုင် ဒေါင်းလုဒ် တောင်းဆိုပြီးပါပြီ။ Downloads မှာ စစ်ကြည့်ပါ။')));
+                        if (ctx.mounted) update(() => status = 'ပုံဖိုင် ဒေါင်းလုဒ် တောင်းဆိုပြီးပါပြီ။ Downloads မှာ စစ်ကြည့်ပါ။');
                       } else {
                         final box = ctx.findRenderObject() as RenderBox?;
                         final result = await Share.shareXFiles(
@@ -731,15 +733,11 @@ Future<void> showRateShare(
                           sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
                         );
                         if (result.status == ShareResultStatus.unavailable) throw const FormatException('Share unavailable');
-                        if (ctx.mounted && result.status == ShareResultStatus.dismissed) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('မျှဝေမှုကို ပယ်ဖျက်ထားပါတယ်။')));
+                        if (ctx.mounted && result.status == ShareResultStatus.dismissed) update(() => status = 'မျှဝေမှုကို ပယ်ဖျက်ထားပါတယ်။');
                       }
                     } catch (_) {
                       if (ctx.mounted) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(
-                            content: Text('ပုံမျှဝေမရသေးဘူး။ ပြန်စမ်းပေးပါ။'),
-                          ),
-                        );
+                        update(() => status = 'ပုံမျှဝေမရသေးဘူး။ ပြန်စမ်းပေးပါ။');
                       }
                     } finally {
                       if (ctx.mounted) update(() => busy = false);
