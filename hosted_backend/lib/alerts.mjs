@@ -1,5 +1,5 @@
 // Public notification commands never enter the owner publishing workflow.
-const APP='https://sharedbyatt-maker.github.io/thai-helper-app/';
+const APP='https://thai-helper-app.pages.dev/';
 const sideName=d=>d==='thb_mmk'?'ဘတ်ပေး → ကျပ်ယူ':'ကျပ်ပေး → ဘတ်ယူ';
 const day=t=>new Date(t+7*3600000).toISOString().slice(0,10);
 const signature=q=>`${day(Date.parse(q.observed_at))}:${q.rate_micros}:${q.flat_fee_minor||0}:${q.fee_bps||0}`;

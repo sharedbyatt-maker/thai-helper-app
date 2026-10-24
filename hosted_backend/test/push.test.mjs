@@ -15,7 +15,7 @@ class D1 {
 }
 const secret='ab'.repeat(32),token='cd'.repeat(32),otherToken='ef'.repeat(32),now=Date.now();
 function subscription(suffix='one'){const dh=createECDH('prime256v1'),pub=dh.generateKeys(),auth=randomBytes(16);return {dh,auth,sub:{endpoint:'https://fcm.googleapis.com/fcm/send/'+suffix,keys:{p256dh:pub.toString('base64url'),auth:auth.toString('base64url')}}};}
-function request(path,origin='https://sharedbyatt-maker.github.io'){return new Request('https://rates.example'+path,{method:'POST',headers:{Origin:origin}});}
+function request(path,origin='https://thai-helper-app.pages.dev'){return new Request('https://rates.example'+path,{method:'POST',headers:{Origin:origin}});}
 const quote=(direction='mmk_thb',rate=724,time=now)=>({id:'daily-'+direction,label:direction,direction,rate_micros:Math.round(100000000000/rate),source_name:'reference',source_url:'',payout_method:'bank',note:'',source_checked:true,flat_fee_minor:0,fee_bps:0,observed_at:new Date(time).toISOString(),valid_until:new Date(time+86400000).toISOString()});
 async function publish(db,quotes=[quote()],notice='',kind='rates'){
  const result=db.sqlite.prepare('INSERT INTO revisions(payload,published_at) VALUES(?,?)').run(JSON.stringify({quotes,notice}),new Date(now).toISOString());
@@ -102,7 +102,7 @@ test('Short announcement previews preserve full published text and do not split 
  const payload=pushPayload(event,now);
  assert.equal(payload.title,'ဘတ်ဈေး');assert.ok(payload.body.endsWith('…'));
  assert.ok([...new Intl.Segmenter('my',{granularity:'grapheme'}).segment(payload.body)].length<=90);
- assert.equal(JSON.parse(event.payload).notice,notice);assert.equal(payload.url,'https://sharedbyatt-maker.github.io/thai-helper-app/?tab=rates');
+ assert.equal(JSON.parse(event.payload).notice,notice);assert.equal(payload.url,'https://thai-helper-app.pages.dev/?tab=rates');
 });
 test('Rate copy stays compact without inventing price movement; expired rates still never notify',()=>{
  const q=quote('thb_mmk',748,now);
@@ -165,5 +165,18 @@ test('Every Admin route rejects anonymous and non-owner requests before changing
    const response=await handle(req,db,user,'');assert.equal(response.status,user?403:401,path+' '+method);
   }
   assert.equal(db.sqlite.prepare('SELECT total_changes() n').get().n,before);
+ }finally{db.sqlite.close();}
+});
+
+test('Cloudflare production and legacy origins retain device checks while unrelated previews are rejected',async()=>{
+ const db=new D1();try{
+  for(const origin of ['https://thai-helper-app.pages.dev','https://sharedbyatt-maker.github.io','https://rates.example']){
+   const result=await pushApi(request('/api/v2/push/status',origin),db,'/api/v2/push/status',{});
+   assert.equal(result.status,400);assert.equal(result.data.error,'Invalid device token');
+  }
+  for(const origin of ['https://untrusted.pages.dev','https://preview.thai-helper-app.pages.dev','https://evil.example']){
+   const result=await pushApi(request('/api/v2/push/status',origin),db,'/api/v2/push/status',{});
+   assert.equal(result.status,403);assert.equal(result.data.error,'Origin rejected');
+  }
  }finally{db.sqlite.close();}
 });

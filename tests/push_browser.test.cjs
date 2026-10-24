@@ -101,3 +101,16 @@ test('Startup branding stays until the app runs and exposes retry if initializat
   assert.equal(removed,!failed);assert.equal(ran,!failed);assert.equal(retry.hidden,!failed);
  }
 });
+
+test('Cloudflare metadata uses the supplied HTTPS deployment URL and rejects unsafe URLs',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'bahtzay-cloudflare-'));
+ try{
+  const file=path.join(root,'index.html');
+  const original='<meta property="og:url" content="https://old.example/"><meta property="og:image" content="https://old.example/og-image-bahtzay-v2.png">';
+  fs.writeFileSync(file,original);
+  execFileSync(process.execPath,['scripts/stamp_cloudflare_metadata.mjs',root,'https://app.example/']);
+  const html=fs.readFileSync(file,'utf8');assert.ok(html.includes('content="https://app.example/"'));assert.ok(html.includes('https://app.example/og-image-bahtzay-v2.png'));
+  assert.throws(()=>execFileSync(process.execPath,['scripts/stamp_cloudflare_metadata.mjs',root,'javascript:evil'],{stdio:'pipe'}));
+  assert.equal(fs.readFileSync(file,'utf8'),html);
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});

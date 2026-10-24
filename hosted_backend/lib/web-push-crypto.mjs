@@ -34,7 +34,7 @@ export async function webPushRequest(sub,payload,vapid,now=Date.now()){
  const size=new Uint8Array(4);new DataView(size.buffer).setUint32(0,4096);
  const body=join(salt,size,new Uint8Array([65]),server,encrypted);
  const header=encode64(enc.encode(JSON.stringify({typ:'JWT',alg:'ES256'})));
- const claims=encode64(enc.encode(JSON.stringify({aud:new URL(sub.endpoint).origin,exp:Math.floor(now/1000)+3600,sub:'https://sharedbyatt-maker.github.io/thai-helper-app/'})));
+ const claims=encode64(enc.encode(JSON.stringify({aud:new URL(sub.endpoint).origin,exp:Math.floor(now/1000)+3600,sub:'https://thai-helper-app.pages.dev/'})));
  const signing=await crypto.subtle.importKey('jwk',vapid.privateKey,{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
  const sig=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},signing,enc.encode(header+'.'+claims));
  return {method:'POST',headers:{Authorization:`vapid t=${header}.${claims}.${encode64(sig)}, k=${vapid.publicKey}`,TTL:String(payload.expires_at?Math.max(0,Math.min(86400,Math.floor((payload.expires_at-now)/1000))):86400),Urgency:'normal','Content-Type':'application/octet-stream','Content-Encoding':'aes128gcm'},body,redirect:'error',signal:AbortSignal.timeout(8000)};
