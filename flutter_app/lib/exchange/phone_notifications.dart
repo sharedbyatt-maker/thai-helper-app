@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Text;
 import 'user_language.dart' show Text;
 import 'package:url_launcher/url_launcher.dart';
 import 'platform_files.dart';
+import 'app_links.dart';
 import 'rates_repository.dart';
 
 class PhoneNotifications extends StatefulWidget {
@@ -86,7 +87,7 @@ class _PhoneNotificationsState extends State<PhoneNotifications> {
           if (info?['message'] != null)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(info!['message'] as String, style: const TextStyle(fontSize: 12, height: 1.8))),
           TextButton(onPressed: () async {
-            try { await launchUrl(Uri.parse('https://sharedbyatt-maker.github.io/thai-helper-app/privacy.html'), mode: LaunchMode.externalApplication); } catch (_) { /* The disclosure remains available in this panel. */ }
+            try { await launchUrl(Uri.parse(publicAppUrl).resolve('privacy.html'), mode: LaunchMode.externalApplication); } catch (_) { /* The disclosure remains available in this panel. */ }
           }, child: const Text('ကိုယ်ရေးအချက်အလက် အသေးစိတ်')),
           const SizedBox(height: 8),
           const Text('Noti ပို့ဖို့ browser ရဲ့ ချိတ်ဆက်လိပ်စာကိုပဲ သိမ်းမယ်။ ကိုယ့်ငွေပမာဏနဲ့ မှတ်တမ်းတွေ မပို့ပါဘူး။ ဒီနေရာကနေ အချိန်မရွေး ပိတ်နိုင်တယ်။', style: TextStyle(fontSize: 11, height: 1.8)),

@@ -1,4 +1,5 @@
 import 'models.dart';
+import 'app_links.dart' show legacyAppUrl;
 
 /// Translate receipt labels before inserting names and financial values.
 String calculationReceipt({
@@ -8,6 +9,7 @@ String calculationReceipt({
   required bool english,
   required DateTime now,
   required String rateLabel,
+  String appUrl = legacyAppUrl,
   required String Function(DateTime) formatTime,
 }) {
   final thbFirst = quote.direction == ExchangeDirection.thbMmk;
@@ -39,7 +41,7 @@ String calculationReceipt({
     english
         ? 'Calculation only. This is not proof of a money transfer.'
         : 'တွက်ချက်ရလဒ်သာ ဖြစ်ပါတယ်။ ငွေလွှဲပြီးကြောင်း ပြေစာမဟုတ်ပါ။',
-    'https://sharedbyatt-maker.github.io/thai-helper-app/',
+    appUrl,
     english
         ? 'Confirm the latest rate before exchanging money.'
         : 'ငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',

@@ -15,13 +15,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models.dart';
+import 'app_links.dart';
 import 'phone_notifications.dart';
 import 'rate_history.dart';
 import 'rates_repository.dart';
 import 'platform_files.dart';
 import 'trend_card.dart' show bangkokLabel;
 
-const publicAppUrl = 'https://sharedbyatt-maker.github.io/thai-helper-app/';
 
 // Calendar choices refer to Thailand, regardless of the device's timezone.
 DateTime bangkokCalendarDay([DateTime? instant]) {

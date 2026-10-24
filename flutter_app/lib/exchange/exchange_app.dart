@@ -1,3 +1,4 @@
+import 'app_links.dart';
 import 'calculation_share_dialog.dart';
 import 'backup_reminder.dart';
 import 'quote_freshness.dart';
@@ -1747,6 +1748,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         english: uiIsEnglish(context),
         now: DateTime.now(),
         rateLabel: uiRateLabel(context, result.quote),
+        appUrl: publicAppUrl,
         formatTime: when,
       );
     showDialog<void>(context: context, builder: (_) => CalculationShareDialog(receipt: receipt));
