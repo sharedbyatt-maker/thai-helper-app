@@ -177,3 +177,10 @@ $('announcement-publish').addEventListener('click',()=>action(async()=>{
  if(!confirm(`ကြေညာချက်ကို စစ်ပေးပါ\n\n${notice}\n\nအတည်ပြုရင် App ပေါ်တင်ပြီး ဖုန်း noti ဖွင့်ထားသူတွေကို အသိပေးမယ်။ ဈေးနှုန်းနဲ့ မူလစစ်ချိန် မပြောင်းပါဘူး။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
  await api('announcement','POST',{notice,expected_revision:state.published.revision,expected_version:state.draft_version});$('announcement-text').value='';await load();message('ကြေညာချက် တင်ပြီးပြီ။ Noti ဖွင့်ထားသူတွေဆီ ပို့ဖို့ စာရင်းထည့်ထားတယ်။');
 }));
+
+$('announcement-template').addEventListener('change',event=>{
+ const next=event.target.value,field=$('announcement-text');
+ if(!next)return;
+ if(field.value.trim()&&field.value!==next&&!confirm('ရေးထားတဲ့စာကို ဒီစာတိုနဲ့ အစားထိုးမလား?')){event.target.value='';return;}
+ field.value=next;field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();event.target.value='';
+});
