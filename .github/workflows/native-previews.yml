@@ -1,6 +1,6 @@
 name: Native platform previews (unsigned)
 
-# PR/master proof-of-build with optional manual reruns. This does NOT sign a release or publish to stores.
+# PR/master proof-of-build; downloadable previews are created only on manual runs. This does NOT sign a release or publish to stores.
 on:
   workflow_dispatch:
   pull_request:
@@ -44,6 +44,7 @@ jobs:
         working-directory: flutter_app
         run: flutter build apk --debug --dart-define=RATES_API=https://bahtzay-rates.muddyhinny2048.chatgpt.site
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
         with:
           name: bahtzay-android-debug-preview
           path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
@@ -71,6 +72,7 @@ jobs:
         working-directory: flutter_app
         run: flutter build ios --simulator --debug --dart-define=RATES_API=https://bahtzay-rates.muddyhinny2048.chatgpt.site
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
         with:
           name: bahtzay-ios-simulator-preview
           path: flutter_app/build/ios/iphonesimulator/Runner.app

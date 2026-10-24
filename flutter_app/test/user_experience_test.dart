@@ -68,6 +68,21 @@ Future<void> reveal(WidgetTester t, Finder f) async {
 }
 
 void main() {
+  testWidgets('Home exposes rate sharing directly and Settings contains no Admin entry', (t) async {
+    SharedPreferences.setMockInitialValues({});
+    await t.pumpWidget(CurrencyApp(repository: repository(), updates: noNativeUpdates()));
+    await t.pumpAndSettle();
+    final share = find.byKey(const ValueKey('home_share_rates'));
+    await t.ensureVisible(share); await t.pumpAndSettle();
+    await t.tap(share); await t.pumpAndSettle();
+    expect(find.text('ပုံဖိုင်ယူမယ်'), findsNothing); // Widget tests use the native share label.
+    expect(find.text('ပုံအဖြစ် မျှဝေမယ်'), findsOneWidget);
+    await t.tap(find.text('ပိတ်မယ်')); await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey('settings_button'))); await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey('settings_admin')), findsNothing);
+    expect(find.text('Admin'), findsNothing);
+  });
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets(

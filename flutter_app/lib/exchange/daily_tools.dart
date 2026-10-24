@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart' hide Text;
 
-import 'user_language.dart' show Text, uiText, uiIsEnglish, uiFormat;
+import 'user_language.dart' show Text, uiText, uiIsEnglish, uiFormat, uiRateLabel;
 
 import 'package:flutter/rendering.dart';
 import 'package:http/http.dart' as http;
@@ -784,7 +784,7 @@ class RateShareCard extends StatelessWidget {
             for (final q
                 in quotes.where((q) => q.direction == side).take(1)) ...[
               Text(
-                quoteRateLabel(q),
+                uiRateLabel(context, q),
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 20,

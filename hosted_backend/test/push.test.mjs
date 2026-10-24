@@ -153,3 +153,17 @@ test('Owner notification endpoints reject non-owner access before any device sen
  assert.equal(sent,0);
  }finally{db.sqlite.close();}
 });
+
+test('Every Admin route rejects anonymous and non-owner requests before changing data',async()=>{
+ const db=new D1();try{
+  db.sqlite.prepare('INSERT INTO admin_owner VALUES(1,?)').run('owner');
+  const paths=[...new Set([...readFileSync(new URL('../lib/api.mjs',import.meta.url),'utf8').matchAll(/path==='(\/api\/admin\/[^']+)'/g)].map(m=>m[1]))];
+  assert.ok(paths.length>10);
+  const before=db.sqlite.prepare('SELECT total_changes() n').get().n;
+  for(const path of paths)for(const method of ['GET','POST'])for(const user of [null,{userId:'stranger',email:'stranger@example.com'}]){
+   const req=new Request('https://rates.example'+path,{method,headers:{Origin:'https://rates.example','X-Admin-Request':'1'},...(method==='POST'?{body:'{}'}:{})});
+   const response=await handle(req,db,user,'');assert.equal(response.status,user?403:401,path+' '+method);
+  }
+  assert.equal(db.sqlite.prepare('SELECT total_changes() n').get().n,before);
+ }finally{db.sqlite.close();}
+});

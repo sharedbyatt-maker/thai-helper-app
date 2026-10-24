@@ -16,4 +16,17 @@ void main() {
     await tester.tap(find.text('saved')); await tester.pumpAndSettle();
     expect(find.text('Backup သိမ်းမယ်'), findsNothing);
   });
+  testWidgets('Closing the reminder remains dismissed after rebuilding the app', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    Widget app(Key key) => MaterialApp(key: key, home: Scaffold(body: Builder(builder: (context) => TextButton(
+      onPressed: () => remindBackup(context, () {}), child: const Text('saved')))));
+    await tester.pumpWidget(app(const ValueKey('first')));
+    await tester.tap(find.text('saved')); await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close')); await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+    await tester.pumpWidget(app(const ValueKey('second')));
+    await tester.tap(find.text('saved')); await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
 }
