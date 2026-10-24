@@ -320,7 +320,7 @@ class _TrendCardState extends State<TrendCard> {
                         points,
                       ),
                       child: SizedBox(
-                        height: compact ? 108 : 158,
+                        height: compact ? 100 : 158,
                         width: double.infinity,
                         child: Stack(
                           children: [

@@ -152,6 +152,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   Future<void> entry(BudgetKind kind, {BudgetEntry? original}) async {
     if (!ready || loading || busy || editing) return;
     editing = true;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     final before = data;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -211,6 +213,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   Future<void> remove(BudgetEntry value) async {
     if (loading || busy || editing) return;
     editing = true;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     final before = data;
     try {
       final confirmed = await showDialog<bool>(
@@ -251,6 +255,8 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
   Future<void> removePlan(BudgetPlan value) async {
     if (loading || busy || editing) return;
     editing = true;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     final before = data;
     try {
       final confirmed = await showDialog<bool>(
