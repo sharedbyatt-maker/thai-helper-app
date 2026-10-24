@@ -865,7 +865,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         const SizedBox(width: 8),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (quote != null) Text(quoteFreshness(quote, now: now, english: uiIsEnglish(context)), style: const TextStyle(height: 1.7)),
-          if (warning) Text(quote!.activeAt(now) ? 'ဈေးတင်ထားတာ ကြာနေပြီ။ မလဲခင် ပြန်စစ်ပါ။' : 'ဈေးသက်တမ်းကုန်နေပါပြီ။ မလဲခင် ပြန်စစ်ပါ။', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          if (warning) Text(quote.activeAt(now) ? 'ဈေးတင်ထားတာ ကြာနေပြီ။ မလဲခင် ပြန်စစ်ပါ။' : 'ဈေးသက်တမ်းကုန်နေပါပြီ။ မလဲခင် ပြန်စစ်ပါ။', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (data.origin != SheetOrigin.server) Text(data.origin == SheetOrigin.cache ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်' : 'ဈေးအသစ် မရသေးပါဘူး'),
         ])),
       ]),
