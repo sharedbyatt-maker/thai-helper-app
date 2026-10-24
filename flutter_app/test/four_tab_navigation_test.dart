@@ -80,4 +80,28 @@ void main() {
       }
     }
   });
+  testWidgets('Notification launch selects the requested tab and wallet keeps saved records', (tester) async {
+    await BudgetStore().save(const BudgetData(opening: 123400), expectedRevision: 0);
+    for (final entry in {'rates': 0, 'calculator': 1, 'wallet': 2, 'history': 3, 'unknown': 0}.entries) {
+      final repo = RatesRepository(client: MockClient((request) async => http.Response(jsonEncode(
+        request.url.path.endsWith('/history')
+          ? {'schema_version': 1, 'timezone': 'Asia/Bangkok', 'points': <Object>[]}
+          : {'schema_version': 2, 'revision': 0, 'published_at': null, 'notice': '', 'quotes': <Object>[]},
+      ), 200)));
+      await tester.pumpWidget(MaterialApp(home: ExchangeHome(
+        key: ValueKey(entry.key), onTheme: () {}, repository: repo,
+        launchUri: Uri.parse('https://sharedbyatt-maker.github.io/thai-helper-app/?tab=${entry.key}'),
+      )));
+      await tester.pumpAndSettle();
+      expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, entry.value);
+      if (entry.key == 'wallet') {
+        expect(find.byKey(const ValueKey('budget_balance')), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect((await BudgetStore().load()).opening, 123400);
+  });
+
 }

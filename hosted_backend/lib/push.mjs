@@ -101,3 +101,27 @@ export function schedulePush(db,runtime={},force=false){
  const now=Date.now();if(!force&&now-lastAttempt<60000)return;lastAttempt=now;
  runtime.waitUntil((async()=>{await db.prepare('DELETE FROM push_subscribers WHERE active=0 AND updated_at<?').bind(Date.now()-30*86400000).run();const active=await db.prepare('SELECT COUNT(*) AS n FROM push_subscribers WHERE active=1').first();if(!active.n)return;const deadline=Date.now()+20000;for(let i=0;i<5&&Date.now()<deadline;i++){await queuePush(db);if(!await deliverPush(db,runtime.telegramKey,runtime.fetcher||fetch))break;}})().catch(()=>console.error('Phone notifications deferred')));
 }
+
+// Counts are push-service results, never read receipts. No endpoints or device secrets leave this API.
+export async function pushHistory(db){
+ const events=(await db.prepare('SELECT * FROM notification_events ORDER BY revision DESC LIMIT 30').all()).results;
+ const rows=[];
+ for(const event of events){
+  const counts=await db.prepare(`SELECT COUNT(*) AS queued,SUM(CASE WHEN attempts>0 THEN 1 ELSE 0 END) AS attempted,SUM(CASE WHEN status=1 THEN 1 ELSE 0 END) AS accepted,SUM(CASE WHEN status=0 THEN 1 ELSE 0 END) AS pending,SUM(CASE WHEN status=2 AND attempts>0 THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status=2 AND attempts=0 THEN 1 ELSE 0 END) AS skipped FROM push_outbox WHERE revision=?`).bind(event.revision).first();
+  rows.push({revision:event.revision,created_at:event.created_at,preview:pushPayload(event,event.created_at),counts});
+ }
+ return {events:rows};
+}
+export async function ownerPushTest(db,data,runtime={}){
+ let sub;try{sub=await validatePushSubscription(data?.subscription);}catch{return {status:400,data:{error:'ဒီစက်ရဲ့ noti ချိတ်ဆက်မှု လိုပါတယ်။'}};}
+ const config=await ensurePushConfig(db,runtime.telegramKey),now=Date.now();
+ // One owner test per minute across devices; atomic claim also blocks double-clicks.
+ const claim=await db.prepare(`INSERT INTO push_outbox(id,subscriber_id,subscription_version,revision,status,attempts,next_attempt) VALUES('owner-test','owner',0,0,1,0,?) ON CONFLICT(id) DO UPDATE SET next_attempt=excluded.next_attempt WHERE push_outbox.next_attempt<=?`).bind(now+60000,now).run();
+ if(!claim.meta.changes)return {status:429,data:{error:'တစ်မိနစ်စောင့်ပြီး ပြန်စမ်းပါ။'}};
+ try{
+  const keys=await unseal(config.sealed,runtime.telegramKey);
+  const payload={title:'ဘတ်ဈေး 🔔',body:'ဒီ Admin စက်ဆီပဲ စမ်းပို့ထားပါတယ်။',url:APP_URL+'?tab=rates',tag:'bahtzay-owner-test',expires_at:now+60000};
+  const response=await (runtime.fetcher||fetch)(sub.endpoint,await webPushRequest(sub,payload,keys,now));
+  return response.ok?{status:200,data:{ok:true}}:{status:503,data:{error:'Push service က လက်မခံသေးပါ။'}};
+ }catch{return {status:503,data:{error:'စမ်းသပ်ပို့မှု မအောင်မြင်ပါ။'}};}
+}

@@ -78,3 +78,13 @@ test('Push worker displays a notification even for expired/empty payloads and on
  handlers.notificationclick({notification:{close:()=>{},data:{url:'https://evil.example/'}},waitUntil:p=>pending=p});await pending;assert.deepEqual(opened,[scope]);
  handlers.push({data:null,waitUntil:p=>pending=p});await pending;assert.equal(notifications.length,2);
 });
+
+test('Notification clicks allow only known tabs within the exact app path, including already-open windows',async()=>{
+ const handlers={},scope='https://sharedbyatt-maker.github.io/thai-helper-app/',navigated=[],opened=[];
+ const self={registration:{scope},addEventListener:(k,fn)=>handlers[k]=fn,clients:{matchAll:async()=>[{url:scope+'?old=1',focus:async()=>{},navigate:async url=>navigated.push(url)}],openWindow:async url=>opened.push(url)}};
+ vm.runInNewContext(fs.readFileSync('flutter_app/web/bahtzay-push-sw.js','utf8'),{self,URL,Date});
+ for(const [url,expected] of [[scope+'?tab=wallet',scope+'?tab=wallet'],[scope+'other?tab=wallet',scope],['https://evil.example/?tab=wallet',scope],[scope+'?tab=unknown',scope]]){
+ let pending;handlers.notificationclick({notification:{data:{url},close(){}},waitUntil:p=>pending=p});await pending;assert.equal(navigated.at(-1),expected);
+ }
+ assert.equal(opened.length,0);
+});

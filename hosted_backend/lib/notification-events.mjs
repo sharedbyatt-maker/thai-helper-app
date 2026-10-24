@@ -1,6 +1,6 @@
 export const APP_URL='https://sharedbyatt-maker.github.io/thai-helper-app/';
-export function eventInsert(db,kind,request,now,revisionSql,args=[]){
- return db.prepare(`INSERT OR IGNORE INTO notification_events(revision,request_id,payload,kind,created_at,expires_at) SELECT id,?,payload,?,?,? FROM revisions WHERE ${revisionSql}`).bind(request,kind,now,now+86400000,...args);
+export function eventInsert(db,kind,request,now,revisionSql,args=[],target='rates'){
+ return db.prepare(`INSERT OR IGNORE INTO notification_events(revision,request_id,payload,kind,created_at,expires_at) SELECT id,?,json_set(payload,'$.notification_target',?),?,?,? FROM revisions WHERE ${revisionSql}`).bind(request,target,kind,now,now+86400000,...args);
 }
 export function shortPushText(text,limit=90){
  const parts=[...new Intl.Segmenter('my',{granularity:'grapheme'}).segment(text.replace(/\s+/gu,' ').trim())].map(x=>x.segment);
@@ -13,20 +13,25 @@ export function pushPayload(event,now=Date.now()){
  const notice=typeof sheet.notice==='string'?sheet.notice.trim():'';
  if(event.kind==='rates'&&!fresh.length)return null;
  if(event.kind==='announcement'&&!notice)return null;
- return {title:event.kind==='announcement'?'ဘတ်ဈေး':'ဘတ်ဈေး တင်ထားပြီ 🔔',body:event.kind==='announcement'?shortPushText(notice):prices,url:APP_URL,tag:'bahtzay-'+event.kind,revision:event.revision,kind:event.kind,expires_at:Math.min(event.expires_at,...(event.kind==='rates'?fresh.map(q=>Date.parse(q.valid_until)):[]))};
+ return {title:event.kind==='announcement'?'ဘတ်ဈေး':'ဘတ်ဈေး တင်ထားပြီ 🔔',body:event.kind==='announcement'?shortPushText(notice):prices,url:APP_URL+'?tab='+(['rates','wallet','calculator','history'].includes(sheet.notification_target)?sheet.notification_target:'rates'),tag:'bahtzay-'+event.kind,revision:event.revision,kind:event.kind,expires_at:Math.min(event.expires_at,...(event.kind==='rates'?fresh.map(q=>Date.parse(q.valid_until)):[]))};
 }
-export async function publishAnnouncement(db,notice,expectedRevision,expectedVersion,now=Date.now()){
+export async function publishAnnouncement(db,notice,expectedRevision,expectedVersion,now=Date.now(),target='rates'){
+ if(!['rates','wallet','calculator','history'].includes(target))return {status:400,data:{error:'Invalid notification target'}};
  if(typeof notice!=='string'||!notice.trim()||notice.trim().length>500||!Number.isSafeInteger(expectedRevision))return {status:400,data:{error:'ကြေညာစာကို စာလုံး ၅၀၀ အတွင်း ဖြည့်ပေးပါ။'}};
+ const request=`announcement:${expectedRevision}:${expectedVersion}`;
+ const receipt=await db.prepare('SELECT payload FROM notification_events WHERE request_id=?').bind(request).first();
+ if(receipt){const saved=JSON.parse(receipt.payload);return saved.notice===notice?.trim()&&(saved.notification_target||'rates')===target?{status:200,data:{ok:true,replayed:true}}:{status:409,data:{error:'Request already used'}};}
+
  const latest=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
  if((latest?.id||0)!==expectedRevision)return {status:409,data:{error:'နှုန်းပြောင်းသွားပြီ။ နောက်ဆုံးစာရင်း ပြန်ယူပေးပါ။'}};
  const previous=latest?.payload||JSON.stringify({notice:'',quotes:[]});
  const payload=JSON.stringify({...JSON.parse(previous),notice:notice.trim()});
- const request=crypto.randomUUID(),at=new Date(now).toISOString();
+ const at=new Date(now).toISOString();
  const guard='EXISTS(SELECT 1 FROM notification_events WHERE request_id=?)';
  const results=await db.batch([
   db.prepare('INSERT INTO revisions(payload,published_at) SELECT ?,? WHERE COALESCE((SELECT MAX(id) FROM revisions),0)=? AND (SELECT version FROM draft WHERE id=1)=?').bind(payload,at,expectedRevision,expectedVersion),
-  eventInsert(db,'announcement',request,now,'id=last_insert_rowid() AND changes()=1'),
-  db.prepare(`UPDATE draft SET payload=CASE WHEN payload=? THEN ? ELSE payload END,version=version+1 WHERE id=1 AND ${guard}`).bind(previous,payload,request),
+  eventInsert(db,'announcement',request,now,'id=last_insert_rowid() AND changes()=1',[],target),
+  db.prepare(`UPDATE draft SET payload=CASE WHEN payload=? THEN ? ELSE payload END,version=version+1 WHERE id=1 AND version=? AND ${guard}`).bind(previous,payload,expectedVersion,request),
   db.prepare(`UPDATE telegram_pending SET used=1 WHERE used=0 AND ${guard}`).bind(request),
  ]);
  return results[0].meta.changes?{status:200,data:{ok:true}}:{status:409,data:{error:'မူကြမ်း ပြောင်းသွားပြီ။ နောက်ဆုံးစာရင်း ပြန်ယူပေးပါ။'}};

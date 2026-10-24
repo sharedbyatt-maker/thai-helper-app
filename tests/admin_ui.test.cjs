@@ -18,6 +18,7 @@ function setup(quotes=[],options={}){
   if(endpoint==='draft'){assert.equal(data.expected_version,state.draft_version);state.draft=data.sheet;state.draft_version++;return ok({draft_version:state.draft_version});}
   if(endpoint==='delete-revision'){assert.equal(data.expected_version,state.draft_version);assert.equal(data.expected_revision,state.published.revision);const row=state.history.find(r=>r.id===data.revision);state.trash.unshift({...row,deleted_at:new Date().toISOString()});state.history=state.history.filter(r=>r.id!==data.revision);state.published={...state.history[0],revision:state.published.revision+1};state.draft_version++;return ok({ok:true});}
   if(endpoint==='restore'){assert.equal(data.expected_version,state.draft_version);const row=[...state.history,...state.trash].find(r=>r.id===data.revision);state.draft={notice:'',quotes:row.quotes};state.draft_version++;return ok({ok:true});}
+  if(endpoint==='push-preview')return ok({preview:{title:'ဘတ်ဈေး တင်ထားပြီ 🔔',body:'နှုန်း preview'}});
   if(endpoint==='announcement'){assert.equal(data.expected_version,state.draft_version);assert.equal(data.expected_revision,state.published.revision);state.published={...state.published,notice:data.notice,revision:state.published.revision+1};state.draft_version++;return ok({ok:true});}
   if(endpoint==='publish'){assert.equal(data.expected_version,state.draft_version);state.draft_version++;state.published={...structuredClone(state.draft),revision:state.published.revision+1,published_at:new Date().toISOString()};return ok({published:state.published});}
   if(endpoint==='app-release'){state.app_release={release:data.release,release_version:(state.app_release?.release_version||0)+1};return ok(state.app_release);}
@@ -196,5 +197,16 @@ test('Choosing short copy only fills a private composition; cancelling replaceme
   assert.equal($('announcement-text').value,copy);assert.equal(state.published.revision,0);assert.equal(w.AdminRuntime.hasUnsaved(),true);
   w.confirm=()=>false;picker.selectedIndex=2;picker.dispatchEvent(new w.Event('change'));
   assert.equal($('announcement-text').value,copy);assert.equal(state.published.revision,0);
+ }finally{dom.window.close();}
+});
+test('Wallet preset previews its destination and requires confirmation before sending',async()=>{
+ const {dom,w,state,$}=setup();try{
+ await until(()=>$('workspace').hidden===false);
+ $('announcement-template').selectedIndex=2;$('announcement-template').dispatchEvent(new w.Event('change'));
+ assert.equal($('announcement-target').value,'wallet');assert.match($('announcement-preview').textContent,/ငွေစာရင်း/);
+ assert.equal(state.published.revision,0);
+ let submitted;const original=w.fetch;w.fetch=(url,options)=>{if(url.endsWith('/announcement'))submitted=JSON.parse(options.body);return original(url,options);};
+ $('announcement-publish').click();await until(()=>state.published.revision===1);
+ assert.equal(submitted.target,'wallet');await until(()=>$('workspace').inert===false);
  }finally{dom.window.close();}
 });

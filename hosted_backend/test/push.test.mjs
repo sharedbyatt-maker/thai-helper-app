@@ -4,7 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {createECDH,randomBytes,hkdfSync,createDecipheriv,createPublicKey,verify} from 'node:crypto';
 import {vapidKeys,webPushRequest,validPushEndpoint} from '../lib/web-push-crypto.mjs';
-import {ensurePushConfig,pushApi,queuePush,deliverPush} from '../lib/push.mjs';
+import {ensurePushConfig,pushApi,queuePush,deliverPush,ownerPushTest,pushHistory} from '../lib/push.mjs';
 import {pushPayload,eventInsert,publishAnnouncement} from '../lib/notification-events.mjs';
 import {handle} from '../lib/api.mjs';
 import {unseal} from '../lib/secrets.mjs';
@@ -102,11 +102,54 @@ test('Short announcement previews preserve full published text and do not split 
  const payload=pushPayload(event,now);
  assert.equal(payload.title,'ဘတ်ဈေး');assert.ok(payload.body.endsWith('…'));
  assert.ok([...new Intl.Segmenter('my',{granularity:'grapheme'}).segment(payload.body)].length<=90);
- assert.equal(JSON.parse(event.payload).notice,notice);assert.equal(payload.url,'https://sharedbyatt-maker.github.io/thai-helper-app/');
+ assert.equal(JSON.parse(event.payload).notice,notice);assert.equal(payload.url,'https://sharedbyatt-maker.github.io/thai-helper-app/?tab=rates');
 });
 test('Rate copy stays compact without inventing price movement; expired rates still never notify',()=>{
  const q=quote('thb_mmk',748,now);
  const payload=pushPayload({revision:11,kind:'rates',payload:JSON.stringify({quotes:[q]}),expires_at:now+86400000},now);
  assert.equal(payload.title,'ဘတ်ဈေး တင်ထားပြီ 🔔');assert.match(payload.body,/748/);assert.ok(!payload.body.includes('နှုန်းတစ်ဘက်ချင်း'));
  assert.equal(pushPayload({revision:11,kind:'rates',payload:JSON.stringify({quotes:[q]}),expires_at:now+86400000},now+2*86400000),null);
+});
+
+test('Announcement replay is idempotent and wallet routing never changes rate or full notice data',async()=>{
+ const db=new D1();try{
+ await publish(db);db.sqlite.prepare('INSERT INTO draft VALUES(1,?,7)').run(JSON.stringify({quotes:[quote()],notice:''}));
+ const first=await publishAnnouncement(db,'မှတ်လိုက်ဦး',1,7,now,'wallet');
+ assert.equal(first.status,200);
+ assert.equal((await publishAnnouncement(db,'မှတ်လိုက်ဦး',1,7,now,'wallet')).data.replayed,true);
+ assert.equal((await publishAnnouncement(db,'တခြားစာ',1,7,now,'wallet')).status,409);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM revisions').get().n,2);
+ const event=db.sqlite.prepare('SELECT * FROM notification_events ORDER BY revision DESC LIMIT 1').get();
+ assert.match(pushPayload(event,now).url,/tab=wallet$/);
+ assert.equal(JSON.parse(db.sqlite.prepare('SELECT payload FROM revisions ORDER BY id DESC LIMIT 1').get().payload).notification_target,undefined);
+ }finally{db.sqlite.close();}
+});
+test('Owner tests send only the submitted device, are throttled, and never enroll it in broadcasts',async()=>{
+ const db=new D1();try{
+ await subscribe(db,subscription('public-user').sub);let sent=[];
+ const own=subscription('owner-device').sub;
+ const runtime={telegramKey:secret,fetcher:async url=>{sent.push(url);return accepted();}};
+ assert.equal((await ownerPushTest(db,{subscription:own},runtime)).status,200);
+ assert.deepEqual(sent,[own.endpoint]);
+ assert.equal((await ownerPushTest(db,{subscription:own},runtime)).status,429);
+ assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM push_subscribers').get().n,1);
+ assert.equal((await ownerPushTest(db,{subscription:{endpoint:'https://evil.example'}},runtime)).status,400);
+ }finally{db.sqlite.close();}
+});
+test('History counts push-service acceptance separately from pending, skipped and failed attempts without exposing subscriptions',async()=>{
+ const db=new D1();try{
+ await subscribe(db);await publish(db);await queuePush(db,now);await deliverPush(db,secret,accepted,()=>now);
+ const history=await pushHistory(db);assert.equal(history.events[0].counts.accepted,1);assert.equal(history.events[0].counts.attempted,1);
+ assert.ok(!JSON.stringify(history).includes('fcm.googleapis.com'));assert.ok(!JSON.stringify(history).includes('manage_hash'));
+ }finally{db.sqlite.close();}
+});
+test('Owner notification endpoints reject non-owner access before any device send',async()=>{
+ const db=new D1();try{
+ db.sqlite.prepare('INSERT INTO admin_owner VALUES(1,?)').run('owner');let sent=0;
+ for(const user of [null,{userId:'stranger'}]){
+ const req=new Request('https://rates.example/api/admin/push-test',{method:'POST',headers:{Origin:'https://rates.example','X-Admin-Request':'1'},body:'{}'});
+ const response=await handle(req,db,user,'',{fetcher:async()=>{sent++;return accepted();}});assert.ok([401,403].includes(response.status));
+ }
+ assert.equal(sent,0);
+ }finally{db.sqlite.close();}
 });

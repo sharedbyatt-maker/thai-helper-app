@@ -49,6 +49,7 @@
   append('rates',document.getElementById('preview'));
   append('notifications',containing('announcement-publish'));
   append('notifications',containing('insights-refresh'));
+  append('notifications',containing('owner-push-test'));
   append('history',containing('history'));
   append('system',containing('release-save'));
   append('notifications',containing('tg-status'));
