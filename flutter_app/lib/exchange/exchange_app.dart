@@ -1,3 +1,5 @@
+import 'backup_reminder.dart';
+import 'quote_freshness.dart';
 import 'app_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -250,7 +252,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
   List<Calculation> results = [];
   List<PersonalRecord> records = [];
   LoadedSheet? loaded;
-  DateTime? lastFetched;
   RateHistory? rateHistory;
   bool trendLoading = true, trendUnavailable = false;
   ExchangeDirection direction = ExchangeDirection.thbMmk;
@@ -318,7 +319,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
     }
   }
 
-  Future<void> _refresh({bool silent = false}) async {
+  Future<void> _refresh({bool silent = false, bool userInitiated = false}) async {
+    final previousRevision = loaded?.sheet.revision;
     final id = ++requestId;
     if (!silent && mounted) {
       setState(() {
@@ -380,10 +382,16 @@ class _ExchangeHomeState extends State<ExchangeHome>
           }
         }
         loaded = next;
-        lastFetched = DateTime.now();
         loading = false;
         loadError = null;
       });
+      if (userInitiated) {
+        toast(next.origin != SheetOrigin.server
+            ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်'
+            : previousRevision == next.sheet.revision
+            ? 'စစ်ပြီးပါပြီ။ ဈေးအသစ် မတင်ရသေးပါ။'
+            : 'ဈေးအသစ် ရောက်ပါပြီ။');
+      }
       try {
         if (historyRevision == next.sheet.revision &&
             rateHistory != null &&
@@ -845,34 +853,24 @@ class _ExchangeHomeState extends State<ExchangeHome>
     if (value == 3) _loadRecords();
   }
 
-  Widget connectionBanner(LoadedSheet data) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Row(
-      children: [
-        Icon(
-          data.origin == SheetOrigin.server
-              ? Icons.cloud_done_outlined
-              : Icons.offline_bolt_outlined,
-          size: 17,
-          color: schemeColor(context),
-        ),
+  Widget connectionBanner(LoadedSheet data) {
+    final quote = dailyQuote(direction);
+    final now = DateTime.now();
+    final warning = quote != null && (!quote.activeAt(now) || now.difference(quote.observedAt).inHours >= 12);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(warning ? Icons.warning_amber_rounded : data.origin == SheetOrigin.server ? Icons.cloud_done_outlined : Icons.offline_bolt_outlined,
+          size: 20, color: warning ? Theme.of(context).colorScheme.error : schemeColor(context)),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            data.origin == SheetOrigin.server
-                ? 'နောက်ဆုံးချိတ်ဆက်ချိန် ${lastFetched == null ? '—' : when(lastFetched!)} · ထိုင်းအချိန်'
-                : data.origin == SheetOrigin.cache
-                ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်'
-                : 'ဈေးအသစ် မရသေးပါဘူး',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.7,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (quote != null) Text(quoteFreshness(quote, now: now, english: uiIsEnglish(context)), style: const TextStyle(height: 1.7)),
+          if (warning) Text(quote!.activeAt(now) ? 'ဈေးတင်ထားတာ ကြာနေပြီ။ မလဲခင် ပြန်စစ်ပါ။' : 'ဈေးသက်တမ်းကုန်နေပါပြီ။ မလဲခင် ပြန်စစ်ပါ။', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          if (data.origin != SheetOrigin.server) Text(data.origin == SheetOrigin.cache ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်' : 'ဈေးအသစ် မရသေးပါဘူး'),
+        ])),
+      ]),
+    );
+  }
 
   Future<void> _openBackup() async {
     await Navigator.of(
@@ -923,6 +921,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
         onUpdate: () => AppUpdateHost.open(context),
         onNotifications: () => showRateAlerts(context, direction),
         onBackup: _openBackup,
+        onAdmin: () {
+          const base = RatesRepository.apiBase;
+          openSource(base.isEmpty ? Uri.base.resolve('/admin/index.html').toString() : '$base/admin/index.html');
+        },
       ),
     );
   }
@@ -964,7 +966,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ? null
                   : tab == 3
                   ? _loadRecords
-                  : _refresh,
+                  : () => _refresh(userInitiated: true),
               icon: (tab == 3 ? recordsLoading : loading)
                   ? const SizedBox(
                       width: 18,
@@ -1041,7 +1043,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         data?.sheet.quotes.where((q) => q.direction == direction).toList() ??
         [];
     return RefreshIndicator(
-      onRefresh: _refresh,
+      onRefresh: () => _refresh(userInitiated: true),
       child: ListView(
         key: const PageStorageKey('daily'),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -1135,19 +1137,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               'ငွေမလဲခင် ကိုယ်လဲမယ့်သူဆီမှာ နောက်ဆုံးဈေးကို ပြန်မေးပေးပါ။',
             ),
           ),
-          if (data?.origin == SheetOrigin.server)
-            TextButton.icon(
-              onPressed: () {
-                const base = RatesRepository.apiBase;
-                openSource(
-                  base.isEmpty
-                      ? Uri.base.resolve('/admin/index.html').toString()
-                      : '$base/admin/index.html',
-                );
-              },
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              label: const Text('Admin'),
-            ),
+
         ],
       ),
     );
@@ -1299,7 +1289,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 children:
                     ((targetMode ? direction.to : direction.from) == 'ကျပ်'
                             ? [100000, 500000, 1000000]
-                            : [1000, 5000, 10000])
+                            : [1000, 5000, 10000, 15000, 20000])
                         .map(
                           (n) => ActionChip(
                             label: Text(money(n * 100)),
@@ -1515,7 +1505,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   setState(() => line.editingRate = !line.editingRate),
               icon: const Icon(Icons.edit_outlined, size: 18),
               label: Text(
-                line.editingRate ? 'နှုန်းပြင်တာ ပိတ်မယ်' : 'နှုန်းပြင်မယ်',
+                line.editingRate ? 'နှုန်းပြင်တာ ပိတ်မယ်' : 'ကိုယ်တိုင် နှိုင်းယှဉ်ရန် နှုန်း',
               ),
             ),
           ],
@@ -1828,6 +1818,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
       if (mounted) {
         setState(() => records = next);
         toast('သိမ်းပြီးပါပြီ');
+        if (previous.isEmpty && next.isNotEmpty) {
+          await remindBackup(context, _openBackup);
+        }
       }
     } catch (e) {
       toast(
@@ -2363,6 +2356,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 ),
                 TextButton.icon(
                   key: ValueKey('record_delete_${r.id}'),
+                  style: TextButton.styleFrom(minimumSize: const Size(112, 48), foregroundColor: Theme.of(context).colorScheme.error),
                   onPressed: writingRecord ? null : () => deleteRecord(r),
                   icon: const Icon(Icons.delete_outline, size: 18),
                   label: const Text('ဖျက်မယ်'),

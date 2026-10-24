@@ -46,6 +46,20 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="bahtzay-startup" role="status" aria-live="polite" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f5f6ef;color:#143d33;font:16px system-ui,sans-serif;text-align:center;z-index:1">
+    <div style="padding:24px;max-width:360px">
+      <img src="icons/Icon-192-bahtzay-v2.png" alt="ဘတ်ဈေး" width="80" height="80" style="border-radius:20px" onerror="this.hidden=true">
+      <h1 style="font-size:24px">ဘတ်ဈေး</h1>
+      <p id="startup-message">ဖွင့်နေပါတယ်… / Loading…</p>
+      <button id="startup-retry" hidden onclick="location.reload()" style="min-height:48px;padding:12px 24px;border:0;border-radius:12px;background:#087f6d;color:white;font:inherit">ပြန်စမ်းမယ် / Retry</button>
+    </div>
+  </div>
+  <script>
+    setTimeout(() => {
+      const message = document.getElementById('startup-message');
+      if (message && document.getElementById('startup-retry').hidden) { message.textContent = 'လိုင်းနှေးနေနိုင်ပါတယ်။ ခဏစောင့်ပါ။ / Taking longer than usual. Please wait.'; document.getElementById('startup-retry').hidden = false; }
+    }, 15000);
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

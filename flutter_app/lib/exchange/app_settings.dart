@@ -11,6 +11,7 @@ class AppSettingsSheet extends StatelessWidget {
   final VoidCallback onNotifications;
   final VoidCallback onUpdate;
   final VoidCallback onBackup;
+  final VoidCallback? onAdmin;
 
   const AppSettingsSheet({
     super.key,
@@ -19,6 +20,7 @@ class AppSettingsSheet extends StatelessWidget {
     required this.onNotifications,
     required this.onUpdate,
     required this.onBackup,
+    this.onAdmin,
   });
 
   @override
@@ -108,6 +110,13 @@ class AppSettingsSheet extends StatelessWidget {
                   title: const Text('App version / Update စစ်မယ်'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => open(onUpdate),
+                ),
+                if (onAdmin != null) ListTile(
+                  key: const ValueKey('settings_admin'),
+                  leading: const Icon(Icons.admin_panel_settings_outlined),
+                  title: const Text('Admin'),
+                  trailing: const Icon(Icons.open_in_new),
+                  onTap: () => open(onAdmin!),
                 ),
                 const Divider(height: 20),
                 const Padding(
