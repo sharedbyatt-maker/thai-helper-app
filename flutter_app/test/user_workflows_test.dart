@@ -168,6 +168,7 @@ void main() {
       await revealControl(t, clear);
       await t.tap(clear);
       await t.pumpAndSettle();
+      await revealControl(t, find.text('မှတ်တမ်း 3 ခု'));
       expect(find.text('မှတ်တမ်း 3 ခု'), findsOneWidget);
       expect((await RecordStore().load()).length, 3);
       expect(t.takeException(), isNull);
