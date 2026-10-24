@@ -12,6 +12,7 @@ Future<void> remindBackup(BuildContext context, VoidCallback onBackup) async {
     if (prefs.getBool(backupReminderKey) == true || !context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       duration: const Duration(seconds: 10),
+      showCloseIcon: true,
       content: const Text('စာရင်းကို ဒီဖုန်း / browser ထဲမှာပဲ သိမ်းထားပါတယ်။ Browser data မရှင်းခင် Backup သိမ်းပါ။'),
       action: SnackBarAction(label: uiText(context, 'Backup သိမ်းမယ်'), onPressed: onBackup),
     ));

@@ -1,3 +1,4 @@
+import 'calculation_share_dialog.dart';
 import 'backup_reminder.dart';
 import 'quote_freshness.dart';
 import 'app_theme.dart';
@@ -10,9 +11,7 @@ import 'package:flutter/material.dart' as raw show Text;
 import 'user_language.dart'
     show Text, UserLanguage, UserLanguageScope, uiText, uiFormat, uiRateLabel, uiIsEnglish;
 
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -921,10 +920,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         onUpdate: () => AppUpdateHost.open(context),
         onNotifications: () => showRateAlerts(context, direction),
         onBackup: _openBackup,
-        onAdmin: () {
-          const base = RatesRepository.apiBase;
-          openSource(base.isEmpty ? Uri.base.resolve('/admin/index.html').toString() : '$base/admin/index.html');
-        },
+
       ),
     );
   }
@@ -1057,8 +1053,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
           if (data != null) connectionBanner(data),
           if (loading) const LinearProgressIndicator(),
           if (loadError != null) panel(Text(loadError!)),
-          if (data?.sheet.notice.isNotEmpty == true)
-            panel(raw.Text(data!.sheet.notice)),
           directionPicker(showRates: true),
           const SizedBox(height: 16),
           LayoutBuilder(
@@ -1080,18 +1074,35 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 quotes: data?.sheet.quotes ?? [],
                 direction: direction,
               );
+              final board = Column(children: [trend,
+          const SizedBox(height: 10),
+          Align(alignment: Alignment.centerLeft, child: OutlinedButton.icon(
+            key: const ValueKey('home_share_rates'),
+            onPressed: data == null || data.sheet.quotes.isEmpty ? null : () => showRateShare(context, data.sheet.quotes),
+            icon: const Icon(Icons.share_outlined), label: const Text('ဈေးနှုန်း မျှဝေမယ်'),
+          )),
+          if (data?.sheet.notice.isNotEmpty == true)
+            Card(key: const ValueKey('home_announcement'), child: Padding(
+              padding: const EdgeInsets.all(14), child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Row(children: [Icon(Icons.campaign_outlined, size: 18), SizedBox(width: 8), Text('ကြေညာချက်', style: TextStyle(fontWeight: FontWeight.w700))]),
+                  const SizedBox(height: 8), raw.Text(data!.sheet.notice),
+                ],
+              ),
+            )),
+              ]);
               if (wide) {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 6, child: trend),
+                    Expanded(flex: 6, child: board),
                     const SizedBox(width: 18),
                     Expanded(flex: 5, child: tools),
                   ],
                 );
               }
               return Column(
-                children: [trend, const SizedBox(height: 14), tools],
+                children: [board, const SizedBox(height: 14), tools],
               );
             },
           ),
@@ -1485,7 +1496,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             const SizedBox(height: 6),
             raw.Text(
               line.original!.sourceName.isEmpty
-                  ? line.original!.label
+                  ? uiText(context, line.original!.label)
                   : line.original!.sourceName,
               style: TextStyle(
                 fontSize: 12,
@@ -1718,7 +1729,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               TextButton.icon(
                 onPressed: () => shareResult(result),
                 icon: const Icon(Icons.share_outlined),
-                label: const Text('မျှဝေမယ်'),
+                label: const Text('တွက်ချက်ရလဒ် မျှဝေမယ်'),
               ),
             ],
           ),
@@ -1727,24 +1738,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
     ),
   );
 
-  Future<void> shareText(String text) async {
-    final box = context.findRenderObject() as RenderBox?;
-    try {
-      await Share.share(
-        text,
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
-      );
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: text));
-      toast('မျှဝေလို့မရသေးလို့ စာသားကို ကူးပေးထားပါတယ်');
-    }
-  }
-
   void shareResult(Calculation result) {
-    shareText(
-      calculationReceipt(
+    final receipt = calculationReceipt(
         quote: result.quote,
         budget: result.budget,
         received: result.received,
@@ -1752,8 +1747,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
         now: DateTime.now(),
         rateLabel: uiRateLabel(context, result.quote),
         formatTime: when,
-      ),
-    );
+      );
+    showDialog<void>(context: context, builder: (_) => CalculationShareDialog(receipt: receipt));
   }
 
   Future<void> saveResult(Calculation result) async {

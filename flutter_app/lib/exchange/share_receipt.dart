@@ -37,6 +37,10 @@ String calculationReceipt({
           : 'ကိုယ်ထည့်ထားတဲ့ဈေးနဲ့ တွက်ထားပါတယ်',
     '${english ? 'Calculated:' : 'တွက်ချိန်'} ${formatTime(now)}',
     english
+        ? 'Calculation only. This is not proof of a money transfer.'
+        : 'တွက်ချက်ရလဒ်သာ ဖြစ်ပါတယ်။ ငွေလွှဲပြီးကြောင်း ပြေစာမဟုတ်ပါ။',
+    'https://sharedbyatt-maker.github.io/thai-helper-app/',
+    english
         ? 'Confirm the latest rate before exchanging money.'
         : 'ငွေမလဲခင် နောက်ဆုံးဈေးကို ပြန်မေးပါ။',
   ].join('\n');
