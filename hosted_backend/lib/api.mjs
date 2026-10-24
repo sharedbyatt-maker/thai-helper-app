@@ -1,7 +1,7 @@
 import { readRelease,saveRelease } from './app-release.mjs';
 import { readAds,saveAds,emergencyOff,saveAdDraft,rollbackAds } from './ad-config.mjs';
-import { pushApi,schedulePush } from './push.mjs';
-import { eventInsert,publishAnnouncement } from './notification-events.mjs';
+import { pushApi,schedulePush,ownerPushTest,pushHistory } from './push.mjs';
+import { eventInsert,publishAnnouncement,pushPayload } from './notification-events.mjs';
 import { deletePublishedRevision } from './revision-management.mjs';
 import { repairPath, repairTestPublication } from './restore-six-days.mjs';
 import { Invalid, validate } from './validate.mjs';
@@ -68,12 +68,23 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   }
   if(!owner)return json({error:'Admin အကောင့်ဖြင့် ဝင်ပါ',bootstrap_ready:canBootstrap},403);
   if(owner.user_id!==user.userId)return json({error:'ဤအကောင့်တွင် Admin ခွင့်မရှိပါ'},403);
+  if(path==='/api/admin/push-preview'&&req.method==='POST'){
+   let input;try{input=JSON.parse(await bodyText(req,131072));}catch{return json({error:'JSON required'},400);}
+   const sheet=validate(input.sheet);const now=Date.now();
+   const previous=await publicSheet();const kind=sheet.notice&&sheet.notice!==previous.notice?'announcement':'rates';
+   return json({preview:pushPayload({kind,payload:JSON.stringify(sheet),expires_at:now+86400000},now)});
+  }
+  if(path==='/api/admin/push-history'&&req.method==='GET')return json(await pushHistory(db));
+  if(path==='/api/admin/push-test'&&req.method==='POST'){
+   let input;try{input=JSON.parse(await bodyText(req,8192));}catch{return json({error:'JSON required'},400);}
+   const result=await ownerPushTest(db,input,runtime);return json(result.data,result.status);
+  }
   if(path==='/api/admin/insights'&&req.method==='GET'){
    scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);
    const subscribers=await db.prepare('SELECT COUNT(*) AS count FROM alert_subscribers WHERE active=1').first();
    const deliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM alert_outbox GROUP BY status').all();
    const phones=await db.prepare('SELECT COUNT(*) AS count FROM push_subscribers WHERE active=1').first();
-   const phoneDeliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM push_outbox GROUP BY status').all();
+   const phoneDeliveries=await db.prepare('SELECT status,COUNT(*) AS count FROM push_outbox WHERE revision>0 GROUP BY status').all();
    return json({active_subscribers:subscribers.count,deliveries:deliveries.results,phone_subscribers:phones.count,phone_deliveries:phoneDeliveries.results});
   }
   if(path==='/api/admin/state'&&req.method==='GET'){
@@ -139,7 +150,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    if(result[0].meta.changes){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}
    return result[0].meta.changes?json({ok:true,draft_version:version+1,published:await publicSheet()}):json(conflict,409);
   }
-  if(path==='/api/admin/announcement'&&req.method==='POST'){const result=await publishAnnouncement(db,data.notice,data.expected_revision,version);if(result.status===200){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}return json(result.data,result.status);}
+  if(path==='/api/admin/announcement'&&req.method==='POST'){const result=await publishAnnouncement(db,data.notice,data.expected_revision,version,Date.now(),data.target||'rates');if(result.status===200){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}return json(result.data,result.status);}
   if(path==='/api/admin/delete-revision'&&req.method==='POST'){const result=await deletePublishedRevision(db,data.revision,data.expected_revision,version);return json(result.data,result.status);}
   if(path==='/api/admin/restore'&&req.method==='POST'){
    if(!Number.isSafeInteger(data.revision))return json({error:'Revision လိုပါသည်'},400);

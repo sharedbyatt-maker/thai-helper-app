@@ -1,5 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
+let announcementAttempt=null;
 let state, csrf = '', dirty = false, previewed = false, busy = false, bootstrapRequest = null;
 function message(text, error=false) {
   const feedback=$('message');
@@ -162,6 +163,8 @@ $('preview-button').addEventListener('click',()=>action(async()=>{
  const sheet=await save();$('preview-cards').replaceChildren();
  for(const q of sheet.quotes){const card=element('div',undefined,'preview-card'),rate=Number((100000000000/q.rate_micros).toFixed(2));card.append(element('strong',directionName(q.direction)),element('p',q.direction==='thb_mmk'?`ဘတ် ${rate} ပေး → ကျပ် ၁ သိန်း ရ`:`ကျပ် ၁ သိန်း ပေး → ဘတ် ${rate} ရ`),element('p',`ဈေးစစ်ချိန် ${thaiTime(q.observed_at)}`));if(Date.parse(q.valid_until)<=Date.now())card.append(element('p','အဟောင်းဈေး — မူလစစ်ချိန်အတိုင်း ဆက်ပြမယ်။ အသစ်ပြန်စစ်ထားသလို မပြပါဘူး။'));if(q.flat_fee_minor||q.fee_bps)card.append(element('p','အဟောင်းတွင် နုတ်ငွေပါရှိသည်။'));$('preview-cards').append(card);}
  if(!sheet.quotes.length)$('preview-cards').append(element('p','နှုန်းအားလုံး အလွတ်ဖြစ်နေပါတယ်။'));
+ const phone=await api('push-preview','POST',{sheet});
+ const phoneCard=element('div',undefined,'preview-card');phoneCard.append(element('strong',phone.preview?.title||'သက်တမ်းကုန်နှုန်း — Noti မပို့ပါ'),element('p',phone.preview?.body||''),element('small','Noti နှိပ်ရင် → ဘတ်ဈေး'));$('preview-cards').append(phoneCard);
  $('preview').hidden=false;previewed=true;$('publish').disabled=false;message('User မြင်ရမယ့်နှုန်းကို စစ်ပြီး အတည်ပြုတင်ပေးပါ။');
 }));
 $('publish').addEventListener('click',()=>action(async()=>{if(dirty||!previewed)return;if(!confirm('ဤနှုန်းများကို user အားလုံးဆီ ထုတ်ပြမလား?'))return;const result=await api('publish','POST',{expected_version:state.draft_version});await load();message('Publish အောင်မြင်ပြီ။ Version '+result.published.revision);}));
@@ -174,13 +177,44 @@ $('insights-refresh').addEventListener('click',()=>action(async()=>{const data=a
 
 $('announcement-publish').addEventListener('click',()=>action(async()=>{
  const notice=$('announcement-text').value.trim();if(!notice){$('announcement-text').focus();throw new Error('ကြေညာစာကို အရင်ဖြည့်ပေးပါ။');}
- if(!confirm(`ကြေညာချက်ကို စစ်ပေးပါ\n\n${notice}\n\nအတည်ပြုရင် App ပေါ်တင်ပြီး ဖုန်း noti ဖွင့်ထားသူတွေကို အသိပေးမယ်။ ဈေးနှုန်းနဲ့ မူလစစ်ချိန် မပြောင်းပါဘူး။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
- await api('announcement','POST',{notice,expected_revision:state.published.revision,expected_version:state.draft_version});$('announcement-text').value='';await load();message('ကြေညာချက် တင်ပြီးပြီ။ Noti ဖွင့်ထားသူတွေဆီ ပို့ဖို့ စာရင်းထည့်ထားတယ်။');
+ if(!confirm(`ကြေညာချက်ကို စစ်ပေးပါ\n\n${notice}\n\nနှိပ်ရင် → ${$('announcement-target').selectedOptions[0].textContent}\n\nအတည်ပြုရင် App ပေါ်တင်ပြီး ဖုန်း noti ဖွင့်ထားသူတွေကို အသိပေးမယ်။ ဈေးနှုန်းနဲ့ မူလစစ်ချိန် မပြောင်းပါဘူး။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
+ if(!announcementAttempt)announcementAttempt={notice,expected_revision:state.published.revision,expected_version:state.draft_version,target:$('announcement-target').value};
+ await api('announcement','POST',announcementAttempt);announcementAttempt=null;$('announcement-text').value='';updateNotificationPreview();await load();message('ကြေညာချက် တင်ပြီးပြီ။ Noti ဖွင့်ထားသူတွေဆီ ပို့ဖို့ စာရင်းထည့်ထားတယ်။');
 }));
 
 $('announcement-template').addEventListener('change',event=>{
  const next=event.target.value,field=$('announcement-text');
  if(!next)return;
  if(field.value.trim()&&field.value!==next&&!confirm('ရေးထားတဲ့စာကို ဒီစာတိုနဲ့ အစားထိုးမလား?')){event.target.value='';return;}
- field.value=next;field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();event.target.value='';
+ field.value=next;$('announcement-target').value=(next.includes('မှတ်')||next.includes('စီမံ'))?'wallet':next.includes('တွက်')?'calculator':'rates';field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();event.target.value='';
+});
+
+function updateNotificationPreview(){
+ const parts=[...new Intl.Segmenter('my',{granularity:'grapheme'}).segment($('announcement-text').value.replace(/\s+/gu,' ').trim())].map(x=>x.segment);
+ const body=parts.length>90?parts.slice(0,89).join('')+'…':parts.join('');
+ const target=$('announcement-target');
+ $('announcement-preview').replaceChildren(element('strong','ဘတ်ဈေး'),element('p',body||'ကြေညာစာ ဖြည့်ပေးပါ။'),element('small','နှိပ်ရင် → '+target.selectedOptions[0].textContent));
+}
+$('announcement-text').addEventListener('input',()=>{announcementAttempt=null;updateNotificationPreview();});
+$('announcement-target').addEventListener('change',()=>{announcementAttempt=null;updateNotificationPreview();});
+updateNotificationPreview();
+$('push-history-refresh').addEventListener('click',()=>action(async()=>{
+ const data=await api('push-history');$('push-history').replaceChildren();
+ for(const event of data.events){const c=event.counts,card=element('div',undefined,'preview-card');card.append(element('strong',event.preview?.title||'သက်တမ်းကုန်စာ'),element('p',event.preview?.body||''),element('small',thaiTime(new Date(event.created_at).toISOString())),element('p',`ကြိုးစားပို့ ${c.attempted||0} · Service လက်ခံ ${c.accepted||0} · စောင့်နေ ${c.pending||0} · မအောင်မြင် ${c.failed||0} · ကျော်ထား ${c.skipped||0}`));$('push-history').append(card);}
+ if(!data.events.length)$('push-history').textContent='ပို့မှတ်တမ်း မရှိသေးပါ။';
+}));
+$('owner-push-test').addEventListener('click',()=>{
+ if(busy)return;
+ if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){message('ဒီ browser မှာ Noti မရသေးပါ။',true);return;}
+ if(!confirm('ဒီ Admin စက်တစ်လုံးဆီပဲ စမ်းပို့မလား?'))return;
+ const permission=Notification.requestPermission();
+ action(async()=>{
+  if(await permission!=='granted')throw Error('Browser Noti ခွင့်ပြုပေးပါ။');
+  const response=await fetch('/api/v2/push/config'),config=await response.json();if(!config.available)throw Error('Noti ချိတ်ဆက်မှု မရသေးပါ။');
+  const reg=await navigator.serviceWorker.register('/admin/test-push-sw.js',{scope:'/admin/'});
+  if(!reg.active)await new Promise((resolve,reject)=>{const worker=reg.installing||reg.waiting;if(!worker){reject(Error('ပြန်စမ်းပါ။'));return;}const timer=setTimeout(()=>reject(Error('ချိတ်ဆက်ချိန် ကြာနေပါတယ်။')),10000);const check=()=>{if(worker.state==='activated'){clearTimeout(timer);resolve();}else if(worker.state==='redundant'){clearTimeout(timer);reject(Error('ပြန်စမ်းပါ။'));}};worker.addEventListener('statechange',check);check();});
+  const key=Uint8Array.from(atob(config.public_key.replaceAll('-','+').replaceAll('_','/')+'='.repeat((4-config.public_key.length%4)%4)),x=>x.charCodeAt(0));
+  const sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+  await api('push-test','POST',{subscription:sub.toJSON()});message('ဒီစက်အတွက် Push service က လက်ခံပြီးပါပြီ။ ဖုန်းမှာ ရောက်မရောက် စစ်ပေးပါ။');
+ });
 });

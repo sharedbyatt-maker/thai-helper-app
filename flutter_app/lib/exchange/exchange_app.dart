@@ -227,7 +227,8 @@ class Calculation {
 class ExchangeHome extends StatefulWidget {
   final VoidCallback onTheme;
   final RatesRepository? repository;
-  const ExchangeHome({super.key, required this.onTheme, this.repository});
+  final Uri? launchUri;
+  const ExchangeHome({super.key, required this.onTheme, this.repository, this.launchUri});
   @override
   State<ExchangeHome> createState() => _ExchangeHomeState();
 }
@@ -274,6 +275,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
   @override
   void initState() {
     super.initState();
+    const notificationTabs = {'rates': 0, 'calculator': 1, 'wallet': 2, 'history': 3};
+    tab = notificationTabs[(widget.launchUri ?? Uri.base).queryParameters['tab']] ?? 0;
+    visitedTabs.add(tab);
     WidgetsBinding.instance.addObserver(this);
     _refresh();
     _loadRecords();
