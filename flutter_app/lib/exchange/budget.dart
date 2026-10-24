@@ -14,7 +14,7 @@ DateTime parseBudgetDay(dynamic raw) {
   if (date == null || date.year < 2000 || date.year > 2100 || budgetDay(date) != raw) throw const FormatException('ရက်စွဲကို ပြန်စစ်ပေးပါ။');
   return date;
 }
-const budgetExpenseCategories = {'food':'စားသောက်', 'home':'အခန်းခ / အိမ်စရိတ်', 'travel':'သွားလာရေး', 'study':'ကျောင်း / သင်တန်း', 'bills':'ဖုန်း / မီတာခ', 'health':'ကျန်းမာရေး', 'other':'အခြား'};
+const budgetExpenseCategories = {'food':'စားသောက်', 'home':'အခန်းခ / အိမ်စရိတ်', 'travel':'သွားလာရေး', 'study':'ကျောင်း / သင်တန်း', 'phone':'ဖုန်း / အင်တာနက်', 'utilities':'မီးဖိုး / ရေဖိုး', 'shopping':'အဝတ်အစား / အသုံးအဆောင်', 'personal':'တစ်ကိုယ်ရေသုံး', 'documents':'စာရွက်စာတမ်း / ဗီဇာ', 'leisure':'အပန်းဖြေ', 'bills':'ဖုန်း / မီတာခ', 'health':'ကျန်းမာရေး', 'other':'အခြား'};
 const budgetIncomeCategories = {'salary':'လစာ', 'daily':'နေ့စား', 'overtime':'OT', 'tips':'Tip / အပိုရငွေ', 'allowance':'မုန့်ဖိုး / ထောက်ပံ့ငွေ', 'other':'အခြား'};
 enum BudgetKind { income, expense, remittance }
 String budgetKindName(BudgetKind kind) => switch (kind) { BudgetKind.income => 'ဝင်ငွေ', BudgetKind.expense => 'သုံးငွေ', BudgetKind.remittance => 'အိမ်ပို့ပြီးငွေ' };
