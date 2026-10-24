@@ -9,6 +9,15 @@ const period=BudgetPlan(id:'oct',start:'2026-10-01',end:'2026-11-01',fixed:30000
 BudgetEntry row(String id,BudgetKind kind,int amount,{String day='2026-10-18',bool fixed=false,int? mmk})=>BudgetEntry(id:id,day:day,kind:kind,amount:amount,category:kind==BudgetKind.income?'salary':kind==BudgetKind.remittance?'family':'home',fromFixed:fixed,receivedMmk:mmk);
 void main(){
  setUp(()=>SharedPreferences.setMockInitialValues({}));
+ test('Separated expense categories and legacy bills round-trip without rewriting records',(){
+  for(final category in ['bills','phone','utilities','shopping','personal','documents','leisure']){
+   final original=BudgetEntry(id:category,day:'2026-10-18',kind:BudgetKind.expense,amount:12345,category:category,fromFixed:category=='bills');
+   final restored=BudgetEntry.fromJson(jsonDecode(jsonEncode(original.toJson())) as Map<String,dynamic>,today:today);
+   expect(restored.toJson(),original.toJson());
+  }
+  expect(budgetExpenseCategories['phone'],'ဖုန်း / အင်တာနက်');
+  expect(budgetExpenseCategories['utilities'],'မီးဖိုး / ရေဖိုး');
+ });
  test('Actual cash and outstanding reserves do not deduct paid bills or remittances twice',(){
   final data=BudgetData(opening:200000,plans:[period],entries:[row('salary',BudgetKind.income,1500000)]);
   expect(BudgetSummary(data,today).available,900000);

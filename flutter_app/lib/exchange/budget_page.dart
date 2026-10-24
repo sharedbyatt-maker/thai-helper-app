@@ -1186,10 +1186,11 @@ class _BudgetEntryEditorState extends State<BudgetEntryEditor> {
                       labelText: uiText(context, 'အမျိုးအစား'),
                     ),
                     items: categories.entries
+                        .where((c) => c.key != 'bills' || widget.initial?.category == 'bills')
                         .map(
                           (c) => DropdownMenuItem(
                             value: c.key,
-                            child: Text(c.value),
+                            child: Text(uiText(context, c.value)),
                           ),
                         )
                         .toList(),
@@ -1200,7 +1201,7 @@ class _BudgetEntryEditorState extends State<BudgetEntryEditor> {
                               setState(() {
                                 category = v;
                                 if (widget.initial == null) {
-                                  fixed = v == 'home' || v == 'bills';
+                                  fixed = v == 'home' || v == 'utilities';
                                 }
                               });
                             }
