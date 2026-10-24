@@ -1,3 +1,4 @@
+import 'app_theme.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -126,69 +127,12 @@ class _CurrencyAppState extends State<CurrencyApp> {
 
   @override
   Widget build(BuildContext context) {
-    ThemeData theme(Brightness b) {
-      final dark = b == Brightness.dark;
-      final scheme = ColorScheme.fromSeed(
-        seedColor: const Color(0xff087f6d),
-        brightness: b,
-      );
-      return ThemeData(
-        useMaterial3: true,
-        brightness: b,
-        colorScheme: scheme,
-        scaffoldBackgroundColor: dark
-            ? const Color(0xff101c1a)
-            : const Color(0xfff3f7f5),
-        appBarTheme: AppBarTheme(
-          backgroundColor: dark
-              ? const Color(0xff101c1a)
-              : const Color(0xfff3f7f5),
-          surfaceTintColor: Colors.transparent,
-          centerTitle: false,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          margin: const EdgeInsets.symmetric(vertical: 7),
-          color: dark ? const Color(0xff192a26) : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: BorderSide(
-              color: dark ? const Color(0xff293e37) : const Color(0xffe3ebe6),
-            ),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: scheme.outlineVariant),
-          ),
-          filled: true,
-          fillColor: dark ? const Color(0xff14231f) : const Color(0xfff7faf8),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: dark ? const Color(0xff14231f) : Colors.white,
-          indicatorColor: scheme.primaryContainer,
-          elevation: 0,
-        ),
-        fontFamily: 'Noto Sans Myanmar',
-        fontFamilyFallback: const ['Bahtzay UI Symbols', 'Noto Sans Symbols 2'],
-      );
-    }
 
     return MaterialApp(
       title: 'ဘတ်ဈေး',
       debugShowCheckedModeBanner: false,
-      theme: theme(Brightness.light),
-      darkTheme: theme(Brightness.dark),
+      theme: buildAppTheme(Brightness.light),
+      darkTheme: buildAppTheme(Brightness.dark),
       themeMode: mode,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('my'), Locale('en')],
