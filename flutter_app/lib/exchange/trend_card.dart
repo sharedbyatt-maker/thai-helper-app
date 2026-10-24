@@ -68,7 +68,7 @@ class _TrendCardState extends State<TrendCard> {
           : null;
       return Container(
         key: const ValueKey('rate_trend_card'),
-        padding: EdgeInsets.all(compact ? 16 : 22),
+        padding: EdgeInsets.all(compact ? 14 : 22),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -320,7 +320,7 @@ class _TrendCardState extends State<TrendCard> {
                         points,
                       ),
                       child: SizedBox(
-                        height: compact ? 100 : 158,
+                        height: compact ? 108 : 158,
                         width: double.infinity,
                         child: Stack(
                           children: [
