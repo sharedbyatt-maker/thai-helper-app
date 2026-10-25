@@ -858,15 +858,21 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final quote = dailyQuote(direction);
     final now = DateTime.now();
     final warning = quote != null && (!quote.activeAt(now) || now.difference(quote.observedAt).inHours >= 12);
+    final warningColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFE2BB73) : const Color(0xFF806018);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(warning ? Icons.warning_amber_rounded : data.origin == SheetOrigin.server ? Icons.cloud_done_outlined : Icons.offline_bolt_outlined,
-          size: 20, color: warning ? Theme.of(context).colorScheme.error : schemeColor(context)),
+          size: 20, color: warning ? warningColor : schemeColor(context)),
         const SizedBox(width: 8),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (quote != null) Text(quoteFreshness(quote, now: now, english: uiIsEnglish(context)), style: const TextStyle(height: 1.7)),
-          if (warning) Text(quote.activeAt(now) ? 'ဈေးတင်ထားတာ ကြာနေပြီ။ မလဲခင် ပြန်စစ်ပါ။' : 'ဈေးသက်တမ်းကုန်နေပါပြီ။ မလဲခင် ပြန်စစ်ပါ။', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          if (quote != null) Tooltip(
+            message: quoteFreshnessDetails(quote, now: now, english: uiIsEnglish(context)),
+            triggerMode: TooltipTriggerMode.tap,
+            child: Text(quoteFreshness(quote, now: now, english: uiIsEnglish(context)), style: const TextStyle(height: 1.7)),
+          ),
+          if (warning) Text(uiIsEnglish(context) ? 'Confirm the current rate before exchanging.' : 'ငွေမလဲခင် လက်ရှိဈေးကို ပြန်မေးပါ။', style: TextStyle(color: warningColor)),
           if (data.origin != SheetOrigin.server) Text(data.origin == SheetOrigin.cache ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်' : 'ဈေးအသစ် မရသေးပါဘူး'),
         ])),
       ]),
