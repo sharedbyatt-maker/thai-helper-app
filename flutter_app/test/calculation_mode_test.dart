@@ -121,7 +121,7 @@ void main() {
               english
                   ? 'Enter the amount you will pay to see how much you will receive.'
                   : payHelp,
-            ),
+            ).last,
             findsOneWidget,
           );
           var input = tester.widget<TextField>(
@@ -135,7 +135,7 @@ void main() {
               english
                   ? 'You receive $received $receivedCurrency'
                   : 'ရငွေ $received $receivedCurrency',
-            ),
+            ).last,
             findsOneWidget,
           );
 
@@ -167,9 +167,9 @@ void main() {
           final requiredText = english
               ? 'You pay $required $paidCurrency'
               : 'ပေးငွေ $required $paidCurrency';
-          expect(find.text(requiredText), findsOneWidget);
+          expect(find.text(requiredText).last, findsOneWidget);
           expect(
-            tester.widget<Text>(find.text(requiredText)).style!.fontWeight,
+            tester.widget<Text>(find.text(requiredText).last).style!.fontWeight,
             FontWeight.w700,
           );
 
