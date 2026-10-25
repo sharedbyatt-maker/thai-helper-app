@@ -11,11 +11,28 @@
     if(text!==undefined)node.textContent=text;
     return node;
   };
+  const iconPaths={
+    overview:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
+    rates:'M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4',
+    advertising:'M4 10v5h4l11 5V4L8 10H4z M8 15l2 6',
+    notifications:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4',
+    history:'M3 11a9 9 0 1 1 2 7 M3 4v7h7 M12 7v5l3 2',
+    system:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',
+    arrow:'M5 12h14m-6-6 6 6-6 6',
+    check:'m5 12 4 4L19 6',
+    clock:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 7v5l3 2',
+  };
+  function icon(name){
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.7');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');
+    const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',iconPaths[name]||iconPaths.overview);svg.append(path);return svg;
+  }
   const shell=el('div','control-shell');
   const aside=el('nav','control-nav');
   aside.setAttribute('aria-label','Admin sections');
   const pageArea=el('div','control-content');
   const panels=new Map();
+  const iconNode=icon;
   const info=[
     ['overview','⌂','အနှစ်ချုပ်','နောက်ဆုံးနှုန်း၊ မူကြမ်းနဲ့ လုပ်ရန်များ'],
     ['rates','⇄','ငွေလဲနှုန်း','နှုန်းဖြည့် → နမူနာစစ် → အတည်ပြုတင်'],
@@ -27,7 +44,8 @@
   for(const [id,icon,name,description] of info){
     const link=el('button','control-link');
     link.type='button';link.dataset.page=id;link.setAttribute('aria-controls','control-'+id);
-    link.append(el('span','control-icon',icon),el('span','control-link-name',name));
+    const mark=el('span','control-icon');mark.append(iconNode(id));
+    link.append(mark,el('span','control-link-name',name));
     link.firstElementChild.setAttribute('aria-hidden','true');
     link.addEventListener('click',()=>activate(id,true));
     aside.append(link);
@@ -56,10 +74,12 @@
   // Any future independent panels remain reachable; never discard a feature.
   for(const node of nodes)if(node.parentElement===workspace)panels.get('system').append(node);
   const brand=el('div','control-brand');
-  brand.append(el('strong','', 'ဘတ်ဈေး'),el('small','', 'ADMIN CONTROL CENTER'));
+  const logo=el('img','brand-logo');logo.src='https://thai-helper-app.pages.dev/icons/Icon-192-bahtzay-v2.png';logo.alt='';logo.width=40;logo.height=40;
+  const brandText=el('div','brand-text');brandText.append(el('strong','', 'ဘတ်ဈေး'),el('small','', 'ADMIN WORKSPACE'));brand.append(logo,brandText);
   aside.prepend(brand);
   const footer=el('p','control-nav-foot','Owner-only administration · Thailand time');
-  aside.append(footer);
+  const navLabel=el('span','nav-section-label','WORKSPACE');brand.after(navLabel);
+  const profile=el('div','admin-profile');const avatar=el('span','profile-avatar','A');const identity=el('div','');identity.append(el('strong','','Administrator'),el('small','','Owner workspace'));profile.append(avatar,identity);aside.append(profile,footer);
   shell.append(aside,pageArea);
   workspace.append(shell);
 
@@ -71,6 +91,7 @@
       btn.setAttribute('aria-current',active?'page':'false');
       btn.classList.toggle('active',active);
     }
+    document.querySelector('main').dataset.page=id;
     if(focus)panels.get(id).querySelector('.control-page-title').focus({preventScroll:true});
     if(id==='advertising'&&!loaded)refreshAds();
     if(window.innerWidth<780)panels.get(id).scrollIntoView?.({behavior:'auto',block:'start'});
@@ -78,8 +99,8 @@
   activate('overview');
 
   const overviewActions=el('div','control-shortcuts');
-  for(const [label,target] of [['ပြင်ဆင် / Publish','rates'],['Ads Control','advertising'],['Telegram / Noti','notifications'],['History','history']]){
-    const button=el('button','control-shortcut',label);
+  for(const [label,target] of [['နှုန်းအသစ်တင်မယ်','rates'],['Sponsor စီမံမယ်','advertising'],['စာတိုရေးမယ်','notifications'],['မှတ်တမ်းကြည့်မယ်','history']]){
+    const button=el('button','control-shortcut');const shortcutIcon=el('span','shortcut-icon');shortcutIcon.append(icon(target));button.append(shortcutIcon,el('span','',label),icon('arrow'));
     button.type='button';button.addEventListener('click',()=>activate(target,true));
     overviewActions.append(button);
   }
@@ -131,7 +152,7 @@
   const addSponsor=el('button','','＋ Sponsor အသစ်');
   addSponsor.type='button';addSponsor.id='ad-add-sponsor';
   sponsorPanel.append(sponsorList,addSponsor);
-  adPage.append(sponsorPanel);
+  const sponsorHeading=el('div','sponsor-heading');sponsorHeading.append(...sponsorPanel.children);sponsorPanel.append(sponsorHeading);adPage.append(sponsorPanel);
 
   let loaded=null,dirty=false,adWorking=false,adLoading=false,adEpoch=0;
   function ready(){for(const group of controls.querySelectorAll('fieldset'))group.disabled=!loaded;for(const button of [save,draftSave,draftLoad,addSponsor])button.disabled=!loaded;}
@@ -349,11 +370,16 @@
     theme.addEventListener('change',applyTheme);window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(theme.value==='system')applyTheme();});
 
     const overview=panels.get('overview');
+    document.querySelector('main>header .eyebrow').textContent='ဘတ်ဈေး / WORKSPACE';
+    document.querySelector('main>header h1').textContent='စီမံခန့်ခွဲမှု';
+    document.getElementById('admin-refresh').textContent='ပြန်စစ်မယ်';
+    const sync=document.getElementById('admin-connection');sync.classList.add('top-sync');
+    const topActions=el('div','top-actions');document.querySelector('main>header').append(topActions);topActions.append(sync,themeLabel);const logout=document.getElementById('logout');if(logout)topActions.append(logout);
     const guide=overview.querySelector('.guide');
     if(guide){const help=el('details','overview-help');help.append(el('summary','','နေ့စဉ်တင်နည်း ကြည့်ရန်'),guide);overview.append(help);}
     const removeLatest=document.getElementById('delete-latest');
     if(removeLatest){const help=removeLatest.nextElementSibling;const tools=el('details','');tools.append(el('summary','','မှားတင်မိသော နောက်ဆုံးတင်ချက်ကို ဖယ်ရန်'),removeLatest);if(help)tools.append(help);panels.get('rates').append(tools);}
-    const hero=el('div','overview-heading');hero.append(el('span','eyebrow','နေ့စဉ် စီမံခန့်ခွဲမှု'),el('p','','နှုန်းအခြေအနေနဲ့ လုပ်ရန်များကို တစ်နေရာတည်းမှာ စစ်ပါ။'));
+    const hero=el('div','overview-heading');const heroCopy=el('div','');heroCopy.append(el('span','eyebrow','YOUR DAILY WORKSPACE'),el('h3','','နေ့သစ်တစ်နေ့ကို ဒီကနေ စမယ်။'),el('p','','ဈေးနှုန်း၊ တင်ချက်နဲ့ လုပ်ရန်များကို တစ်ချက်ကြည့်ပါ။'));const heroAction=el('button','primary');heroAction.type='button';heroAction.append(icon('rates'),el('span','','နှုန်းအသစ်တင်မယ်'));heroAction.addEventListener('click',()=>activate('rates',true));hero.append(heroCopy,heroAction);
     const metrics=el('div','overview-metrics');metrics.id='overview-metrics';
     const charts=el('div','overview-charts');
     const trend=el('section','panel');trend.append(el('h3','','နှုန်းလမ်းကြောင်း'));
@@ -364,9 +390,14 @@
     const bars=el('div','activity-bars');bars.id='overview-activity';activity.append(bars,el('small','','ထိုင်းရက်စွဲ · ပြန်ရရှိထားသော နောက်ဆုံးမှတ်တမ်း ၅၀ အတွင်းသာ'));
     charts.append(trend,activity);
     overview.insertBefore(hero,overview.children[2]);overview.insertBefore(metrics,hero.nextSibling);overview.insertBefore(charts,metrics.nextSibling);
+    const bottom=el('div','overview-bottom');const summary=overview.querySelector('.summary');if(summary){const published=summary.firstElementChild;published.classList.add('current-publication');bottom.append(published);const draftPanel=summary.lastElementChild;draftPanel.classList.add('draft-panel');panels.get('rates').insertBefore(draftPanel,panels.get('rates').children[2]);summary.remove();}
+    bottom.append(health);charts.after(bottom);overview.append(overviewActions);
+    const chartTitle=el('div','section-heading');chartTitle.append(el('span','eyebrow','ACTIVITY & INSIGHTS'),el('h3','','လှုပ်ရှားမှု အနှစ်ချုပ်'));charts.before(chartTitle);
+    const shortcutTitle=el('h3','quick-title','အမြန်လုပ်ဆောင်ရန်');overviewActions.before(shortcutTitle);
+    if(guide?.parentElement)overview.append(guide.parentElement);
     let snapshot=null;
-    function metric(label,value,note){const card=el('div','metric-card');card.append(el('span','',label),el('strong','',String(value)),el('small','',note));return card;}
-    const bangkok=iso=>{const d=new Date(iso);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit'}).format(d):'—';};
+    function metric(label,value,note){const card=el('div','metric-card');const head=el('div','metric-heading');const mark=el('span','metric-icon');mark.append(icon(label==='တင်ထားသောနှုန်း'?'rates':label==='မူကြမ်းနှုန်း'?'system':label==='နောက်ဆုံးတင်ချက်'?'clock':'history'));head.append(el('span','',label),mark);card.append(head,el('strong','',String(value)),el('small','',note));return card;}
+    const bangkok=iso=>{if(!iso)return '—';const d=new Date(iso);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit'}).format(d):'—';};
     function draw(){
       if(!snapshot)return;
       const quotes=snapshot.published?.quotes||[],history=snapshot.history||[];
@@ -382,7 +413,10 @@
         const values=points.map(p=>p.value),min=Math.min(...values),max=Math.max(...values),range=max-min||1;
         const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 440 170');svg.setAttribute('role','img');svg.setAttribute('aria-label','ကျပ် ၁ သိန်းအတွက် ဘတ် '+values.map(v=>v.toFixed(2)).join(', '));
         const title=document.createElementNS(svg.namespaceURI,'title');title.textContent='ကျပ် ၁ သိန်းအတွက် ဘတ်နှုန်း';svg.append(title);
-        const line=document.createElementNS(svg.namespaceURI,'polyline');line.setAttribute('points',points.map((p,i)=>`${24+i*(392/Math.max(points.length-1,1))},${138-(p.value-min)/range*104}`).join(' '));line.setAttribute('class','chart-line');svg.append(line);
+        const coordinates=points.map((p,i)=>`${24+i*(392/Math.max(points.length-1,1))},${138-(p.value-min)/range*104}`);
+        for(const y of [34,86,138]){const grid=document.createElementNS(svg.namespaceURI,'line');for(const [name,value] of [['x1','24'],['x2','416'],['y1',y],['y2',y]])grid.setAttribute(name,String(value));grid.setAttribute('class','chart-grid');svg.append(grid);}
+        if(points.length>1){const area=document.createElementNS(svg.namespaceURI,'polygon');area.setAttribute('points','24,150 '+coordinates.join(' ')+' 416,150');area.setAttribute('class','chart-area');svg.append(area);}
+        const line=document.createElementNS(svg.namespaceURI,'polyline');line.setAttribute('points',coordinates.join(' '));line.setAttribute('class','chart-line');svg.append(line);
         points.forEach((p,i)=>{const dot=document.createElementNS(svg.namespaceURI,'circle');dot.setAttribute('cx',String(24+i*(392/Math.max(points.length-1,1))));dot.setAttribute('cy',String(138-(p.value-min)/range*104));dot.setAttribute('r','4');dot.setAttribute('class','chart-dot');const hint=document.createElementNS(svg.namespaceURI,'title');hint.textContent=bangkok(p.at)+' · '+p.value.toFixed(2)+' ဘတ်';dot.append(hint);svg.append(dot);});
         chart.append(el('strong','chart-current',values.at(-1).toFixed(2)+' ဘတ်'),svg);
         const labels=el('div','chart-labels');labels.append(el('small','',bangkok(points[0].at)),el('small','',bangkok(points.at(-1).at)));chart.append(labels);
@@ -394,7 +428,7 @@
       const maximum=Math.max(1,...days.map(d=>d.count));bars.replaceChildren();
       for(const day of days){const column=el('div','activity-column');const bar=el('div','activity-bar');bar.style.height=(day.count/maximum*110)+'px';bar.setAttribute('aria-hidden','true');column.append(el('strong','',String(day.count)),bar,el('small','',day.label));bars.append(column);}
     }
-    direction.addEventListener('change',draw);window.addEventListener('admin:state',e=>{snapshot=e.detail;draw();});
+    direction.addEventListener('change',draw);window.addEventListener('admin:state',e=>{document.querySelector('main').classList.add('admin-ready');snapshot=e.detail;draw();});
 
     // Keep the daily sponsor workflow visible; SDK configuration is secondary.
     const advanced=el('details','ad-advanced');advanced.append(el('summary','','အဆင့်မြင့် · Google Ads / Platform setting'));
@@ -415,6 +449,7 @@
     for(const [key,label,nodes] of sections){const button=el('button','',label);button.type='button';button.dataset.notificationTab=key;button.setAttribute('aria-controls','notification-'+key);const box=el('div','notification-section');box.id='notification-'+key;box.hidden=key!=='compose';box.append(...nodes);notifications.append(box);tabs.append(button);button.setAttribute('aria-pressed',String(key==='compose'));button.addEventListener('click',()=>{for(const node of notifications.querySelectorAll('.notification-section'))node.hidden=node!==box;for(const b of tabs.querySelectorAll('button'))b.setAttribute('aria-pressed',String(b===button));});}
     notifications.insertBefore(tabs,notifications.children[2]);
     const text=document.getElementById('announcement-text');
+    const composer=text.closest('.panel');if(composer){composer.classList.add('notification-composer');const preview=document.getElementById('announcement-preview');const previewPane=el('aside','compose-preview-pane');previewPane.append(el('span','eyebrow','LIVE PREVIEW'),el('h3','','ဖုန်းမှာ မြင်ရမယ့်ပုံစံ'),preview,el('p','muted','အတည်ပြုမနှိပ်မချင်း မပို့ပါ။'));const formPane=el('div','compose-form-pane');formPane.append(...composer.childNodes);composer.append(formPane,previewPane);}
     const count=el('small','composition-count');count.id='announcement-count';text.after(count);
     const updateCount=()=>{count.textContent=Array.from(text.value).length+' / 500 · တိုတိုနဲ့ အဓိကအချက်ပဲ ရေးပါ။';};text.addEventListener('input',updateCount);document.getElementById('announcement-template').addEventListener('change',updateCount);updateCount();
     const test=document.getElementById('owner-push-test');if(test){const testHelp=test.nextElementSibling;const details=el('details','');details.append(el('summary','','ဒီ Admin စက်တစ်လုံးဆီသာ စမ်းသပ်ရန်'),test);if(testHelp)details.append(testHelp);document.getElementById('notification-delivery').append(details);}
