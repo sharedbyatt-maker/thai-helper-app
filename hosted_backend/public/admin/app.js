@@ -105,25 +105,51 @@ function renderPublished(){
 }
 async function restoreRevision(rev){
  if(!confirm(`တင်ချက် #${rev.id} ကို မူကြမ်းအဖြစ် ပြန်ယူမလား?\n${revisionSummary(rev)}\n\nလက်ရှိမူကြမ်းကို အစားထိုးမယ်။ User app ပေါ် ချက်ချင်း မတင်ပါဘူး။`))return;
- await api('restore','POST',{revision:rev.id,expected_version:state.draft_version});await load();$('edit-panel').scrollIntoView?.({behavior:'smooth',block:'start'});message('မူကြမ်းထဲ ပြန်ယူပြီးပြီ။ နှုန်းနဲ့ စစ်ချိန်ကို ပြန်စစ်ပြီးမှ တင်ပေးပါ။');
+ await api('restore','POST',{revision:rev.id,expected_version:state.draft_version});await load();window.bahtzayAdminNavigate?.('rates');$('edit-panel').scrollIntoView?.({behavior:'smooth',block:'start'});message('မူကြမ်းထဲ ပြန်ယူပြီးပြီ။ နှုန်းနဲ့ စစ်ချိန်ကို ပြန်စစ်ပြီးမှ တင်ပေးပါ။');
 }
 async function deleteRevision(rev){
  const current=rev.id===state.published.revision;
  if(!confirm(`တင်ချက် #${rev.id} ကို ဖျက်မလား?\n${revisionSummary(rev)}\n\n${current?'လက်ရှိဈေးကို ဖယ်ပြီး အရင်တင်ချက်ဈေးကို မူလစစ်ချိန်အတိုင်း ဆက်ပြမယ်။':'ဒီတင်ချက်ကို စာရင်းကနေ ဖယ်မယ်။ နောက်တင်ချက်တွေက ဈေး မပြောင်းပါဘူး။'} ဖျက်ထားတဲ့စာရင်းမှာ ပြန်ယူနိုင်တယ်။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
  await api('delete-revision','POST',{revision:rev.id,expected_revision:state.published.revision,expected_version:state.draft_version});await load();message('တင်ချက်ကို ဖယ်ပြီးပြီ။ အောက်က “ဖျက်ထားတဲ့တင်ချက်တွေ” မှာ မူကြမ်းအဖြစ် ပြန်ယူနိုင်တယ်။');
 }
+let historyPage=0,trashPage=0,historyQuery='',historyDirection='all';
+const historyPageSize=8;
+function pageControls(parent,count,page,onPage,size=historyPageSize){
+ const pages=Math.max(1,Math.ceil(count/size));
+ const row=element('div',undefined,'history-pagination');
+ const previous=element('button','← ရှေ့'),next=element('button','နောက် →');
+ previous.type=next.type='button';previous.disabled=page===0;next.disabled=page>=pages-1;
+ previous.addEventListener('click',()=>onPage(page-1));next.addEventListener('click',()=>onPage(page+1));
+ const info=element('span',`${count} ခု · ${page+1} / ${pages}`);info.setAttribute('role','status');
+ row.append(previous,info,next);parent.append(row);
+}
 function renderHistory(){
- $('history').replaceChildren();$('trash').replaceChildren();
- for(const rev of state.history){
-  const card=element('article',undefined,'publication');const heading=element('div',undefined,'row');heading.append(element('strong',`တင်ချက် #${rev.id}${rev.id===state.published.revision?' · လက်ရှိပြနေတယ်':''}`),element('small',thaiTime(rev.published_at)));card.append(heading);
-  for(const q of rev.quotes||[])card.append(element('p',rateSummary(q)),element('small','ဈေးစစ်ချိန် '+thaiTime(q.observed_at)));
-  if(!rev.quotes?.length)card.append(element('p','နှုန်းအလွတ်','muted'));
-  const actions=element('div',undefined,'publication-actions');const restore=element('button','မူကြမ်းအဖြစ် ပြန်ယူ');restore.dataset.restore=rev.id;restore.addEventListener('click',()=>action(()=>restoreRevision(rev)));const remove=element('button','ဒီတင်ချက် ဖျက်မယ်','danger');remove.dataset.delete=rev.id;remove.addEventListener('click',()=>action(()=>deleteRevision(rev)));actions.append(restore,remove);card.append(actions);$('history').append(card);
+ if(!$('history-search')){
+  const filters=element('div',undefined,'history-filters');
+  const search=element('input');search.type='search';search.id='history-search';search.placeholder='တင်ချက်နံပါတ် / နှုန်း / ရက်စွဲ ရှာရန်';search.setAttribute('aria-label','တင်ချက် ရှာရန်');
+  const direction=element('select');direction.id='history-direction';direction.setAttribute('aria-label','တင်ချက် ဦးတည်ချက်');
+  for(const [value,label] of [['all','ဦးတည်ချက်အားလုံး'],['thb_mmk','ဘတ်ပေး → ကျပ်ယူ'],['mmk_thb','ကျပ်ပေး → ဘတ်ယူ']]){const option=element('option',label);option.value=value;direction.append(option);}
+  search.addEventListener('input',()=>{historyQuery=search.value.trim().toLowerCase();historyPage=0;renderHistory();});
+  direction.addEventListener('change',()=>{historyDirection=direction.value;historyPage=0;renderHistory();});
+  filters.append(search,direction);$('history').before(filters);
+  $('history').before(element('p','နောက်ဆုံးတင်ချက် ၅၀ ခုအထိ · တစ်မျက်နှာ ၈ ခု · အသေးစိတ်ကို နှိပ်ကြည့်ပါ။','muted'));
  }
- if(!state.history.length)$('history').append(element('p','တင်ထားတဲ့စာရင်း မရှိသေးဘူး။','muted'));
- for(const rev of state.trash||[]){const card=element('article',undefined,'publication archived');card.append(element('strong',`ဖျက်ထားတဲ့တင်ချက် #${rev.id}`),element('p',revisionSummary(rev)),element('small','ဖျက်ချိန် '+thaiTime(rev.deleted_at)));const restore=element('button','မူကြမ်းအဖြစ် ပြန်ယူ');restore.dataset.trashRestore=rev.id;restore.addEventListener('click',()=>action(()=>restoreRevision(rev)));card.append(restore);$('trash').append(card);}
- $('trash-count').textContent=(state.trash||[]).length+' ခု';
- if(!state.trash?.length)$('trash').append(element('p','ဖျက်ထားတဲ့တင်ချက် မရှိသေးဘူး။','muted'));
+ $('history').replaceChildren();$('trash').replaceChildren();
+ const rows=(state.history||[]).filter(rev=>(historyDirection==='all'||(rev.quotes||[]).some(q=>q.direction===historyDirection))&&(!historyQuery||(`${rev.id} ${thaiTime(rev.published_at)} ${(rev.quotes||[]).map(rateSummary).join(' ')}`).toLowerCase().includes(historyQuery)));
+ historyPage=Math.min(historyPage,Math.max(0,Math.ceil(rows.length/historyPageSize)-1));
+ for(const rev of rows.slice(historyPage*historyPageSize,(historyPage+1)*historyPageSize)){
+  const card=element('details',undefined,'publication');
+  const heading=element('summary');heading.append(element('strong',`#${rev.id}${rev.id===state.published.revision?' · လက်ရှိ':''}`),element('span',(rev.quotes||[]).map(rateSummary).join(' · ')||'နှုန်းအလွတ်'),element('small',thaiTime(rev.published_at)));card.append(heading);
+  for(const q of rev.quotes||[])card.append(element('p',rateSummary(q)),element('small','ဈေးစစ်ချိန် '+thaiTime(q.observed_at)));
+  const actions=element('div',undefined,'publication-actions');const restore=element('button','မူကြမ်းအဖြစ် ပြန်ယူ');restore.type='button';restore.dataset.restore=rev.id;restore.addEventListener('click',()=>action(()=>restoreRevision(rev)));const remove=element('button','ဒီတင်ချက် ဖျက်မယ်','danger');remove.type='button';remove.dataset.delete=rev.id;remove.addEventListener('click',()=>action(()=>deleteRevision(rev)));actions.append(restore,remove);card.append(actions);$('history').append(card);
+ }
+ if(!rows.length)$('history').append(element('p',historyQuery||historyDirection!=='all'?'ကိုက်ညီသော တင်ချက် မတွေ့ပါ။':'တင်ထားတဲ့စာရင်း မရှိသေးဘူး။','empty-state'));
+ pageControls($('history'),rows.length,historyPage,page=>{historyPage=page;renderHistory();});
+ const trash=state.trash||[];trashPage=Math.min(trashPage,Math.max(0,Math.ceil(trash.length/5)-1));
+ for(const rev of trash.slice(trashPage*5,(trashPage+1)*5)){const card=element('details',undefined,'publication archived');card.append(element('summary',`ဖျက်ထားတဲ့တင်ချက် #${rev.id} · ${thaiTime(rev.deleted_at)}`),element('p',revisionSummary(rev)));const restore=element('button','မူကြမ်းအဖြစ် ပြန်ယူ');restore.type='button';restore.dataset.trashRestore=rev.id;restore.addEventListener('click',()=>action(()=>restoreRevision(rev)));card.append(restore);$('trash').append(card);}
+ $('trash-count').textContent=trash.length+' ခု';
+ if(!trash.length)$('trash').append(element('p','ဖျက်ထားတဲ့တင်ချက် မရှိသေးဘူး။','muted'));
+ else pageControls($('trash'),trash.length,trashPage,page=>{trashPage=page;renderHistory();},5);
 }
 $('delete-latest').addEventListener('click',()=>action(()=>deleteRevision({...state.published,id:state.published.revision})));
 let stateRequest=0,lastSynced=null;
@@ -200,8 +226,11 @@ $('announcement-target').addEventListener('change',()=>{announcementAttempt=null
 updateNotificationPreview();
 $('push-history-refresh').addEventListener('click',()=>action(async()=>{
  const data=await api('push-history');$('push-history').replaceChildren();
- for(const event of data.events){const c=event.counts,card=element('div',undefined,'preview-card');card.append(element('strong',event.preview?.title||'သက်တမ်းကုန်စာ'),element('p',event.preview?.body||''),element('small',thaiTime(new Date(event.created_at).toISOString())),element('p',`ကြိုးစားပို့ ${c.attempted||0} · Service လက်ခံ ${c.accepted||0} · စောင့်နေ ${c.pending||0} · မအောင်မြင် ${c.failed||0} · ကျော်ထား ${c.skipped||0}`));$('push-history').append(card);}
+ let page=0;function show(){ $('push-history').replaceChildren();
+ for(const event of data.events.slice(page*5,(page+1)*5)){const c=event.counts,card=element('div',undefined,'preview-card');card.append(element('strong',event.preview?.title||'သက်တမ်းကုန်စာ'),element('p',event.preview?.body||''),element('small',thaiTime(new Date(event.created_at).toISOString())),element('p',`ကြိုးစားပို့ ${c.attempted||0} · Service လက်ခံ ${c.accepted||0} · စောင့်နေ ${c.pending||0} · မအောင်မြင် ${c.failed||0} · ကျော်ထား ${c.skipped||0}`));$('push-history').append(card);}
  if(!data.events.length)$('push-history').textContent='ပို့မှတ်တမ်း မရှိသေးပါ။';
+ else pageControls($('push-history'),data.events.length,page,next=>{page=next;show();},5);
+ }show();
 }));
 $('owner-push-test').addEventListener('click',()=>{
  if(busy)return;

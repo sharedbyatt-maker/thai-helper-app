@@ -1,4 +1,12 @@
 'use strict';
+// Apply a saved appearance before the first paint; storage can be unavailable.
+(() => {
+ let theme='system';try{theme=localStorage.getItem('bahtzay-admin-theme')||'system';}catch{}
+ if(!['light','dark','system'].includes(theme))theme='system';
+ const dark=window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+ document.documentElement.dataset.theme=theme==='system'?(dark?'dark':'light'):theme;
+ document.documentElement.dataset.themePreference=theme;
+})();
 // One bounded transport and dirty-state registry across owner tools. No storage
 // or automatic mutation retries: a timed-out write may already have completed.
 (() => {
