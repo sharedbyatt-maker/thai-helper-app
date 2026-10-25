@@ -861,7 +861,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final warningColor = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFE2BB73) : const Color(0xFF806018);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(warning ? Icons.warning_amber_rounded : data.origin == SheetOrigin.server ? Icons.cloud_done_outlined : Icons.offline_bolt_outlined,
           size: 20, color: warning ? warningColor : schemeColor(context)),
@@ -1051,18 +1051,30 @@ class _ExchangeHomeState extends State<ExchangeHome>
       child: ListView(
         key: const PageStorageKey('daily'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
         children: [
-          pageHeading(
-            'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
-            'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။',
-            Icons.show_chart_rounded,
-          ),
+          if (MediaQuery.sizeOf(context).width < 600)
+            Padding(
+              key: const ValueKey('compact_home_heading'),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          else
+            pageHeading(
+              'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
+              'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။',
+              Icons.show_chart_rounded,
+            ),
           if (data != null) connectionBanner(data),
           if (loading) const LinearProgressIndicator(),
           if (loadError != null) panel(Text(loadError!)),
           directionPicker(showRates: true),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
               final wide =
@@ -1089,15 +1101,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
             onPressed: data == null || data.sheet.quotes.isEmpty ? null : () => showRateShare(context, data.sheet.quotes),
             icon: const Icon(Icons.share_outlined), label: const Text('ဈေးနှုန်း မျှဝေမယ်'),
           )),
-          if (data?.sheet.notice.isNotEmpty == true)
-            Card(key: const ValueKey('home_announcement'), child: Padding(
-              padding: const EdgeInsets.all(14), child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Row(children: [Icon(Icons.campaign_outlined, size: 18), SizedBox(width: 8), Text('ကြေညာချက်', style: TextStyle(fontWeight: FontWeight.w700))]),
-                  const SizedBox(height: 8), raw.Text(data!.sheet.notice),
-                ],
-              ),
-            )),
               ]);
               if (wide) {
                 return Row(

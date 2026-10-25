@@ -202,10 +202,10 @@ load().catch(e=>{syncStatus('ချိတ်ဆက်မှု မအောင�
 $('insights-refresh').addEventListener('click',()=>action(async()=>{const data=await api('insights');const delivered=data.deliveries.find(x=>x.status===1)?.count||0;const pending=data.deliveries.find(x=>x.status===0)?.count||0;const phones=data.phone_subscribers||0,phoneSent=(data.phone_deliveries||[]).find(x=>x.status===1)?.count||0,phonePending=(data.phone_deliveries||[]).find(x=>x.status===0)?.count||0;$('insights-text').textContent=`ဖုန်း noti ဖွင့်ထားသူ ${phones} ဦး · ပို့ပြီး ${phoneSent} စောင် · စောင့်နေ ${phonePending} စောင်\nTelegram အသိပေးမှု ဖွင့်ထားသူ ${data.active_subscribers} ဦး · ပို့ပြီး ${delivered} စောင် · စောင့်နေ ${pending} စောင်`; }));
 
 $('announcement-publish').addEventListener('click',()=>action(async()=>{
- const notice=$('announcement-text').value.trim();if(!notice){$('announcement-text').focus();throw new Error('ကြေညာစာကို အရင်ဖြည့်ပေးပါ။');}
- if(!confirm(`ကြေညာချက်ကို စစ်ပေးပါ\n\n${notice}\n\nနှိပ်ရင် → ${$('announcement-target').selectedOptions[0].textContent}\n\nအတည်ပြုရင် App ပေါ်တင်ပြီး ဖုန်း noti ဖွင့်ထားသူတွေကို အသိပေးမယ်။ ဈေးနှုန်းနဲ့ မူလစစ်ချိန် မပြောင်းပါဘူး။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
+ const notice=$('announcement-text').value.trim();if(!notice){$('announcement-text').focus();throw new Error('Noti စာတိုကို အရင်ဖြည့်ပေးပါ။');}
+ if(!confirm(`Noti စာတိုကို စစ်ပေးပါ\n\n${notice}\n\nနှိပ်ရင် → ${$('announcement-target').selectedOptions[0].textContent}\n\nအတည်ပြုရင် ဖုန်း Noti ဖွင့်ထားသူတွေကို ပို့မယ်။ App ထဲမှာ ကြေညာချက် card မတင်ပါ။ ဈေးနှုန်းနဲ့ မူလစစ်ချိန် မပြောင်းပါဘူး။${dirty?'\nမသိမ်းရသေးတဲ့ ပြင်ဆင်ချက်တွေ ပျောက်သွားမယ်။':''}`))return;
  if(!announcementAttempt)announcementAttempt={notice,expected_revision:state.published.revision,expected_version:state.draft_version,target:$('announcement-target').value};
- await api('announcement','POST',announcementAttempt);announcementAttempt=null;$('announcement-text').value='';updateNotificationPreview();await load();message('ကြေညာချက် တင်ပြီးပြီ။ Noti ဖွင့်ထားသူတွေဆီ ပို့ဖို့ စာရင်းထည့်ထားတယ်။');
+ await api('announcement','POST',announcementAttempt);announcementAttempt=null;$('announcement-text').value='';updateNotificationPreview();await load();message('ဖုန်း Noti ပို့ရန် စာရင်းထည့်ပြီးပါပြီ။ App ထဲမှာ ကြေညာချက် မပြပါ။');
 }));
 
 $('announcement-template').addEventListener('change',event=>{
@@ -219,7 +219,7 @@ function updateNotificationPreview(){
  const parts=[...new Intl.Segmenter('my',{granularity:'grapheme'}).segment($('announcement-text').value.replace(/\s+/gu,' ').trim())].map(x=>x.segment);
  const body=parts.length>90?parts.slice(0,89).join('')+'…':parts.join('');
  const target=$('announcement-target');
- $('announcement-preview').replaceChildren(element('strong','ဘတ်ဈေး'),element('p',body||'ကြေညာစာ ဖြည့်ပေးပါ။'),element('small','နှိပ်ရင် → '+target.selectedOptions[0].textContent));
+ $('announcement-preview').replaceChildren(element('strong','ဘတ်ဈေး'),element('p',body||'Noti စာတို ဖြည့်ပေးပါ။'),element('small','နှိပ်ရင် → '+target.selectedOptions[0].textContent));
 }
 $('announcement-text').addEventListener('input',()=>{announcementAttempt=null;updateNotificationPreview();});
 $('announcement-target').addEventListener('change',()=>{announcementAttempt=null;updateNotificationPreview();});
