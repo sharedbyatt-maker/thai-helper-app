@@ -505,6 +505,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       direction = next;
       results = [];
       calcError = null;
+      amountError = null;
       amount.clear();
       for (final line in lines) {
         line.dispose();
@@ -1235,10 +1236,16 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   void setTargetMode(bool value) {
+    if (targetMode == value) return;
+    FocusScope.of(context).unfocus();
+    calculationFeedbackTimer?.cancel();
     setState(() {
       targetMode = value;
       results = [];
       calcError = null;
+      amountError = null;
+      calculationAcknowledged = false;
+      calculationGeneration++;
       amount.clear();
     });
   }
@@ -1252,10 +1259,28 @@ class _ExchangeHomeState extends State<ExchangeHome>
       children: [
         pageHeading(
           'ငွေလဲတွက်မယ်',
-          'ပေးမယ့်ငွေနဲ့ ဈေးထည့်လိုက်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။',
+          targetMode
+              ? 'ကိုယ်ရချင်တဲ့ပမာဏထည့်ပြီး ပေးရမယ့်ငွေကို တွက်ကြည့်ပါ။'
+              : 'ကိုယ်ပေးမယ့်ပမာဏထည့်ပြီး ရမယ့်ငွေကို တွက်ကြည့်ပါ။',
           Icons.calculate_outlined,
         ),
         directionPicker(),
+        const SizedBox(height: 14),
+        SegmentedButton<bool>(
+          key: const ValueKey('calculation_mode'),
+          segments: const [
+            ButtonSegment(
+              value: false,
+              label: Text('ပေးမယ့်ငွေ'),
+            ),
+            ButtonSegment(
+              value: true,
+              label: Text('ရချင်တဲ့ငွေ'),
+            ),
+          ],
+          selected: {targetMode},
+          onSelectionChanged: (selection) => setTargetMode(selection.single),
+        ),
         const SizedBox(height: 14),
         panel(
           Column(
@@ -1320,11 +1345,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
                         )
                         .toList(),
               ),
-              if (targetMode)
-                TextButton(
-                  onPressed: () => setTargetMode(false),
-                  child: const Text('ပေးမယ့်ငွေနဲ့ ပြန်တွက်မယ်'),
-                ),
             ],
           ),
         ),
@@ -1350,7 +1370,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               calculationAcknowledged && results.isNotEmpty
                   ? '✓ တွက်ပြီးပြီ'
                   : targetMode
-                  ? 'လိုအပ်မယ့်ငွေ တွက်မယ်'
+                  ? 'ပေးရမယ့်ငွေ တွက်မယ်'
                   : lines.length > 1
                   ? 'တွက်ပြီး နှိုင်းမယ်'
                   : 'ရမယ့်ငွေ တွက်မယ်',
@@ -1405,7 +1425,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           child: ExpansionTile(
             key: const PageStorageKey('calculator_options'),
             title: const Text(
-              'ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်',
+              'ဈေးနှိုင်းမယ်',
               style: TextStyle(fontSize: 14),
             ),
             tilePadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1424,14 +1444,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
                     : null,
                 icon: const Icon(Icons.add),
                 label: const Text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'),
-              ),
-              TextButton(
-                onPressed: () => setTargetMode(!targetMode),
-                child: Text(
-                  targetMode
-                      ? 'ပေးမယ့်ငွေနဲ့ တွက်မယ်'
-                      : 'ရချင်တဲ့ငွေကနေ ပြန်တွက်မယ်',
-                ),
               ),
             ],
           ),
@@ -1683,7 +1695,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           raw.Text(
             results.length > 1
                 ? '${index + 1}. ${result.quote.label}'
-                : uiText(context, 'ရမယ့်ငွေ'),
+                : uiText(context, targetMode ? 'ပေးရမယ့်ငွေ' : 'ရမယ့်ငွေ'),
             style: Theme.of(context).textTheme.titleLarge,
           ),
           if (results.length > 1 && index == 0)
@@ -1694,15 +1706,21 @@ class _ExchangeHomeState extends State<ExchangeHome>
             ),
           const SizedBox(height: 12),
           Text(
-            uiFormat(context, 'resultPaid', {
-              'amount': money(result.budget),
-              'currency': uiText(context, result.quote.direction.from),
+            uiFormat(context, targetMode ? 'resultReceived' : 'resultPaid', {
+              'amount': money(targetMode ? result.received : result.budget),
+              'currency': uiText(
+                context,
+                targetMode ? result.quote.direction.to : result.quote.direction.from,
+              ),
             }),
           ),
           Text(
-            uiFormat(context, 'resultReceived', {
-              'amount': money(result.received),
-              'currency': uiText(context, result.quote.direction.to),
+            uiFormat(context, targetMode ? 'resultRequired' : 'resultReceived', {
+              'amount': money(targetMode ? result.budget : result.received),
+              'currency': uiText(
+                context,
+                targetMode ? result.quote.direction.from : result.quote.direction.to,
+              ),
             }),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w700,

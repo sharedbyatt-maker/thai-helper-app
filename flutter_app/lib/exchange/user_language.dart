@@ -112,6 +112,7 @@ const _messages = <String, (String, String)>{
     '{count} published rates. Lowest {low}, highest {high} THB per 100,000 MMK.',
   ),
   'resultPaid': ('{amount} {currency} ပေးရင်', 'You pay {amount} {currency}'),
+  'resultRequired': ('ပေးငွေ {amount} {currency}', 'You pay {amount} {currency}'),
   'resultReceived': (
     'ရငွေ {amount} {currency}',
     'You receive {amount} {currency}',
@@ -392,6 +393,14 @@ const _en = <String, String>{
   'App version / Update စစ်မယ်': 'Check app version / updates',
   // Calculator.
   'ငွေလဲတွက်မယ်': 'Currency calculator',
+  'ကိုယ်ပေးမယ့်ပမာဏထည့်ပြီး ရမယ့်ငွေကို တွက်ကြည့်ပါ။':
+      'Enter the amount you will pay to see how much you will receive.',
+  'ကိုယ်ရချင်တဲ့ပမာဏထည့်ပြီး ပေးရမယ့်ငွေကို တွက်ကြည့်ပါ။':
+      'Enter the amount you want to receive to see how much you need to pay.',
+  'ရချင်တဲ့ငွေ': 'Amount to receive',
+  'ပေးရမယ့်ငွေ': 'Amount to pay',
+  'ပေးရမယ့်ငွေ တွက်မယ်': 'Calculate amount to pay',
+  'ဈေးနှိုင်းမယ်': 'Compare rates',
   'ပေးမယ့်ငွေနဲ့ ဈေးထည့်လိုက်ပါ။ ရမယ့်ငွေကို တွက်ပေးမယ်။':
       'Enter the amount and the rate to calculate the result.',
   'ဘယ်လောက် ရချင်လဲ?': 'How much do you want to receive?',
