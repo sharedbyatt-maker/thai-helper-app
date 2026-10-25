@@ -68,7 +68,7 @@ Future<void> reveal(WidgetTester t, Finder f) async {
 }
 
 void main() {
-  testWidgets('Phone home prioritizes rates and chart without an announcement card', (t) async {
+  testWidgets('Phone home restores the icon heading without duplicate freshness or announcements', (t) async {
     SharedPreferences.setMockInitialValues({});
     t.view.physicalSize = const Size(390, 844);
     t.view.devicePixelRatio = 1;
@@ -76,7 +76,11 @@ void main() {
     addTearDown(t.view.resetDevicePixelRatio);
     await t.pumpWidget(CurrencyApp(repository: repository(notice: 'Legacy announcement must stay off Home'), updates: noNativeUpdates()));
     await t.pumpAndSettle();
-    expect(find.byKey(const ValueKey('compact_home_heading')), findsOneWidget);
+    final heading = find.byKey(const ValueKey('home_heading'));
+    expect(heading, findsOneWidget);
+    expect(find.descendant(of: heading, matching: find.byIcon(Icons.show_chart_rounded)), findsOneWidget);
+    expect(find.textContaining('နောက်ဆုံးဈေး ·'), findsNothing);
+    expect(find.textContaining('Latest rate ·'), findsNothing);
     expect(find.text('Legacy announcement must stay off Home'), findsNothing);
     expect(find.byKey(const ValueKey('home_announcement')), findsNothing);
     final direction = find.byKey(const ValueKey('direction_thb_mmk'));
