@@ -32,6 +32,7 @@ jobs:
       - run: node --check hosted_backend/public/admin/app-release.js
       - run: node --check hosted_backend/public/admin/control-center.js
       - run: node --test tests/admin_control_center.test.cjs
+      - run: node --test tests/admin_dashboard_upgrade.test.cjs
       - run: node --test hosted_backend/test/*.test.mjs
   flutter:
     runs-on: ubuntu-latest
