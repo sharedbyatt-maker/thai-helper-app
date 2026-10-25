@@ -253,7 +253,7 @@ void main() {
       await reveal(t, find.byKey(const ValueKey('amount')));
       await t.enterText(find.byKey(const ValueKey('amount')), '1000');
       await reveal(t, find.byKey(const PageStorageKey('calculator_options')));
-      await t.tap(find.text('ဈေးနှိုင်းမယ် / ရချင်တဲ့ငွေနဲ့ တွက်မယ်'));
+      await t.tap(find.text('ဈေးနှိုင်းမယ်'));
       await t.pumpAndSettle();
       await reveal(t, find.text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'));
       await t.tap(find.text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်'));
