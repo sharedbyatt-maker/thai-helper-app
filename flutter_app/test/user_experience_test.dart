@@ -2,6 +2,7 @@ import 'support/calculator_fixture.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -26,7 +27,7 @@ ExchangeQuote quote() => ExchangeQuote(
   validUntil: DateTime.now().add(const Duration(days: 1)),
 );
 
-RatesRepository repository() => RatesRepository(
+RatesRepository repository({String notice = ''}) => RatesRepository(
   client: MockClient(
     (r) async => http.Response(
       jsonEncode(
@@ -36,7 +37,7 @@ RatesRepository repository() => RatesRepository(
                 'schema_version': 2,
                 'revision': 1,
                 'published_at': DateTime.now().toIso8601String(),
-                'notice': '',
+                'notice': notice,
                 'quotes': [quote().toJson()],
               },
       ),
@@ -68,6 +69,34 @@ Future<void> reveal(WidgetTester t, Finder f) async {
 }
 
 void main() {
+  testWidgets('Phone home restores the icon heading without duplicate freshness or announcements', (t) async {
+    SharedPreferences.setMockInitialValues({});
+    for (final font in [
+      ('Noto Sans Myanmar', 'assets/fonts/NotoSansMyanmar.ttf'),
+      ('MaterialIcons', 'fonts/MaterialIcons-Regular.otf'),
+    ]) {
+      await (FontLoader(font.$1)..addFont(rootBundle.load(font.$2))).load();
+    }
+    t.view.physicalSize = const Size(390, 844);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    await t.pumpWidget(CurrencyApp(repository: repository(notice: 'Legacy announcement must stay off Home'), updates: noNativeUpdates()));
+    await t.pumpAndSettle();
+    final heading = find.byKey(const ValueKey('home_heading'));
+    expect(heading, findsOneWidget);
+    expect(find.descendant(of: heading, matching: find.byIcon(Icons.show_chart_rounded)), findsOneWidget);
+    expect(find.textContaining('နောက်ဆုံးဈေး ·'), findsNothing);
+    expect(find.textContaining('Latest rate ·'), findsNothing);
+    expect(find.text('Legacy announcement must stay off Home'), findsNothing);
+    expect(find.byKey(const ValueKey('home_announcement')), findsNothing);
+    final direction = find.byKey(const ValueKey('direction_thb_mmk'));
+    expect(t.getTopLeft(direction).dy, lessThan(210));
+    final graph = find.byKey(const ValueKey('reference_rate_graph'));
+    expect(t.getBottomRight(graph).dy, lessThan(750));
+    expect(t.takeException(), isNull);
+  });
+
   testWidgets('Home exposes rate sharing directly and Settings contains no Admin entry', (t) async {
     SharedPreferences.setMockInitialValues({});
     await t.pumpWidget(CurrencyApp(repository: repository(), updates: noNativeUpdates()));

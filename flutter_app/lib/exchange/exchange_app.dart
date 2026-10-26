@@ -1,7 +1,6 @@
 import 'app_links.dart';
 import 'calculation_share_dialog.dart';
 import 'backup_reminder.dart';
-import 'quote_freshness.dart';
 import 'app_theme.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -859,20 +858,16 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final quote = dailyQuote(direction);
     final now = DateTime.now();
     final warning = quote != null && (!quote.activeAt(now) || now.difference(quote.observedAt).inHours >= 12);
+    if (!warning && data.origin == SheetOrigin.server) return const SizedBox.shrink();
     final warningColor = Theme.of(context).brightness == Brightness.dark
         ? const Color(0xFFE2BB73) : const Color(0xFF806018);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(warning ? Icons.warning_amber_rounded : data.origin == SheetOrigin.server ? Icons.cloud_done_outlined : Icons.offline_bolt_outlined,
           size: 20, color: warning ? warningColor : schemeColor(context)),
         const SizedBox(width: 8),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (quote != null) Tooltip(
-            message: quoteFreshnessDetails(quote, now: now, english: uiIsEnglish(context)),
-            triggerMode: TooltipTriggerMode.tap,
-            child: Text(quoteFreshness(quote, now: now, english: uiIsEnglish(context)), style: const TextStyle(height: 1.7)),
-          ),
           if (warning) Text(uiIsEnglish(context) ? 'Confirm the current rate before exchanging.' : 'ငွေမလဲခင် လက်ရှိဈေးကို ပြန်မေးပါ။', style: TextStyle(color: warningColor)),
           if (data.origin != SheetOrigin.server) Text(data.origin == SheetOrigin.cache ? 'လိုင်းမရသေးလို့ သိမ်းထားတဲ့ဈေးကို ပြထားပါတယ်' : 'ဈေးအသစ် မရသေးပါဘူး'),
         ])),
@@ -1052,18 +1047,21 @@ class _ExchangeHomeState extends State<ExchangeHome>
       child: ListView(
         key: const PageStorageKey('daily'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
         children: [
-          pageHeading(
-            'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
-            'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။',
-            Icons.show_chart_rounded,
+          KeyedSubtree(
+            key: const ValueKey('home_heading'),
+            child: pageHeading(
+              'ဒီနေ့ ဘတ်–ကျပ်ဈေး',
+              'ဘတ်ပေးမလား၊ ကျပ်ပေးမလား ရွေးပြီး ဈေးကြည့်လိုက်ပါ။',
+              Icons.show_chart_rounded,
+            ),
           ),
           if (data != null) connectionBanner(data),
           if (loading) const LinearProgressIndicator(),
           if (loadError != null) panel(Text(loadError!)),
           directionPicker(showRates: true),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
               final wide =
@@ -1090,15 +1088,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
             onPressed: data == null || data.sheet.quotes.isEmpty ? null : () => showRateShare(context, data.sheet.quotes),
             icon: const Icon(Icons.share_outlined), label: const Text('ဈေးနှုန်း မျှဝေမယ်'),
           )),
-          if (data?.sheet.notice.isNotEmpty == true)
-            Card(key: const ValueKey('home_announcement'), child: Padding(
-              padding: const EdgeInsets.all(14), child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Row(children: [Icon(Icons.campaign_outlined, size: 18), SizedBox(width: 8), Text('ကြေညာချက်', style: TextStyle(fontWeight: FontWeight.w700))]),
-                  const SizedBox(height: 8), raw.Text(data!.sheet.notice),
-                ],
-              ),
-            )),
               ]);
               if (wide) {
                 return Row(

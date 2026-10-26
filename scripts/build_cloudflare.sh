@@ -2,6 +2,7 @@
 # Cloudflare Pages: root directory is the repo root; output flutter_app/build/web.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export CI=true
 export FLUTTER_SUPPRESS_ANALYTICS=true
 export DART_SUPPRESS_ANALYTICS=true
 BAHTZAY_FLUTTER_VERSION=3.47.7
