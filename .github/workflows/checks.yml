@@ -51,6 +51,9 @@ jobs:
       - working-directory: flutter_app
         run: flutter test
       - working-directory: flutter_app
+        run: flutter test --platform chrome test/concurrent_storage_test.dart
+      - working-directory: flutter_app
         run: |
           flutter build web --release --no-web-resources-cdn
           node ../scripts/prepare_web_push.mjs build/web
+
