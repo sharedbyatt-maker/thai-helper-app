@@ -19,7 +19,7 @@ Future<T> withStorageLock<T>(String key, Future<T> Function() action) async {
   late T result;
   Object? failure;
   StackTrace? trace;
-  await manager.request(('bahtzay-storage:' + key).toJS, ((JSAny? lock) {
+  await manager.request('bahtzay-storage:$key'.toJS, ((JSAny? lock) {
     Future<JSAny?> run() async {
       try {
         result = await action();
