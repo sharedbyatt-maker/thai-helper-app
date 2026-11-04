@@ -225,3 +225,13 @@ To re-export, install maintainer-only `CairoSVG==2.8.2` and `Pillow` (with RAQM)
 An OS/browser controls when an existing installed icon is refreshed; versioned image URLs do not force every existing iPhone shortcut to update. Back up local records before changing/reinstalling any Home Screen installation. Do not clear browser data just to refresh branding. Physical iPhone/Android Home Screen tests and native APK/iOS signing have not been performed by this web release.
 
 Exchange-history writes now reload local preferences, validate existing/proposed records and reject a changed expected snapshot. The app reloads records after a conflict or foreground resume. Combined-restore rollback also checks the merged snapshot so a newer record from another tab is never deliberately overwritten by rollback. This is best-effort optimistic protection: separate SharedPreferences keys and independent tabs are **not** an atomic database transaction, and simultaneous changes between the final read and write remain possible. Keep a separate backup before restore; if rollback detects a conflict, inspect the retained current history and backup before retrying.
+
+
+## Source layout and local record writes
+
+- `flutter_app/lib/exchange/exchange_app.dart` remains the public entry point. App setup lives in `currency_app.dart`, the screen in `exchange_home.dart`, and calculator input models in `calculator_models.dart`.
+- `budget_models.dart` and `personal_record.dart` contain data models; `budget.dart` and `storage.dart` contain persistence. Existing imports and storage keys remain compatible.
+- Every budget/history write holds a stable per-store exclusive lock around reload, conflict checks, and persistence. Web uses origin-wide Web Locks across tabs; native uses an isolate-local queue. Stale writers still receive the existing conflict message and must reload before retrying. Unsupported web browsers reject writes instead of silently using unsafe persistence.
+- This change does not make the two-store backup restore a single transaction.
+- `hosted_backend/` is the current hosted API; `backend/` is the legacy Flask implementation retained for compatibility and its existing deployment/tests. Virtual environments and Python bytecode must be created locally, never committed. Install Python dependencies from `backend/requirements.txt`.
+- Concurrency regression tests run on the Flutter VM and in Chrome (`flutter test --platform chrome test/concurrent_storage_test.dart`).
