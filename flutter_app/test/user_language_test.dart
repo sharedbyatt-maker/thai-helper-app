@@ -92,9 +92,9 @@ void main() {
   testWidgets('English budget labels do not change a user-written Burmese note',
       (tester) async {
     SharedPreferences.setMockInitialValues({'user_language': 'en'});
-    await BudgetStore().save(const BudgetData(entries: [
+    await BudgetStore().save(BudgetData(entries: [
       BudgetEntry(
-        id: 'my-note', day: '2026-10-17', kind: BudgetKind.income,
+        id: 'my-note', day: budgetDay(budgetToday()), kind: BudgetKind.income,
         category: 'salary', amount: 10000, note: 'လစာ',
       ),
     ]), expectedRevision: 0);
