@@ -459,24 +459,30 @@ class _ExchangeHomeState extends State<ExchangeHome>
         quotes.firstOrNull;
   }
 
-  Widget pageHeading(String title, String subtitle, IconData icon) => Padding(
-    padding: const EdgeInsets.only(top: 8, bottom: 20),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(children: [
-          Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontSize: 23, fontWeight: FontWeight.w700, height: 1.6,
-          ))),
-          const SizedBox(width: 12),
-          Icon(icon, size: 23, color: Theme.of(context).colorScheme.primary),
-        ]),
-        const SizedBox(height: 4),
+  Widget pageHeading(String title, String subtitle, IconData icon, {bool inlineHelp = false}) => Padding(
+    padding: const EdgeInsets.only(top: 4, bottom: 18),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          fontSize: 24, fontWeight: FontWeight.w800, height: 1.55,
+        ))),
+        if (inlineHelp) Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary)
+        else IconButton(
+          tooltip: uiText(context, subtitle),
+          icon: Icon(Icons.info_outline_rounded, size: 21, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          onPressed: () => showDialog<void>(context: context, builder: (ctx) => AlertDialog(
+            title: Text(title), content: Text(subtitle),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ပိတ်မယ်'))],
+          )),
+        ),
+      ]),
+      if (inlineHelp) ...[
+        const SizedBox(height: 3),
         Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.65,
+          color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.6,
         )),
       ],
-    ),
+    ]),
   );
 
   Widget stepHeading(String step, String title) => Row(
@@ -796,7 +802,15 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(color: scheme.surface, border: Border(top: BorderSide(color: scheme.outlineVariant))),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (tab == 1 && MediaQuery.viewInsetsOf(context).bottom == 0)
+            ContentWidth(maxWidth: 700, child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: SizedBox(width: double.infinity, child: calculateAction()),
+            )),
+NavigationBar(
         selectedIndex: tab,
         indicatorColor: scheme.primaryContainer,
         onDestinationSelected: selectTab,
@@ -819,6 +833,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
             label: uiText(context, 'မှတ်တမ်း'),
           ),
         ],
+      ),
+        ]),
       ),
     );
   }
@@ -1025,6 +1041,35 @@ class _ExchangeHomeState extends State<ExchangeHome>
     });
   }
 
+  Widget calculateAction() => FilledButton.icon(
+          key: const ValueKey('calculate'),
+          onPressed: calculate,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            elevation: 0,
+            shadowColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: .25),
+          ),
+          icon: Icon(
+            calculationAcknowledged && results.isNotEmpty
+                ? Icons.check_circle_outline
+                : Icons.calculate_outlined,
+          ),
+          label: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              calculationAcknowledged && results.isNotEmpty
+                  ? '✓ တွက်ပြီးပြီ'
+                  : targetMode
+                  ? 'ပေးရမယ့်ငွေ တွက်မယ်'
+                  : lines.length > 1
+                  ? 'တွက်ပြီး နှိုင်းမယ်'
+                  : 'ရမယ့်ငွေ တွက်မယ်',
+            ),
+          ),
+        );
+
   Widget calculator() => SingleChildScrollView(
     key: const PageStorageKey('calculator'),
     padding: const EdgeInsets.all(16),
@@ -1038,6 +1083,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ? 'ကိုယ်ရချင်တဲ့ပမာဏထည့်ပြီး ပေးရမယ့်ငွေကို တွက်ကြည့်ပါ။'
               : 'ကိုယ်ပေးမယ့်ပမာဏထည့်ပြီး ရမယ့်ငွေကို တွက်ကြည့်ပါ။',
           Icons.calculate_outlined,
+          inlineHelp: true,
         ),
         Container(
           padding: const EdgeInsets.all(18),
@@ -1081,8 +1127,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   key: const ValueKey('amount'),
                   controller: amount,
                   style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 40,
+                    fontWeight: FontWeight.w800,
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -1095,6 +1141,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
                         ? null
                         : uiText(context, amountError!),
                     errorMaxLines: 3,
+                    suffixText: uiText(context, targetMode ? direction.to : direction.from),
+                    suffixStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .28),
                     floatingLabelBehavior: FloatingLabelBehavior.always,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 18,
@@ -1133,34 +1183,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ),
         ),
         for (var i = 0; i < lines.length; i++) lineEditor(lines[i], i),
-        FilledButton.icon(
-          key: const ValueKey('calculate'),
-          onPressed: calculate,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            elevation: 0,
-            shadowColor: Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha: .25),
-          ),
-          icon: Icon(
-            calculationAcknowledged && results.isNotEmpty
-                ? Icons.check_circle_outline
-                : Icons.calculate_outlined,
-          ),
-          label: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Text(
-              calculationAcknowledged && results.isNotEmpty
-                  ? '✓ တွက်ပြီးပြီ'
-                  : targetMode
-                  ? 'ပေးရမယ့်ငွေ တွက်မယ်'
-                  : lines.length > 1
-                  ? 'တွက်ပြီး နှိုင်းမယ်'
-                  : 'ရမယ့်ငွေ တွက်မယ်',
-            ),
-          ),
-        ),
           ])),
         ),
         const SizedBox(height: 10),
@@ -1766,23 +1788,6 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final side in <ExchangeDirection?>[
-                  null,
-                  ...ExchangeDirection.values,
-                ])
-                  ChoiceChip(
-                    key: ValueKey('records_filter_${side?.key ?? 'all'}'),
-                    label: Text(side?.label ?? 'အားလုံး'),
-                    selected: recordsDirection == side,
-                    onSelected: (_) => setState(() => recordsDirection = side),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
             TextField(
               key: const ValueKey('history_search'),
               controller: historySearch,
@@ -1803,8 +1808,27 @@ class _ExchangeHomeState extends State<ExchangeHome>
                       ),
               ),
             ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final side in <ExchangeDirection?>[
+                  null,
+                  ...ExchangeDirection.values,
+                ])
+                  ChoiceChip(
+                    key: ValueKey('records_filter_${side?.key ?? 'all'}'),
+                    label: Text(side?.label ?? 'အားလုံး'),
+                    selected: recordsDirection == side,
+                    onSelected: (_) => setState(() => recordsDirection = side),
+                  ),
+              ],
+            ),
             const SizedBox(height: 10),
-            DropdownButtonFormField<bool?>(
+            const SizedBox(height: 10),
+            LayoutBuilder(builder: (context, constraints) {
+              final status = DropdownButtonFormField<bool?>(
               key: ValueKey('history_status_$completedFilter'),
               initialValue: completedFilter,
               isExpanded: true,
@@ -1819,9 +1843,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 DropdownMenuItem(value: true, child: Text('ငွေလဲပြီးတာ')),
               ],
               onChanged: (v) => setState(() => completedFilter = v),
-            ),
-            const SizedBox(height: 10),
-            ExpansionTile(
+            );
+              final dates = ExpansionTile(
               key: const PageStorageKey('history_date_filters'),
               tilePadding: EdgeInsets.zero,
               title: const Text(
@@ -1869,7 +1892,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   style: TextStyle(fontSize: 12, height: 1.8),
                 ),
               ],
-            ),
+            );
+              if (constraints.maxWidth < 340 || MediaQuery.textScalerOf(context).scale(1) > 1.2) {
+                return Column(children: [status, dates]);
+              }
+              return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: status), const SizedBox(width: 12), Expanded(child: dates),
+              ]);
+            }),
             Wrap(
               spacing: 10,
               crossAxisAlignment: WrapCrossAlignment.center,

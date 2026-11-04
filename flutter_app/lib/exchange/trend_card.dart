@@ -68,7 +68,6 @@ class _TrendCardState extends State<TrendCard> {
           : null;
       final colors = Theme.of(context).colorScheme;
       return Column(
-        key: const ValueKey('rate_trend_card'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
@@ -102,15 +101,13 @@ class _TrendCardState extends State<TrendCard> {
                 ],
               ),
               SizedBox(height: compact ? 6 : 16),
-              Text(
-                q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : uiRateLabel(context, q),
-                style: TextStyle(
-                  fontSize: compact ? 24 : 31,
-                  fontWeight: FontWeight.w700,
-                  height: 1.6,
-                  letterSpacing: -.3,
-                ),
-              ),
+              if (q != null) ...[
+                Text('${formatted(referenceRateValue(q.rateMicros))} ဘတ်',
+                  style: TextStyle(fontSize: compact ? 42 : 52, fontWeight: FontWeight.w800, height: 1.4, color: Colors.white)),
+                const SizedBox(height: 4),
+              ],
+              Text(q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : uiRateLabel(context, q),
+                style: TextStyle(fontSize: q == null ? 22 : 14, fontWeight: FontWeight.w600, height: 1.65, color: pale)),
               if (q != null) ...[
                 SizedBox(height: compact ? 4 : 8),
                 Text(
@@ -118,7 +115,7 @@ class _TrendCardState extends State<TrendCard> {
                   key: const ValueKey('per_baht_equivalent'),
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: compact ? 15 : 18,
+                    fontSize: compact ? 11 : 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -217,6 +214,7 @@ class _TrendCardState extends State<TrendCard> {
           ),
           SizedBox(height: compact ? 8 : 14),
           Container(
+            key: const ValueKey('rate_trend_card'),
             padding: EdgeInsets.all(compact ? 10 : 18),
             decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16),
               border: Border.all(color: colors.outlineVariant)),

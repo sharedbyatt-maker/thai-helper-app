@@ -158,6 +158,7 @@ void main() {
           await t.pumpAndSettle();
           if (index == 1) {
             await t.enterText(find.byKey(const ValueKey('amount')), '10000');
+            FocusManager.instance.primaryFocus?.unfocus();
             await t.pumpAndSettle();
           }
           expect(

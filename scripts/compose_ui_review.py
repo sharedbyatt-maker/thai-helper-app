@@ -20,6 +20,6 @@ for state in ['before', 'after']:
         draw.text((left, 72), f'0{i+1} / {name}', font=small, fill='#173c33')
         board.paste(page, (left, top))
         left += page.width + gutter
-    draw.text((gutter, board.height - 32), 'Source baseline: b29841e | Interface images are unmodified screenshots.', font=small, fill='#5b7068')
+    draw.text((gutter, board.height - 32), 'Source baseline: f0fb89a (v1) | Interface images are unmodified screenshots.', font=small, fill='#5b7068')
     board.save(root / f'{state}-four-pages.png')
-(root / 'manifest.json').write_text(json.dumps({'baseline':'b29841e96cac19c75dae95287fb9509051f5952a','candidate':os.environ['CANDIDATE_SHA'],'render':'Flutter widget test with actual fonts','data':'isolated synthetic fixture; no production writes'}, indent=2))
+(root / 'manifest.json').write_text(json.dumps({'baseline':'f0fb89a1d65ba20e5587c5a2db1623590ba5888c','candidate':os.environ['CANDIDATE_SHA'],'render':'Flutter widget test with actual fonts','data':'isolated synthetic fixture; no production writes'}, indent=2))

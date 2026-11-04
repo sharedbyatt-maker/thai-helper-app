@@ -476,15 +476,21 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
           child: DefaultTextStyle(
             style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Row(children: [
-                Expanded(child: Text('သုံးလို့ရမယ့်ငွေ', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-                Icon(Icons.account_balance_wallet_outlined, color: Color(0xffbbebe0), size: 24),
+              Row(children: [
+                const Expanded(child: Text('သုံးလို့ရမယ့်ငွေ', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+                IconButton(key: const ValueKey('budget_plan'),
+                  tooltip: uiText(context, summary.plan == null ? 'ငွေစီမံမယ်' : 'အစီအစဉ် ပြင်မယ်'),
+                  onPressed: busy ? null : () => plan(),
+                  icon: const Icon(Icons.tune_rounded, color: Color(0xffbbebe0), size: 23)),
               ]),
               const SizedBox(height: 12),
               Text('${budgetMoney(available)} ဘတ်', key: const ValueKey('budget_available'),
-                style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800, height: 1.5, color: Colors.white)),
+                style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w800, height: 1.5, color: Colors.white)),
               const SizedBox(height: 6),
-              const Text('ဖယ်ထားငွေ နုတ်ပြီးနောက် သုံးနိုင်တဲ့ငွေပါ။', style: TextStyle(color: Color(0xffbbebe0), fontSize: 12, height: 1.7)),
+              Tooltip(
+                message: uiText(context, 'ရပြီးသားငွေနဲ့ သွင်းထားတဲ့စာရင်းအပေါ် အခြေခံထားတာပါ။ ထပ်ဝင်မယ့်ငွေ မပါသေးပါဘူး။'),
+                child: const Text('ဖယ်ထားငွေ နုတ်ပြီးနောက် သုံးနိုင်တဲ့ငွေပါ။', style: TextStyle(color: Color(0xffbbebe0), fontSize: 12, height: 1.7)),
+              ),
               if (summary.available < 0) Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(uiFormat(context, 'budgetGap', {'amount': budgetMoney(-summary.available)}),
@@ -492,30 +498,6 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
               ),
             ]),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 20),
-          child: LayoutBuilder(builder: (context, constraints) {
-            final balance = metric('ယနေ့ လက်ကျန်', summary.balance, const ValueKey('budget_balance'));
-            final protected = metric('ဖယ်ထားငွေ', summary.protected, null);
-            if (constraints.maxWidth < 330 && MediaQuery.textScalerOf(context).scale(1) > 1.3) {
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [balance, const SizedBox(height: 16), protected]);
-            }
-            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: balance), const SizedBox(width: 16), Expanded(child: protected),
-            ]);
-          }),
-        ),
-        if (summary.daily != null) Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: colors.primaryContainer, borderRadius: BorderRadius.circular(12)),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(Icons.calendar_today_outlined, size: 20, color: colors.onPrimaryContainer),
-            const SizedBox(width: 10),
-            Expanded(child: Text(uiFormat(context, 'budgetDaily', {'amount': money(summary.daily!)}),
-              key: const ValueKey('budget_daily'), style: TextStyle(fontSize: 13, height: 1.7, color: colors.onPrimaryContainer))),
-          ]),
         ),
         const SizedBox(height: 8),
         LayoutBuilder(
@@ -578,6 +560,30 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
             );
           },
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 20),
+          child: LayoutBuilder(builder: (context, constraints) {
+            final balance = metric('ယနေ့ လက်ကျန်', summary.balance, const ValueKey('budget_balance'));
+            final protected = metric('ဖယ်ထားငွေ', summary.protected, null);
+            if (constraints.maxWidth < 330 && MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [balance, const SizedBox(height: 16), protected]);
+            }
+            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: balance), const SizedBox(width: 16), Expanded(child: protected),
+            ]);
+          }),
+        ),
+        if (summary.daily != null) Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: colors.primaryContainer, borderRadius: BorderRadius.circular(12)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.calendar_today_outlined, size: 20, color: colors.onPrimaryContainer),
+            const SizedBox(width: 10),
+            Expanded(child: Text(uiFormat(context, 'budgetDaily', {'amount': money(summary.daily!)}),
+              key: const ValueKey('budget_daily'), style: TextStyle(fontSize: 13, height: 1.7, color: colors.onPrimaryContainer))),
+          ]),
+        ),
         if (data.entries.isEmpty && data.plans.isEmpty && data.opening == 0)
           card(
             Column(
@@ -600,17 +606,6 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
               ],
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-          child: Text(
-            'ရပြီးသားငွေနဲ့ သွင်းထားတဲ့စာရင်းအပေါ် အခြေခံထားတာပါ။ ထပ်ဝင်မယ့်ငွေ မပါသေးပါဘူး။',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.8,
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -682,137 +677,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
                   ),
                 if (ready) ...[
                   moneyOverview(summary, scheme),
-                  card(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'ကြိုဖယ်ထားမယ့်ငွေ',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (current == null)
-                          const Text(
-                            'အခုရှိငွေ၊ နောက်ဝင်ငွေရမယ့်ရက်နဲ့ ပေးဖို့ရှိတာတွေကို စီမံထားနိုင်တယ်။',
-                            style: TextStyle(height: 1.8),
-                          )
-                        else ...[
-                          Text(
-                            uiFormat(context, 'planRange', {
-                              'start': current.start,
-                              'end': current.end,
-                            }),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          if (summary.daysLeft == null)
-                            const Text(
-                              'ဒီနေ့နဲ့ကိုက်တဲ့ ကာလအသစ်ကို စီမံပေးပါ။ ဖယ်ထားငွေတွေကိုတော့ ဆက်ဖယ်ထားပေးထားတယ်။',
-                              style: TextStyle(height: 1.8),
-                            ),
-                          line('ပုံမှန်ပေးစရာ ကျန်ငွေ', summary.fixedLeft),
-                          line('အိမ်ပို့ရန် ကျန်ငွေ', summary.homeLeft),
-                          line('စုဖို့ ဖယ်ထားငွေ', current.savings),
-                          if (estimate > 0) ...[
-                            Text(
-                              uiFormat(context, 'remittanceEstimate', {
-                                'amount': money(estimate),
-                              }),
-                              key: const ValueKey('budget_remittance_estimate'),
-                              style: TextStyle(
-                                color: scheme.primary,
-                                fontWeight: FontWeight.w600,
-                                height: 1.8,
-                              ),
-                            ),
-                            Text(
-                              '${uiRateLabel(context, quote!)} · ${bangkokLabel(quote!.observedAt)} ထိုင်းအချိန်${quote!.activeAt(DateTime.now()) ? '' : ' · နောက်ဆုံးရထားတဲ့ဈေး'}',
-                              style: const TextStyle(fontSize: 12, height: 1.8),
-                            ),
-                          ],
-                        ],
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            TextButton.icon(
-                              key: const ValueKey('budget_plan'),
-                              onPressed: busy ? null : () => plan(),
-                              icon: const Icon(Icons.tune),
-                              label: Text(
-                                current == null
-                                    ? 'ငွေစီမံမယ်'
-                                    : 'အစီအစဉ် ပြင်မယ်',
-                              ),
-                            ),
-                            if (current != null)
-                              TextButton(
-                                onPressed: busy
-                                    ? null
-                                    : () => plan(create: true),
-                                child: const Text('ကာလအသစ် စီမံမယ်'),
-                              ),
-                          ],
-                        ),
-                        if (data.plans.isNotEmpty)
-                          ExpansionTile(
-                            tilePadding: EdgeInsets.zero,
-                            title: Text(
-                              uiFormat(context, 'savedPlans', {
-                                'count': data.plans.length,
-                              }),
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            children: [
-                              for (final p in [
-                                ...data.plans,
-                              ]..sort((a, b) => b.start.compareTo(a.start)))
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text('${p.start} → ${p.end} မတိုင်မီ'),
-                                      Text(
-                                        '${money(p.fixed + p.home + p.savings)} ဘတ် ဖယ်ထားဖို့ စီမံထားတယ်။',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      Wrap(
-                                        spacing: 8,
-                                        children: [
-                                          TextButton(
-                                            onPressed: busy
-                                                ? null
-                                                : () => plan(selected: p),
-                                            child: const Text('ဒီကာလ ပြင်မယ်'),
-                                          ),
-                                          TextButton(
-                                            onPressed: busy
-                                                ? null
-                                                : () => removePlan(p),
-                                            child: const Text(
-                                              'ဒီအစီအစဉ် ဖျက်မယ်',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                  card(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
+                  Card(child: Row(
                           children: [
                             IconButton(
                               tooltip: uiText(context, 'ယခင်လ'),
@@ -853,51 +718,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
                               icon: const Icon(Icons.chevron_right),
                             ),
                           ],
-                        ),
-                        line('ဒီလ ဝင်ငွေ', report.total(BudgetKind.income)),
-                        line('ဒီလ သုံးငွေ', report.total(BudgetKind.expense)),
-                        line(
-                          'ဒီလ အိမ်ပို့ပြီးငွေ',
-                          report.total(BudgetKind.remittance),
-                        ),
-                        const Divider(),
-                        const Text(
-                          'ဒီလ ထွက်ငွေ ဘာတွေအတွက် သုံးထားလဲ?',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        if (report.out == 0)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Text('ဒီလအတွက် သုံးငွေ မမှတ်ရသေးဘူး။'),
-                          ),
-                        for (final category in report.categories.entries)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Semantics(
-                              label:
-                                  '${category.key} ${money(category.value)} ဘတ်',
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  line(category.key, category.value),
-                                  LinearProgressIndicator(
-                                    value: category.value / report.out,
-                                    minHeight: 9,
-                                    borderRadius: BorderRadius.circular(9),
-                                    semanticsLabel: category.key,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'ကျပ်ရငွေကို ဘတ်သုံးငွေနဲ့ ထပ်ပေါင်းမထားပါဘူး။ အိမ်ပို့ပြီးငွေကို ဘတ်ထွက်ငွေအဖြစ် တစ်ကြိမ်ပဲ တွက်ထားတယ်။',
-                          style: TextStyle(fontSize: 12, height: 1.8),
-                        ),
-                      ],
-                    ),
-                  ),
+                        )),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: Text(
@@ -991,6 +812,170 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
+                  card(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        line('ဒီလ ဝင်ငွေ', report.total(BudgetKind.income)),
+                        line('ဒီလ သုံးငွေ', report.total(BudgetKind.expense)),
+                        line(
+                          'ဒီလ အိမ်ပို့ပြီးငွေ',
+                          report.total(BudgetKind.remittance),
+                        ),
+                        const Divider(),
+                        const Text(
+                          'ဒီလ ထွက်ငွေ ဘာတွေအတွက် သုံးထားလဲ?',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        if (report.out == 0)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Text('ဒီလအတွက် သုံးငွေ မမှတ်ရသေးဘူး။'),
+                          ),
+                        for (final category in report.categories.entries)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Semantics(
+                              label:
+                                  '${category.key} ${money(category.value)} ဘတ်',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  line(category.key, category.value),
+                                  LinearProgressIndicator(
+                                    value: category.value / report.out,
+                                    minHeight: 9,
+                                    borderRadius: BorderRadius.circular(9),
+                                    semanticsLabel: category.key,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'ကျပ်ရငွေကို ဘတ်သုံးငွေနဲ့ ထပ်ပေါင်းမထားပါဘူး။ အိမ်ပို့ပြီးငွေကို ဘတ်ထွက်ငွေအဖြစ် တစ်ကြိမ်ပဲ တွက်ထားတယ်။',
+                          style: TextStyle(fontSize: 12, height: 1.8),
+                        ),
+                      ],
+                    ),
+                  ),
+                  card(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ကြိုဖယ်ထားမယ့်ငွေ',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (current == null)
+                          const Text(
+                            'အခုရှိငွေ၊ နောက်ဝင်ငွေရမယ့်ရက်နဲ့ ပေးဖို့ရှိတာတွေကို စီမံထားနိုင်တယ်။',
+                            style: TextStyle(height: 1.8),
+                          )
+                        else ...[
+                          Text(
+                            uiFormat(context, 'planRange', {
+                              'start': current.start,
+                              'end': current.end,
+                            }),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if (summary.daysLeft == null)
+                            const Text(
+                              'ဒီနေ့နဲ့ကိုက်တဲ့ ကာလအသစ်ကို စီမံပေးပါ။ ဖယ်ထားငွေတွေကိုတော့ ဆက်ဖယ်ထားပေးထားတယ်။',
+                              style: TextStyle(height: 1.8),
+                            ),
+                          line('ပုံမှန်ပေးစရာ ကျန်ငွေ', summary.fixedLeft),
+                          line('အိမ်ပို့ရန် ကျန်ငွေ', summary.homeLeft),
+                          line('စုဖို့ ဖယ်ထားငွေ', current.savings),
+                          if (estimate > 0) ...[
+                            Text(
+                              uiFormat(context, 'remittanceEstimate', {
+                                'amount': money(estimate),
+                              }),
+                              key: const ValueKey('budget_remittance_estimate'),
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w600,
+                                height: 1.8,
+                              ),
+                            ),
+                            Text(
+                              '${uiRateLabel(context, quote!)} · ${bangkokLabel(quote!.observedAt)} ထိုင်းအချိန်${quote!.activeAt(DateTime.now()) ? '' : ' · နောက်ဆုံးရထားတဲ့ဈေး'}',
+                              style: const TextStyle(fontSize: 12, height: 1.8),
+                            ),
+                          ],
+                        ],
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            if (current != null)
+                              TextButton(
+                                onPressed: busy
+                                    ? null
+                                    : () => plan(create: true),
+                                child: const Text('ကာလအသစ် စီမံမယ်'),
+                              ),
+                          ],
+                        ),
+                        if (data.plans.isNotEmpty)
+                          ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            title: Text(
+                              uiFormat(context, 'savedPlans', {
+                                'count': data.plans.length,
+                              }),
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            children: [
+                              for (final p in [
+                                ...data.plans,
+                              ]..sort((a, b) => b.start.compareTo(a.start)))
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('${p.start} → ${p.end} မတိုင်မီ'),
+                                      Text(
+                                        '${money(p.fixed + p.home + p.savings)} ဘတ် ဖယ်ထားဖို့ စီမံထားတယ်။',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      Wrap(
+                                        spacing: 8,
+                                        children: [
+                                          TextButton(
+                                            onPressed: busy
+                                                ? null
+                                                : () => plan(selected: p),
+                                            child: const Text('ဒီကာလ ပြင်မယ်'),
+                                          ),
+                                          TextButton(
+                                            onPressed: busy
+                                                ? null
+                                                : () => removePlan(p),
+                                            child: const Text(
+                                              'ဒီအစီအစဉ် ဖျက်မယ်',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ],
             ),

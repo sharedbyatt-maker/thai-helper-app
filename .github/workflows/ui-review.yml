@@ -28,7 +28,7 @@ jobs:
           path: candidate
       - uses: actions/checkout@v4
         with:
-          ref: b29841e96cac19c75dae95287fb9509051f5952a
+          ref: f0fb89a1d65ba20e5587c5a2db1623590ba5888c
           path: baseline
       - uses: subosito/flutter-action@v2
         with:
