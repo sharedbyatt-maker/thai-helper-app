@@ -4,4 +4,4 @@ importScripts("bahtzay-push-sw.js");
 
 // Web identity: bahtzay-v2
 
-// Web build: e2ffb6fe32e5ec6f
+// Web build: 4481808b8e89e886
