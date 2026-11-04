@@ -1046,7 +1046,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          child: Material(type: MaterialType.transparency, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         directionPicker(),
         const SizedBox(height: 16),
         SegmentedButton<bool>(
@@ -1161,7 +1161,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             ),
           ),
         ),
-          ]),
+          ])),
         ),
         const SizedBox(height: 10),
         if (calcError != null &&

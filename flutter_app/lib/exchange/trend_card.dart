@@ -72,14 +72,14 @@ class _TrendCardState extends State<TrendCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(compact ? 12 : 20),
             decoration: BoxDecoration(color: const Color(0xff075d4d), borderRadius: BorderRadius.circular(20)),
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Wrap(
                 spacing: 10,
-                runSpacing: 8,
+                runSpacing: compact ? 4 : 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Icon(
@@ -101,18 +101,18 @@ class _TrendCardState extends State<TrendCard> {
                     ),
                 ],
               ),
-              SizedBox(height: compact ? 8 : 16),
+              SizedBox(height: compact ? 6 : 16),
               Text(
                 q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : uiRateLabel(context, q),
                 style: TextStyle(
-                  fontSize: compact ? 25 : 31,
+                  fontSize: compact ? 24 : 31,
                   fontWeight: FontWeight.w700,
                   height: 1.6,
                   letterSpacing: -.3,
                 ),
               ),
               if (q != null) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: compact ? 4 : 8),
                 Text(
                   uiPerBahtLabel(context, q),
                   key: const ValueKey('per_baht_equivalent'),
@@ -129,7 +129,7 @@ class _TrendCardState extends State<TrendCard> {
                     style: const TextStyle(color: pale, fontSize: 13),
                   ),
                 ],
-                const SizedBox(height: 6),
+                SizedBox(height: compact ? 4 : 6),
                 Text(
                   '${compact ? '' : 'နောက်ဆုံးစစ်ချိန် '}${bangkokLabel(q.observedAt)}',
                   style: const TextStyle(color: pale, fontSize: 12),
@@ -145,7 +145,7 @@ class _TrendCardState extends State<TrendCard> {
               ],
               if (q != null)
                 Padding(
-                  padding: EdgeInsets.only(top: compact ? 12 : 18),
+                  padding: EdgeInsets.only(top: compact ? 8 : 18),
                   child: FilledButton.icon(
                     onPressed: () => widget.onCalculate(q),
                     style: FilledButton.styleFrom(
@@ -215,16 +215,16 @@ class _TrendCardState extends State<TrendCard> {
               ]),
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 8 : 14),
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: EdgeInsets.all(compact ? 10 : 18),
             decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16),
               border: Border.all(color: colors.outlineVariant)),
             child: DefaultTextStyle(
               style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: colors.onSurface),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-              ...[
+              if (!compact) ...[
                 const Text(
                   'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
