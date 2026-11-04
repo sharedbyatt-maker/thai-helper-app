@@ -63,7 +63,8 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout -B codex/ui-review-evidence
+          evidence="codex/ui-review-evidence-${CANDIDATE_SHA:0:8}"
+          git checkout -B "$evidence"
           git add design/reviews
           git commit -m "Render UI review evidence for $CANDIDATE_SHA"
-          git push origin HEAD:refs/heads/codex/ui-review-evidence --force-with-lease
+          git push origin "HEAD:refs/heads/$evidence"

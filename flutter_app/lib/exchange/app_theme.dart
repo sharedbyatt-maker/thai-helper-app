@@ -85,8 +85,8 @@ ThemeData buildAppTheme(Brightness brightness) {
       selectedColor: scheme.primaryContainer,
       side: BorderSide(color: scheme.outlineVariant),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      labelStyle: TextStyle(color: scheme.onSurface, height: 1.55),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      labelStyle: base.textTheme.labelLarge?.copyWith(color: scheme.onSurface, height: 1.55, fontSize: 13),
     ),
     expansionTileTheme: ExpansionTileThemeData(
       iconColor: scheme.primary,

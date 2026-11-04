@@ -135,6 +135,11 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
+        await t.runAsync(() => precacheImage(
+          const AssetImage('assets/branding/bahtzay-icon-bahtzay-v2.png'),
+          boundary.currentContext!,
+        ));
+        await t.pumpAndSettle();
         for (var index = 0; index < 4; index++) {
           await t.tap(find.byType(NavigationDestination).at(index));
           await t.pumpAndSettle();
