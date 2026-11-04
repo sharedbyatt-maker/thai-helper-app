@@ -460,19 +460,19 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   Widget pageHeading(String title, String subtitle, IconData icon) => Padding(
-    padding: const EdgeInsets.only(bottom: 20, top: 4),
+    padding: const EdgeInsets.only(bottom: 20, top: 8),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: schemeColor(context), size: 25),
+          child: Icon(icon, color: schemeColor(context), size: 22),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,14 +481,16 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 title,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
+                  fontSize: 22,
+                  height: 1.6,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.8,
+                  height: 1.65,
                 ),
               ),
             ],
@@ -852,7 +854,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       child: ListView(
         key: const PageStorageKey('daily'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
         children: [
           KeyedSubtree(
             key: const ValueKey('home_heading'),
@@ -1046,7 +1048,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
 
   Widget calculator() => SingleChildScrollView(
     key: const PageStorageKey('calculator'),
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(16),
     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1718,7 +1720,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
         key: const PageStorageKey('records'),
         physics: const AlwaysScrollableScrollPhysics(),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         children: [
           pageHeading(
             'ကိုယ့်ငွေလဲမှတ်တမ်း',
@@ -1987,7 +1989,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
       key: ValueKey('monthly_summary_${side.key}'),
       width: double.infinity,
       margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
@@ -2303,4 +2305,5 @@ class _ExchangeHomeState extends State<ExchangeHome>
     }
   }
 }
+
 
