@@ -225,7 +225,7 @@ class _TrendCardState extends State<TrendCard> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
               ...[
-                Text(
+                const Text(
                   'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
@@ -343,7 +343,7 @@ class _TrendCardState extends State<TrendCard> {
                                   ),
                                   child: Text(
                                     '${formatted(values.first)} ဘတ်',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -432,7 +432,7 @@ class _TrendCardState extends State<TrendCard> {
               ),
               if (widget.unavailable)
                 Padding(
-                  padding: EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'အရင်ဈေးတွေ ယူမရသေးဘူး။ နောက်ဆုံးရထားတဲ့ဈေးကိုတော့ ပြထားပါတယ်။',
                     style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
