@@ -57,6 +57,9 @@ ThemeData buildAppTheme(Brightness brightness) {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: scheme.outlineVariant)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: scheme.primary, width: 2)),
+      hintStyle: base.textTheme.bodyMedium?.copyWith(
+        color: scheme.onSurfaceVariant, fontSize: 16, height: 1.65,
+      ),
       errorMaxLines: 3,
     ),
     filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
