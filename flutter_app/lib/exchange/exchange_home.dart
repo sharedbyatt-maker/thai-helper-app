@@ -459,45 +459,30 @@ class _ExchangeHomeState extends State<ExchangeHome>
         quotes.firstOrNull;
   }
 
-  Widget pageHeading(String title, String subtitle, IconData icon) => Padding(
-    padding: const EdgeInsets.only(bottom: 20, top: 8),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: schemeColor(context), size: 22),
+  Widget pageHeading(String title, String subtitle, IconData icon, {bool inlineHelp = false}) => Padding(
+    padding: const EdgeInsets.only(top: 4, bottom: 18),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          fontSize: 24, fontWeight: FontWeight.w800, height: 1.55,
+        ))),
+        if (inlineHelp) Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary)
+        else IconButton(
+          tooltip: uiText(context, subtitle),
+          icon: Icon(Icons.info_outline_rounded, size: 21, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          onPressed: () => showDialog<void>(context: context, builder: (ctx) => AlertDialog(
+            title: Text(title), content: Text(subtitle),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ပိတ်မယ်'))],
+          )),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 22,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.65,
-                ),
-              ),
-            ],
-          ),
-        ),
+      ]),
+      if (inlineHelp) ...[
+        const SizedBox(height: 3),
+        Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.6,
+        )),
       ],
-    ),
+    ]),
   );
 
   Widget stepHeading(String step, String title) => Row(
@@ -817,7 +802,15 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(color: scheme.surface, border: Border(top: BorderSide(color: scheme.outlineVariant))),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (tab == 1 && MediaQuery.viewInsetsOf(context).bottom == 0)
+            ContentWidth(maxWidth: 700, child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: SizedBox(width: double.infinity, child: calculateAction()),
+            )),
+NavigationBar(
         selectedIndex: tab,
         indicatorColor: scheme.primaryContainer,
         onDestinationSelected: selectTab,
@@ -840,6 +833,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
             label: uiText(context, 'မှတ်တမ်း'),
           ),
         ],
+      ),
+        ]),
       ),
     );
   }
@@ -1046,6 +1041,35 @@ class _ExchangeHomeState extends State<ExchangeHome>
     });
   }
 
+  Widget calculateAction() => FilledButton.icon(
+          key: const ValueKey('calculate'),
+          onPressed: calculate,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            elevation: 0,
+            shadowColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: .25),
+          ),
+          icon: Icon(
+            calculationAcknowledged && results.isNotEmpty
+                ? Icons.check_circle_outline
+                : Icons.calculate_outlined,
+          ),
+          label: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              calculationAcknowledged && results.isNotEmpty
+                  ? '✓ တွက်ပြီးပြီ'
+                  : targetMode
+                  ? 'ပေးရမယ့်ငွေ တွက်မယ်'
+                  : lines.length > 1
+                  ? 'တွက်ပြီး နှိုင်းမယ်'
+                  : 'ရမယ့်ငွေ တွက်မယ်',
+            ),
+          ),
+        );
+
   Widget calculator() => SingleChildScrollView(
     key: const PageStorageKey('calculator'),
     padding: const EdgeInsets.all(16),
@@ -1059,9 +1083,18 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ? 'ကိုယ်ရချင်တဲ့ပမာဏထည့်ပြီး ပေးရမယ့်ငွေကို တွက်ကြည့်ပါ။'
               : 'ကိုယ်ပေးမယ့်ပမာဏထည့်ပြီး ရမယ့်ငွေကို တွက်ကြည့်ပါ။',
           Icons.calculate_outlined,
+          inlineHelp: true,
         ),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          ),
+          child: Material(type: MaterialType.transparency, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         directionPicker(),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         SegmentedButton<bool>(
           key: const ValueKey('calculation_mode'),
           segments: const [
@@ -1078,8 +1111,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
           onSelectionChanged: (selection) => setTargetMode(selection.single),
         ),
         const SizedBox(height: 14),
-        panel(
-          Column(
+        Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 4),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               stepHeading(
@@ -1093,8 +1127,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   key: const ValueKey('amount'),
                   controller: amount,
                   style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 40,
+                    fontWeight: FontWeight.w800,
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -1107,6 +1141,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
                         ? null
                         : uiText(context, amountError!),
                     errorMaxLines: 3,
+                    suffixText: uiText(context, targetMode ? direction.to : direction.from),
+                    suffixStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: .28),
                     floatingLabelBehavior: FloatingLabelBehavior.always,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 18,
@@ -1145,33 +1183,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ),
         ),
         for (var i = 0; i < lines.length; i++) lineEditor(lines[i], i),
-        FilledButton.icon(
-          key: const ValueKey('calculate'),
-          onPressed: calculate,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-            elevation: 2,
-            shadowColor: Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha: .25),
-          ),
-          icon: Icon(
-            calculationAcknowledged && results.isNotEmpty
-                ? Icons.check_circle_outline
-                : Icons.calculate_outlined,
-          ),
-          label: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              calculationAcknowledged && results.isNotEmpty
-                  ? '✓ တွက်ပြီးပြီ'
-                  : targetMode
-                  ? 'ပေးရမယ့်ငွေ တွက်မယ်'
-                  : lines.length > 1
-                  ? 'တွက်ပြီး နှိုင်းမယ်'
-                  : 'ရမယ့်ငွေ တွက်မယ်',
-            ),
-          ),
+          ])),
         ),
         const SizedBox(height: 10),
         if (calcError != null &&
@@ -1253,10 +1265,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final hasDeduction =
         (parseMoney(line.fee.text, allowZero: true) ?? 0) > 0 ||
         (parseMoney(line.percent.text, allowZero: true) ?? 0) > 0;
-    return panel(
-      Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Divider(height: 24),
           Row(
             children: [
               Container(
@@ -1304,7 +1318,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             Text(
               uiRateLabel(context, line.original!),
               style: const TextStyle(
-                fontSize: 23,
+                fontSize: 20,
                 fontWeight: FontWeight.w700,
                 height: 1.6,
               ),
@@ -1774,6 +1788,27 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
             ),
             const SizedBox(height: 14),
+            TextField(
+              key: const ValueKey('history_search'),
+              controller: historySearch,
+              textInputAction: TextInputAction.search,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: uiText(context, 'မှတ်တမ်း ရှာမယ်'),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                hintText: uiText(context, 'မှတ်ချက် / ဈေးနာမည်'),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: historySearch.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: uiText(context, 'ရှာထားတာ ဖယ်မယ်'),
+                        icon: const Icon(Icons.close),
+                        onPressed: () => setState(historySearch.clear),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 4,
@@ -1791,31 +1826,16 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ],
             ),
             const SizedBox(height: 10),
-            TextField(
-              key: const ValueKey('history_search'),
-              controller: historySearch,
-              textInputAction: TextInputAction.search,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: uiText(context, 'မှတ်တမ်း ရှာမယ်'),
-                hintText: uiText(context, 'မှတ်ချက် / ဈေးနာမည်'),
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: historySearch.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: uiText(context, 'ရှာထားတာ ဖယ်မယ်'),
-                        icon: const Icon(Icons.close),
-                        onPressed: () => setState(historySearch.clear),
-                      ),
-              ),
-            ),
             const SizedBox(height: 10),
-            DropdownButtonFormField<bool?>(
+            LayoutBuilder(builder: (context, constraints) {
+              final status = DropdownButtonFormField<bool?>(
               key: ValueKey('history_status_$completedFilter'),
               initialValue: completedFilter,
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: uiText(context, 'မှတ်တမ်း အခြေအနေ'),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
               items: const [
                 DropdownMenuItem(value: null, child: Text('အားလုံး')),
@@ -1823,9 +1843,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 DropdownMenuItem(value: true, child: Text('ငွေလဲပြီးတာ')),
               ],
               onChanged: (v) => setState(() => completedFilter = v),
-            ),
-            const SizedBox(height: 10),
-            ExpansionTile(
+            );
+              final dates = ExpansionTile(
               key: const PageStorageKey('history_date_filters'),
               tilePadding: EdgeInsets.zero,
               title: const Text(
@@ -1873,7 +1892,14 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   style: TextStyle(fontSize: 12, height: 1.8),
                 ),
               ],
-            ),
+            );
+              if (constraints.maxWidth < 340 || MediaQuery.textScalerOf(context).scale(1) > 1.2) {
+                return Column(children: [status, dates]);
+              }
+              return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: status), const SizedBox(width: 12), Expanded(child: dates),
+              ]);
+            }),
             Wrap(
               spacing: 10,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -2029,6 +2055,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (r.name.isNotEmpty) ...[
+                  raw.Text(r.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                ],
                 Wrap(
                   spacing: 10,
                   runSpacing: 8,
@@ -2062,42 +2092,24 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ],
                 ),
                 const SizedBox(height: 14),
-                Column(
+                Row(
                   key: ValueKey('record_amount_${r.id}'),
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'ပေးငွေ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      '${money(r.budgetMinor)} ${r.quote.direction.from}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        height: 1.7,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'ရငွေ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      '${money(r.receivedMinor)} ${r.quote.direction.to}',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: colors.primary,
-                        height: 1.7,
-                      ),
-                    ),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('ပေးငွေ', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+                      const SizedBox(height: 4),
+                      Text('${money(r.budgetMinor)} ${r.quote.direction.from}',
+                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, height: 1.6)),
+                    ])),
+                    Padding(padding: const EdgeInsets.fromLTRB(6, 27, 10, 0),
+                      child: Icon(Icons.arrow_forward_rounded, size: 20, color: colors.primary)),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('ရငွေ', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+                      const SizedBox(height: 4),
+                      Text('${money(r.receivedMinor)} ${r.quote.direction.to}',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: colors.primary, height: 1.6)),
+                    ])),
                   ],
                 ),
                 const SizedBox(height: 6),

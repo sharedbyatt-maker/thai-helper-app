@@ -66,30 +66,19 @@ class _TrendCardState extends State<TrendCard> {
       final focus = hovered != null && hovered! < points.length
           ? points[hovered!]
           : null;
-      return Container(
-        key: const ValueKey('rate_trend_card'),
-        padding: EdgeInsets.all(compact ? 14 : 22),
-        decoration: BoxDecoration(
-          color: const Color(0xff075d4d),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xff08765f).withValues(alpha: .07),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: DefaultTextStyle(
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium!.copyWith(color: Colors.white),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      final colors = Theme.of(context).colorScheme;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: EdgeInsets.all(compact ? 12 : 20),
+            decoration: BoxDecoration(color: const Color(0xff075d4d), borderRadius: BorderRadius.circular(20)),
+            child: DefaultTextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Wrap(
                 spacing: 10,
-                runSpacing: 8,
+                runSpacing: compact ? 4 : 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Icon(
@@ -111,24 +100,22 @@ class _TrendCardState extends State<TrendCard> {
                     ),
                 ],
               ),
-              SizedBox(height: compact ? 8 : 16),
-              Text(
-                q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : uiRateLabel(context, q),
-                style: TextStyle(
-                  fontSize: compact ? 24 : 29,
-                  fontWeight: FontWeight.w700,
-                  height: 1.6,
-                  letterSpacing: -.3,
-                ),
-              ),
+              SizedBox(height: compact ? 6 : 16),
               if (q != null) ...[
-                const SizedBox(height: 8),
+                Text('${formatted(referenceRateValue(q.rateMicros))} ဘတ်',
+                  style: TextStyle(fontSize: compact ? 42 : 52, fontWeight: FontWeight.w800, height: 1.4, color: Colors.white)),
+                const SizedBox(height: 4),
+              ],
+              Text(q == null ? 'ဒီဘက်ဈေး မတင်ရသေးဘူး' : uiRateLabel(context, q),
+                style: TextStyle(fontSize: q == null ? 22 : 14, fontWeight: FontWeight.w600, height: 1.65, color: pale)),
+              if (q != null) ...[
+                SizedBox(height: compact ? 4 : 8),
                 Text(
                   uiPerBahtLabel(context, q),
                   key: const ValueKey('per_baht_equivalent'),
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: compact ? 15 : 18,
+                    fontSize: compact ? 11 : 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -139,7 +126,7 @@ class _TrendCardState extends State<TrendCard> {
                     style: const TextStyle(color: pale, fontSize: 13),
                   ),
                 ],
-                const SizedBox(height: 6),
+                SizedBox(height: compact ? 4 : 6),
                 Text(
                   '${compact ? '' : 'နောက်ဆုံးစစ်ချိန် '}${bangkokLabel(q.observedAt)}',
                   style: const TextStyle(color: pale, fontSize: 12),
@@ -155,7 +142,7 @@ class _TrendCardState extends State<TrendCard> {
               ],
               if (q != null)
                 Padding(
-                  padding: EdgeInsets.only(top: compact ? 12 : 18),
+                  padding: EdgeInsets.only(top: compact ? 8 : 18),
                   child: FilledButton.icon(
                     onPressed: () => widget.onCalculate(q),
                     style: FilledButton.styleFrom(
@@ -222,7 +209,19 @@ class _TrendCardState extends State<TrendCard> {
                     }),
                   ),
                 ),
-              SizedBox(height: compact ? 12 : 22),
+              ]),
+            ),
+          ),
+          SizedBox(height: compact ? 8 : 14),
+          Container(
+            key: const ValueKey('rate_trend_card'),
+            padding: EdgeInsets.all(compact ? 10 : 18),
+            decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.outlineVariant)),
+            child: DefaultTextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: colors.onSurface),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
               if (!compact) ...[
                 const Text(
                   'ဈေးဘယ်လို ပြောင်းသွားလဲ?',
@@ -243,12 +242,8 @@ class _TrendCardState extends State<TrendCard> {
                           hovered = null;
                         }),
                         style: TextButton.styleFrom(
-                          foregroundColor: days == n
-                              ? const Color(0xff075d4d)
-                              : Colors.white,
-                          backgroundColor: days == n
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: .10),
+                          foregroundColor: days == n ? colors.onPrimaryContainer : colors.onSurfaceVariant,
+                          backgroundColor: days == n ? colors.primaryContainer : Colors.transparent,
                           minimumSize: Size(
                             compact ? 48 : 60,
                             compact ? 36 : 40,
@@ -266,7 +261,7 @@ class _TrendCardState extends State<TrendCard> {
                       ),
                     ),
                   if (change != null)
-                    tag(
+                    chartTag(
                       '${change >= 0 ? '+' : '-'} ${change.abs().toStringAsFixed(2)}%${compact ? '' : ' · မှတ်တမ်းကာလ'}',
                     ),
                 ],
@@ -283,8 +278,8 @@ class _TrendCardState extends State<TrendCard> {
                             ? 'အရင်တင်ထားတဲ့ဈေးတွေ ယူနေပါတယ်'
                             : 'ဒီရက်တွေအတွက် ဈေးမှတ်တမ်း မရှိသေးဘူး။')
                       : 'အမှတ်လေးကို ထိပြီး ဈေးနဲ့အချိန် ကြည့်လို့ရပါတယ်',
-                  style: const TextStyle(
-                    color: pale,
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
                     fontSize: 12,
                     height: 1.8,
                   ),
@@ -326,6 +321,7 @@ class _TrendCardState extends State<TrendCard> {
                                 painter: RateTrendPainter(
                                   points,
                                   hovered,
+                                  ink: colors.primary,
                                   direction:
                                       q?.direction ?? ExchangeDirection.thbMmk,
                                 ),
@@ -340,7 +336,7 @@ class _TrendCardState extends State<TrendCard> {
                                     vertical: 5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: .12),
+                                    color: colors.primary.withValues(alpha: .12),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -358,8 +354,8 @@ class _TrendCardState extends State<TrendCard> {
                                       ? 'ရယူနေပါတယ်…'
                                       : 'ဈေးအသစ်တင်ရင် ဒီနေရာမှာ ပြပေးမယ်။',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: pale,
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -378,17 +374,17 @@ class _TrendCardState extends State<TrendCard> {
                   children: [
                     Text(
                       pointLabel(points.first),
-                      style: const TextStyle(color: pale, fontSize: 11),
+                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
                     ),
                     if (points.length > 1)
                       Text(
                         pointLabel(points.last),
-                        style: const TextStyle(color: pale, fontSize: 11),
+                        style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
                       ),
                   ],
                 ),
                 SizedBox(height: compact ? 8 : 16),
-                const Text('ကျပ် ၁ သိန်းအတွက် ဘတ် အနိမ့် / အမြင့်', style: TextStyle(color: pale, fontSize: 12)),
+                Text('ကျပ် ၁ သိန်းအတွက် ဘတ် အနိမ့် / အမြင့်', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: compact ? 12 : 22,
@@ -397,13 +393,13 @@ class _TrendCardState extends State<TrendCard> {
                     compact
                         ? Text(
                             'အနိမ့် ${formatted(low!)}',
-                            style: const TextStyle(color: pale, fontSize: 12),
+                            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
                           )
                         : metric('အနိမ့်', formatted(low!)),
                     compact
                         ? Text(
                             'အမြင့် ${formatted(high!)}',
-                            style: const TextStyle(color: pale, fontSize: 12),
+                            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
                           )
                         : metric('အမြင့်', formatted(high!)),
                     if (compact)
@@ -411,7 +407,7 @@ class _TrendCardState extends State<TrendCard> {
                         uiFormat(context, days == 1 ? 'updates' : 'days', {
                           'count': points.length,
                         }),
-                        style: const TextStyle(color: pale, fontSize: 12),
+                        style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
                       )
                     else
                       metric(
@@ -427,24 +423,31 @@ class _TrendCardState extends State<TrendCard> {
               Text(
                 '${history.cached ? 'သိမ်းထားတဲ့မှတ်တမ်း · ' : ''}${q?.direction == ExchangeDirection.thbMmk ? '၁ သိန်းရဖို့ ပေးရမယ့်ဘတ်' : '၁ သိန်းပေးရင် ရမယ့်ဘတ်'}${compact ? '' : ' · ထိုင်းအချိန်'}',
                 style: TextStyle(
-                  color: pale,
+                  color: colors.onSurfaceVariant,
                   fontSize: compact ? 10 : 11,
                   height: 1.6,
                 ),
               ),
               if (widget.unavailable)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'အရင်ဈေးတွေ ယူမရသေးဘူး။ နောက်ဆုံးရထားတဲ့ဈေးကိုတော့ ပြထားပါတယ်။',
-                    style: TextStyle(color: pale, fontSize: 12),
+                    style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
                   ),
                 ),
-            ],
+              ]),
+            ),
           ),
-        ),
+        ],
       );
     },
+  );
+
+  Widget chartTag(String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(10)),
+    child: Text(text, style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer, fontSize: 11)),
   );
 
   Widget tag(String text) => Container(
@@ -461,18 +464,18 @@ class _TrendCardState extends State<TrendCard> {
   Widget metric(String label, String value) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .09),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(14),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: pale, fontSize: 11)),
+        Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
         const SizedBox(height: 3),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
             fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
@@ -523,16 +526,18 @@ class RateTrendPainter extends CustomPainter {
   final List<RatePoint> points;
   final int? selected;
   final ExchangeDirection direction;
+  final Color ink;
   RateTrendPainter(
     this.points,
     this.selected, {
     this.direction = ExchangeDirection.thbMmk,
+    this.ink = Colors.white,
   });
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
     final grid = Paint()
-      ..color = Colors.white.withValues(alpha: .12)
+      ..color = ink.withValues(alpha: .12)
       ..strokeWidth = 1;
     for (final y in [.15, .5, .85]) {
       for (double x = 0; x < size.width; x += 9) {
@@ -581,15 +586,15 @@ class RateTrendPainter extends CustomPainter {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.white.withValues(alpha: .25),
-              Colors.white.withValues(alpha: 0),
+              ink.withValues(alpha: .25),
+              ink.withValues(alpha: 0),
             ],
           ).createShader(Offset.zero & size),
       );
       canvas.drawPath(
         line,
         Paint()
-          ..color = Colors.white
+          ..color = ink
           ..strokeWidth = 2.8
           ..strokeJoin = StrokeJoin.round
           ..style = PaintingStyle.stroke,
@@ -604,28 +609,28 @@ class RateTrendPainter extends CustomPainter {
       canvas.drawLine(
         Offset(p.dx, 0),
         Offset(p.dx, size.height),
-        grid..color = Colors.white.withValues(alpha: .4),
+        grid..color = ink.withValues(alpha: .4),
       );
     }
     for (final position in positions) {
       canvas.drawCircle(
         position,
         2.3,
-        Paint()..color = Colors.white.withValues(alpha: .65),
+        Paint()..color = ink.withValues(alpha: .65),
       );
     }
     canvas.drawCircle(
       p,
       9,
-      Paint()..color = Colors.white.withValues(alpha: .17),
+      Paint()..color = ink.withValues(alpha: .17),
     );
-    canvas.drawCircle(p, 4.5, Paint()..color = Colors.white);
+    canvas.drawCircle(p, 4.5, Paint()..color = ink);
   }
 
   @override
   bool shouldRepaint(covariant RateTrendPainter old) =>
       old.points != points ||
       old.selected != selected ||
-      old.direction != direction;
+      old.direction != direction || old.ink != ink;
 }
 

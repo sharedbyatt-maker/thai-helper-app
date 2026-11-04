@@ -53,14 +53,17 @@ void main() {
         final now = DateTime.now(), day = budgetToday();
         final q = ExchangeQuote(
           id: 'official',
-          label: 'Official rate',
+          label: 'နမူနာရည်ညွှန်းဈေး',
           direction: ExchangeDirection.thbMmk,
           rateMicros: 125000000,
-          sourceName: 'Published source',
+          sourceName: 'နမူနာရည်ညွှန်းဈေး',
           sourceChecked: true,
           observedAt: now.subtract(const Duration(minutes: 5)),
           validUntil: now.add(const Duration(days: 1)),
         );
+        final reverse = ExchangeQuote.fromJson({
+          ...q.toJson(), 'id': 'official-reverse', 'direction': 'mmk_thb', 'rate_micros': 131578947,
+        });
         await BudgetStore().save(
           BudgetData(
             opening: 1500000,
@@ -96,13 +99,18 @@ void main() {
         await RecordStore().save([
           PersonalRecord(
             id: 'saved',
-            name: 'Family',
-            note: 'Personal note',
+            name: 'အိမ်ပို့ငွေ',
+            note: 'ကိုယ်ပိုင်မှတ်တမ်း',
             quote: q,
             budgetMinor: 100000,
             receivedMinor: q.payout(100000),
             savedAt: now,
+            completed: true,
+            completedAt: now,
           ),
+          PersonalRecord(id: 'second', name: 'ဘတ်ငွေတွက်ထားတာ', note: '', quote: reverse,
+            budgetMinor: 10000000, receivedMinor: reverse.payout(10000000),
+            savedAt: now.subtract(const Duration(days: 1))),
         ]);
         final repo = RatesRepository(
           client: MockClient(
@@ -112,14 +120,19 @@ void main() {
                     ? {
                         'schema_version': 1,
                         'timezone': 'Asia/Bangkok',
-                        'points': [],
+                        'points': [for (var i = 6; i >= 0; i--) {
+                          'day': budgetDay(day.subtract(Duration(days: i))),
+                          'quote_id': q.id, 'direction': q.direction.key,
+                          'rate_micros': [125000000, 125156445, 125313283, 125470514, 125628141, 125470514, 125313283][i],
+                          'source_name': q.sourceName, 'source_url': '', 'payout_method': '',
+                        }],
                       }
                     : {
                         'schema_version': 2,
                         'revision': 1,
                         'published_at': now.toIso8601String(),
                         'notice': '',
-                        'quotes': [q.toJson()],
+                        'quotes': [q.toJson(), reverse.toJson()],
                       },
               ),
               200,
@@ -143,6 +156,11 @@ void main() {
         for (var index = 0; index < 4; index++) {
           await t.tap(find.byType(NavigationDestination).at(index));
           await t.pumpAndSettle();
+          if (index == 1) {
+            await t.enterText(find.byKey(const ValueKey('amount')), '10000');
+            FocusManager.instance.primaryFocus?.unfocus();
+            await t.pumpAndSettle();
+          }
           expect(
             t.takeException(),
             isNull,

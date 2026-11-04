@@ -69,7 +69,7 @@ Future<void> reveal(WidgetTester t, Finder f) async {
 }
 
 void main() {
-  testWidgets('Phone home restores the icon heading without duplicate freshness or announcements', (t) async {
+  testWidgets('Phone home exposes contextual help without duplicate freshness or announcements', (t) async {
     SharedPreferences.setMockInitialValues({});
     for (final font in [
       ('Noto Sans Myanmar', 'assets/fonts/NotoSansMyanmar.ttf'),
@@ -85,7 +85,7 @@ void main() {
     await t.pumpAndSettle();
     final heading = find.byKey(const ValueKey('home_heading'));
     expect(heading, findsOneWidget);
-    expect(find.descendant(of: heading, matching: find.byIcon(Icons.show_chart_rounded)), findsOneWidget);
+    expect(find.descendant(of: heading, matching: find.byIcon(Icons.info_outline_rounded)), findsOneWidget);
     expect(find.textContaining('နောက်ဆုံးဈေး ·'), findsNothing);
     expect(find.textContaining('Latest rate ·'), findsNothing);
     expect(find.text('Legacy announcement must stay off Home'), findsNothing);
@@ -270,3 +270,4 @@ void main() {
     expect(t.takeException(), isNull);
   });
 }
+
