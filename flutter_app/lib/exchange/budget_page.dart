@@ -682,7 +682,7 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 110),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
               children: [
                 if (widget.embedded)
                   Padding(
@@ -1735,3 +1735,4 @@ class _BudgetRestorePageState extends State<BudgetRestorePage> {
     ),
   );
 }
+

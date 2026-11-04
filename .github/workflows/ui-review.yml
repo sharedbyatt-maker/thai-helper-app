@@ -1,0 +1,69 @@
+name: Render source-based UI review
+on:
+  pull_request:
+    paths:
+      - 'flutter_app/lib/**'
+      - 'flutter_app/test/design_render_test.dart'
+      - 'design/UI_BASELINE.md'
+      - 'scripts/compose_ui_review.py'
+      - '.github/workflows/ui-review.yml'
+permissions:
+  contents: read
+jobs:
+  render:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/current-ui-polish-preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      DART_SUPPRESS_ANALYTICS: 'true'
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: acb2c34ba73010313a84f3e2dc3a7c5810349a8a
+          path: baseline
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - name: Prepare both app checkouts with the same rendering fixture
+        run: |
+          cp candidate/flutter_app/test/design_render_test.dart baseline/flutter_app/test/design_render_test.dart
+          python3 candidate/scripts/fetch_fonts.py
+          python3 baseline/scripts/fetch_fonts.py
+      - name: Render the baseline
+        working-directory: baseline/flutter_app
+        env:
+          UX_QA_DIR: ${{ github.workspace }}/candidate/design/reviews/before
+        run: |
+          flutter pub get
+          flutter test --dart-define=RENDER_UX=true test/design_render_test.dart
+      - name: Render the candidate
+        working-directory: candidate/flutter_app
+        env:
+          UX_QA_DIR: ${{ github.workspace }}/candidate/design/reviews/after
+        run: |
+          flutter pub get
+          flutter test --dart-define=RENDER_UX=true test/design_render_test.dart
+      - name: Assemble comparison boards
+        working-directory: candidate
+        run: |
+          python3 -m pip install Pillow
+          python3 scripts/compose_ui_review.py
+      - name: Save evidence on a separate review branch
+        working-directory: candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B codex/ui-review-evidence
+          git add design/reviews
+          git commit -m "Render UI review evidence for $CANDIDATE_SHA"
+          git push origin HEAD:refs/heads/codex/ui-review-evidence --force-with-lease

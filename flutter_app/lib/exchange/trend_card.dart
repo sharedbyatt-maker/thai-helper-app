@@ -70,15 +70,11 @@ class _TrendCardState extends State<TrendCard> {
         key: const ValueKey('rate_trend_card'),
         padding: EdgeInsets.all(compact ? 14 : 22),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xff06493f), Color(0xff078d77)],
-          ),
-          borderRadius: BorderRadius.circular(28),
+          color: const Color(0xff075d4d),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xff08765f).withValues(alpha: .15),
+              color: const Color(0xff08765f).withValues(alpha: .07),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -632,3 +628,4 @@ class RateTrendPainter extends CustomPainter {
       old.selected != selected ||
       old.direction != direction;
 }
+
