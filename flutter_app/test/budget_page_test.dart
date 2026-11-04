@@ -39,7 +39,7 @@ void main(){
   await reveal(tester,find.byKey(const ValueKey('budget_plan')));await tester.tap(find.byKey(const ValueKey('budget_plan')));await tester.pumpAndSettle();
   for(final field in [('budget_opening','15000'),('budget_fixed','3000'),('budget_home','4000'),('budget_savings','1000')]){await enter(tester,field.$1,field.$2);}
   await reveal(tester,find.byKey(const ValueKey('budget_save_plan')));await tester.tap(find.byKey(const ValueKey('budget_save_plan')));await tester.pumpAndSettle();
-  expect(BudgetSummary(await store.load(),today).available,700000);expect(find.byKey(const ValueKey('budget_remittance_estimate')),findsOneWidget);
+  expect(BudgetSummary(await store.load(),today).available,700000);await reveal(tester,find.byKey(const ValueKey('budget_remittance_estimate')));expect(find.byKey(const ValueKey('budget_remittance_estimate')),findsOneWidget);
   await reveal(tester,find.byKey(const ValueKey('budget_add_remittance')));await tester.tap(find.byKey(const ValueKey('budget_add_remittance')));await tester.pumpAndSettle();await enter(tester,'budget_amount','1000');await enter(tester,'budget_received_mmk','130000');await saveEntry(tester);
   var data=await store.load();expect(BudgetSummary(data,today).homeLeft,300000);expect(BudgetSummary(data,today).available,700000);expect(data.entries.single.receivedMmk,13000000);expect(data.entries.single.referenceRate,133689840);
   await tester.pumpWidget(const SizedBox());await tester.pumpAndSettle();await start(tester,store,rate:quote(150000000));
@@ -82,3 +82,4 @@ void main(){
   await reveal(tester,find.byKey(const ValueKey('budget_add_expense')));await tester.tap(find.byKey(const ValueKey('budget_add_expense')));await tester.pumpAndSettle();await enter(tester,'budget_amount','၀');await saveEntry(tester);expect(find.textContaining('ငွေပမာဏကို ပြန်စစ်ပေးပါ'),findsOneWidget);expect((await store.load()).entries.length,1);expect(tester.takeException(),isNull);
  });
 }
+
