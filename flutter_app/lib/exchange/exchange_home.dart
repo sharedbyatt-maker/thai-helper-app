@@ -460,42 +460,21 @@ class _ExchangeHomeState extends State<ExchangeHome>
   }
 
   Widget pageHeading(String title, String subtitle, IconData icon) => Padding(
-    padding: const EdgeInsets.only(bottom: 20, top: 8),
-    child: Row(
+    padding: const EdgeInsets.only(top: 8, bottom: 20),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: schemeColor(context), size: 22),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 22,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.65,
-                ),
-              ),
-            ],
-          ),
-        ),
+        Row(children: [
+          Expanded(child: Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontSize: 23, fontWeight: FontWeight.w700, height: 1.6,
+          ))),
+          const SizedBox(width: 12),
+          Icon(icon, size: 23, color: Theme.of(context).colorScheme.primary),
+        ]),
+        const SizedBox(height: 4),
+        Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant, height: 1.65,
+        )),
       ],
     ),
   );
@@ -1060,8 +1039,16 @@ class _ExchangeHomeState extends State<ExchangeHome>
               : 'ကိုယ်ပေးမယ့်ပမာဏထည့်ပြီး ရမယ့်ငွေကို တွက်ကြည့်ပါ။',
           Icons.calculate_outlined,
         ),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         directionPicker(),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         SegmentedButton<bool>(
           key: const ValueKey('calculation_mode'),
           segments: const [
@@ -1078,8 +1065,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
           onSelectionChanged: (selection) => setTargetMode(selection.single),
         ),
         const SizedBox(height: 14),
-        panel(
-          Column(
+        Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 4),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               stepHeading(
@@ -1149,8 +1137,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
           key: const ValueKey('calculate'),
           onPressed: calculate,
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-            elevation: 2,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            elevation: 0,
             shadowColor: Theme.of(
               context,
             ).colorScheme.primary.withValues(alpha: .25),
@@ -1161,7 +1149,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
                 : Icons.calculate_outlined,
           ),
           label: Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Text(
               calculationAcknowledged && results.isNotEmpty
                   ? '✓ တွက်ပြီးပြီ'
@@ -1172,6 +1160,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   : 'ရမယ့်ငွေ တွက်မယ်',
             ),
           ),
+        ),
+          ]),
         ),
         const SizedBox(height: 10),
         if (calcError != null &&
@@ -1253,10 +1243,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
     final hasDeduction =
         (parseMoney(line.fee.text, allowZero: true) ?? 0) > 0 ||
         (parseMoney(line.percent.text, allowZero: true) ?? 0) > 0;
-    return panel(
-      Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Divider(height: 24),
           Row(
             children: [
               Container(
@@ -1304,7 +1296,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
             Text(
               uiRateLabel(context, line.original!),
               style: const TextStyle(
-                fontSize: 23,
+                fontSize: 20,
                 fontWeight: FontWeight.w700,
                 height: 1.6,
               ),
@@ -1798,6 +1790,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: uiText(context, 'မှတ်တမ်း ရှာမယ်'),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 hintText: uiText(context, 'မှတ်ချက် / ဈေးနာမည်'),
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: historySearch.text.isEmpty
@@ -1816,6 +1810,8 @@ class _ExchangeHomeState extends State<ExchangeHome>
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: uiText(context, 'မှတ်တမ်း အခြေအနေ'),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
               items: const [
                 DropdownMenuItem(value: null, child: Text('အားလုံး')),
@@ -2029,6 +2025,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (r.name.isNotEmpty) ...[
+                  raw.Text(r.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                ],
                 Wrap(
                   spacing: 10,
                   runSpacing: 8,
@@ -2062,42 +2062,24 @@ class _ExchangeHomeState extends State<ExchangeHome>
                   ],
                 ),
                 const SizedBox(height: 14),
-                Column(
+                Row(
                   key: ValueKey('record_amount_${r.id}'),
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'ပေးငွေ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      '${money(r.budgetMinor)} ${r.quote.direction.from}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        height: 1.7,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'ရငွေ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                    Text(
-                      '${money(r.receivedMinor)} ${r.quote.direction.to}',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: colors.primary,
-                        height: 1.7,
-                      ),
-                    ),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('ပေးငွေ', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+                      const SizedBox(height: 4),
+                      Text('${money(r.budgetMinor)} ${r.quote.direction.from}',
+                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, height: 1.6)),
+                    ])),
+                    Padding(padding: const EdgeInsets.fromLTRB(6, 27, 10, 0),
+                      child: Icon(Icons.arrow_forward_rounded, size: 20, color: colors.primary)),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('ရငွေ', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+                      const SizedBox(height: 4),
+                      Text('${money(r.receivedMinor)} ${r.quote.direction.to}',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: colors.primary, height: 1.6)),
+                    ])),
                   ],
                 ),
                 const SizedBox(height: 6),

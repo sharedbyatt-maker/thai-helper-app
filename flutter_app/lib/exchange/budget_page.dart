@@ -470,95 +470,52 @@ class _BudgetPageState extends State<BudgetPage> with WidgetsBindingObserver {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Card(
-          color: colors.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'သုံးလို့ရမယ့်ငွေ',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${budgetMoney(available)} ဘတ်',
-                  key: const ValueKey('budget_available'),
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w800,
-                    color: colors.onPrimaryContainer,
-                    height: 1.5,
-                  ),
-                ),
-                const Text(
-                  'ဖယ်ထားငွေ နုတ်ပြီးနောက် သုံးနိုင်တဲ့ငွေပါ။',
-                  style: TextStyle(fontSize: 12, height: 1.8),
-                ),
-                if (summary.available < 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      uiFormat(context, 'budgetGap', {
-                        'amount': budgetMoney(-summary.available),
-                      }),
-                      style: TextStyle(
-                        color: colors.error,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                const Divider(height: 28),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final balance = metric(
-                      'ယနေ့ လက်ကျန်',
-                      summary.balance,
-                      const ValueKey('budget_balance'),
-                    );
-                    final protected = metric(
-                      'ဖယ်ထားငွေ',
-                      summary.protected,
-                      null,
-                    );
-                    if (constraints.maxWidth < 330 &&
-                        MediaQuery.textScalerOf(context).scale(1) > 1.3) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          balance,
-                          const SizedBox(height: 16),
-                          protected,
-                        ],
-                      );
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: balance),
-                        const SizedBox(width: 16),
-                        Expanded(child: protected),
-                      ],
-                    );
-                  },
-                ),
-                if (summary.daily != null) ...[
-                  const SizedBox(height: 18),
-                  Text(
-                    uiFormat(context, 'budgetDaily', {
-                      'amount': money(summary.daily!),
-                    }),
-                    key: const ValueKey('budget_daily'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      height: 1.8,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(color: const Color(0xff075d4d), borderRadius: BorderRadius.circular(20)),
+          child: DefaultTextStyle(
+            style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Expanded(child: Text('သုံးလို့ရမယ့်ငွေ', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+                Icon(Icons.account_balance_wallet_outlined, color: Color(0xffbbebe0), size: 24),
+              ]),
+              const SizedBox(height: 12),
+              Text('${budgetMoney(available)} ဘတ်', key: const ValueKey('budget_available'),
+                style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800, height: 1.5, color: Colors.white)),
+              const SizedBox(height: 6),
+              const Text('ဖယ်ထားငွေ နုတ်ပြီးနောက် သုံးနိုင်တဲ့ငွေပါ။', style: TextStyle(color: Color(0xffbbebe0), fontSize: 12, height: 1.7)),
+              if (summary.available < 0) Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(uiFormat(context, 'budgetGap', {'amount': budgetMoney(-summary.available)}),
+                  style: const TextStyle(color: Color(0xffffdfaa), fontWeight: FontWeight.w600)),
+              ),
+            ]),
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 20),
+          child: LayoutBuilder(builder: (context, constraints) {
+            final balance = metric('ယနေ့ လက်ကျန်', summary.balance, const ValueKey('budget_balance'));
+            final protected = metric('ဖယ်ထားငွေ', summary.protected, null);
+            if (constraints.maxWidth < 330 && MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [balance, const SizedBox(height: 16), protected]);
+            }
+            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: balance), const SizedBox(width: 16), Expanded(child: protected),
+            ]);
+          }),
+        ),
+        if (summary.daily != null) Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: colors.primaryContainer, borderRadius: BorderRadius.circular(12)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.calendar_today_outlined, size: 20, color: colors.onPrimaryContainer),
+            const SizedBox(width: 10),
+            Expanded(child: Text(uiFormat(context, 'budgetDaily', {'amount': money(summary.daily!)}),
+              key: const ValueKey('budget_daily'), style: TextStyle(fontSize: 13, height: 1.7, color: colors.onPrimaryContainer))),
+          ]),
         ),
         const SizedBox(height: 8),
         LayoutBuilder(

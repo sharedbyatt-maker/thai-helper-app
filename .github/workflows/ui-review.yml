@@ -5,13 +5,14 @@ on:
       - 'flutter_app/lib/**'
       - 'flutter_app/test/design_render_test.dart'
       - 'design/UI_BASELINE.md'
+      - 'design/LAYOUT_PROPOSAL.md'
       - 'scripts/compose_ui_review.py'
       - '.github/workflows/ui-review.yml'
 permissions:
   contents: read
 jobs:
   render:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/current-ui-polish-preview'
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/professional-layout-proposal'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -27,7 +28,7 @@ jobs:
           path: candidate
       - uses: actions/checkout@v4
         with:
-          ref: acb2c34ba73010313a84f3e2dc3a7c5810349a8a
+          ref: b29841e96cac19c75dae95287fb9509051f5952a
           path: baseline
       - uses: subosito/flutter-action@v2
         with:
