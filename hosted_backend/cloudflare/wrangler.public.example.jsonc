@@ -1,0 +1,15 @@
+{
+  "name": "bahtzay-api",
+  "main": "public.mjs",
+  "compatibility_date": "2026-11-07",
+  "workers_dev": true,
+  "preview_urls": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bahtzay",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "../drizzle"
+    }
+  ]
+}

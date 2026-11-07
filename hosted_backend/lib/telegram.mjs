@@ -105,7 +105,7 @@ export async function adminTelegram(req, db, path, data, runtime={}) {
   const webhookSecret=same?c.webhookSecret:random();
   const next={token,webhookSecret,source_name:source,source_url:url,direction:data.direction,enabled:true};
   // Stable secret when updating the same bot prevents a config/webhook mismatch.
-  await telegram(token,'setWebhook',{url:new URL('/api/telegram/webhook',req.url).href,secret_token:webhookSecret,allowed_updates:['message','callback_query'],drop_pending_updates:!same},fetcher);
+  await telegram(token,'setWebhook',{url:new URL('/api/telegram/webhook',runtime.publicApiOrigin||req.url).href,secret_token:webhookSecret,allowed_updates:['message','callback_query'],drop_pending_updates:!same},fetcher);
   await db.prepare('INSERT INTO telegram_settings(id,sealed,username,owner_id,generation) VALUES(1,?,?,?,0) ON CONFLICT(id) DO UPDATE SET sealed=excluded.sealed,username=excluded.username,owner_id=excluded.owner_id,pair_hash=NULL,pair_until=NULL,generation=telegram_settings.generation+1').bind(await seal(next,secret),me.username,same?row.owner_id:null).run();
   await db.prepare('DELETE FROM telegram_session WHERE id=1').run();
   return {...summary({...row,username:me.username,owner_id:same?row.owner_id:null},next),configured:true};

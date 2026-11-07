@@ -1,0 +1,3 @@
+admin-assets.generated.mjs
+wrangler.*.jsonc
+!wrangler.*.example.jsonc
