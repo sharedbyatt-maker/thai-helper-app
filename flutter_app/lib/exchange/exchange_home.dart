@@ -1441,6 +1441,7 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
               children: [
                 TextField(
+                  key: const PageStorageKey('quote_name_input'),
                   controller: line.name,
                   maxLength: 100,
                   onChanged: (_) => invalidate(),
