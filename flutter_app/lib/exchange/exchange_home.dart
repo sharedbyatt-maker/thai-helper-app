@@ -365,7 +365,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
           invalidField ??= line.fieldKey;
         }
       }
-      if (calculated.isEmpty) throw FormatException(lines.first.error);
+      if (calculated.isEmpty) {
+        throw FormatException(lines.first.error ?? 'ဈေးကို ပြန်စစ်ပေးပါ');
+      }
       calculated.sort(
         (a, b) => targetMode
             ? a.budget.compareTo(b.budget)
