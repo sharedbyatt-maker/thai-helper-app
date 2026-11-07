@@ -2,11 +2,12 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'budget_models.dart';
 import 'storage_lock.dart';
+import 'restore_storage.dart';
 
 export 'budget_models.dart';
 
 class BudgetStore {
-  static const key='bahtzay_budget_v1', limit=budgetEntryLimit, maxBytes=2000000;
+  static const key=budgetStorageKey, limit=budgetEntryLimit, maxBytes=2000000;
   final Future<SharedPreferences> Function() preferences;
   final DateTime Function() clock;
   BudgetStore({Future<SharedPreferences> Function()? preferences,DateTime Function()? clock}):preferences=preferences??SharedPreferences.getInstance,clock=clock??DateTime.now;
@@ -18,11 +19,11 @@ class BudgetStore {
   }
   Future<BudgetData> load() async {
     final p=await preferences();await p.reload();
-    final raw=p.getString(key);
+    final raw=pendingRestore(p)?[key]??p.getString(key);
     return raw==null?const BudgetData():decode(raw);
   }
-  Future<BudgetData> save(BudgetData next,{required int expectedRevision,bool replaceCorrupt=false}) => withStorageLock(key, () async {
-    final p=await preferences();await p.reload();final raw=p.getString(key);
+  Future<BudgetData> save(BudgetData next,{required int expectedRevision,bool replaceCorrupt=false}) => withStorageLock(restoreLock, () async {
+    final p=await preferences();await p.reload();await finishRestore(p);final raw=p.getString(key);
     BudgetData current;
     try { current=raw==null?const BudgetData():decode(raw); }
     catch (_) { if(!replaceCorrupt) rethrow; current=BudgetData(revision:expectedRevision); }

@@ -47,8 +47,14 @@ class CalcLine {
       throw const FormatException('ထည့်ထားတဲ့ဈေးကို ပြန်စစ်ပေးပါ');
     }
     final now = DateTime.now();
-    return original ??
-        ExchangeQuote(
+    final published = original;
+    final label = name.text.trim();
+    if (published != null) {
+      return label.isEmpty || label == published.label
+          ? published
+          : ExchangeQuote.fromJson({...published.toJson(), 'label': label});
+    }
+    return ExchangeQuote(
           id: 'personal_$index',
           label: name.text.trim().isEmpty
               ? 'ဈေး ${index + 1}'

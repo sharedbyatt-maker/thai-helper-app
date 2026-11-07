@@ -25,7 +25,7 @@ export async function pushApi(req,db,path,data,runtime={}){
   const revision=await db.prepare('SELECT COALESCE(MAX(id),0) AS id FROM revisions').first();
   const now=Date.now();
   await ensurePushConfig(db,runtime.telegramKey);
-  const result=await db.prepare(`INSERT INTO push_subscribers(id,endpoint,keys_json,manage_hash,active,version,start_revision,created_at,updated_at) SELECT ?,?,?,?,1,1,?,?,? WHERE (SELECT COUNT(*) FROM push_subscribers)<10000 OR EXISTS(SELECT 1 FROM push_subscribers WHERE id=?) ON CONFLICT(id) DO UPDATE SET endpoint=excluded.endpoint,keys_json=excluded.keys_json,active=1,version=push_subscribers.version+1,start_revision=excluded.start_revision,updated_at=excluded.updated_at WHERE push_subscribers.manage_hash=excluded.manage_hash`).bind(id,sub.endpoint,JSON.stringify(sub.keys),manage,revision.id,now,now,id).run();
+  const result=await db.prepare(`INSERT INTO push_subscribers(id,endpoint,keys_json,manage_hash,active,version,start_revision,created_at,updated_at) SELECT ?,?,?,?,1,1,?,?,? WHERE EXISTS(SELECT 1 FROM push_subscribers WHERE id=?) OR ((SELECT COUNT(*) FROM push_subscribers)<10000 AND (SELECT COUNT(*) FROM push_subscribers WHERE created_at>?)<120) ON CONFLICT(id) DO UPDATE SET endpoint=excluded.endpoint,keys_json=excluded.keys_json,active=1,version=push_subscribers.version+1,start_revision=excluded.start_revision,updated_at=excluded.updated_at WHERE push_subscribers.manage_hash=excluded.manage_hash`).bind(id,sub.endpoint,JSON.stringify(sub.keys),manage,revision.id,now,now,id,now-60000).run();
   return result.meta.changes?{status:200,data:{ok:true,id,active:true}}:{status:429,data:{error:'Noti ချိတ်ဆက်မှု ခဏမရသေးဘူး။ နောက်မှ ပြန်စမ်းပါ။'}};
  }
  if(typeof data.id!=='string'||!/^[a-f0-9]{64}$/.test(data.id))return {status:400,data:{error:'Invalid device'}};
@@ -74,10 +74,11 @@ export async function deliverPush(db,secret,fetcher=fetch,clock=Date.now){
  const rows=(await db.prepare(`SELECT o.*,s.endpoint,s.keys_json,e.payload,e.kind,e.expires_at FROM push_outbox o JOIN push_subscribers s ON s.id=o.subscriber_id AND s.version=o.subscription_version JOIN notification_events e ON e.revision=o.revision WHERE o.status=0 AND o.attempts<5 AND o.next_attempt<=? AND s.active=1 ORDER BY o.revision LIMIT 20`).bind(now).all()).results;
  const deadline=now+18000;
  for(let start=0;start<rows.length&&clock()<deadline;start+=4){await Promise.all(rows.slice(start,start+4).map(async item=>{
-  const time=clock(),payload=pushPayload(item,time);
+  const time=clock();
   const newer=await db.prepare(`SELECT e.revision FROM notification_events e JOIN revisions r ON r.id=e.revision WHERE e.kind=? AND e.revision>? LIMIT 1`).bind(item.kind,item.revision).first();
   const latest=await db.prepare('SELECT id,payload FROM revisions ORDER BY id DESC LIMIT 1').first();
   const obsolete=!eventCurrent(item,latest);
+  const payload=obsolete?null:pushPayload(item,time,JSON.parse(latest.payload).notice??'');
   if(item.expires_at<=time||!payload||newer||obsolete){await db.prepare('UPDATE push_outbox SET status=2 WHERE id=? AND status=0').bind(item.id).run();return;}
   const lease=await db.prepare(`UPDATE push_outbox SET attempts=attempts+1,next_attempt=? WHERE id=? AND status=0 AND next_attempt<=? AND EXISTS(SELECT 1 FROM push_subscribers WHERE id=? AND version=? AND active=1) AND EXISTS(SELECT 1 FROM revisions WHERE id=?) AND (SELECT MAX(id) FROM revisions)=?`).bind(time+60000,item.id,time,item.subscriber_id,item.subscription_version,item.revision,latest.id).run();
   if(!lease.meta.changes)return;

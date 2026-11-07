@@ -176,4 +176,36 @@ void main() {
       await close(tester);
     },
   );
+  testWidgets('Renaming a published comparison preserves fees and an empty comparison does not hide its result', (tester) async {
+    await start(tester, charged: true);
+    await reveal(tester, find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
+    await tester.tap(find.text('ဒီနှုန်းနဲ့ တွက်မယ်').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('amount')), '1000');
+
+    final options = find.text('ဈေးနှိုင်းမယ်');
+    await reveal(tester, options);
+    await tester.tap(options);
+    await tester.pumpAndSettle();
+    final add = find.text('နှိုင်းဖို့ ဈေးတစ်ခု ထပ်ထည့်မယ်');
+    await reveal(tester, add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+
+    final name = find.text('ဒီဈေးကို နာမည်ပေးထားချင်လား?').first;
+    await reveal(tester, name);
+    await tester.tap(name);
+    await tester.pumpAndSettle();
+    final field = find.widgetWithText(TextField, 'မှတ်ထားမယ့်နာမည်');
+    await tester.enterText(field, 'My quote');
+    await reveal(tester, find.byKey(const ValueKey('published_deduction_0')));
+    await reveal(tester, find.byKey(const ValueKey('calculate')));
+    await tester.tap(find.byKey(const ValueKey('calculate')));
+    await tester.pumpAndSettle();
+    expect(find.text('ရငွေ 121,250 ကျပ်'), findsOneWidget);
+    final emptyRate = tester.widget<TextField>(find.byKey(const ValueKey('rate_1')));
+    expect(emptyRate.decoration?.errorText, isNotNull);
+    await close(tester);
+  });
+
 }

@@ -180,3 +180,40 @@ test('Cloudflare production and legacy origins retain device checks while unrela
   }
  }finally{db.sqlite.close();}
 });
+
+test('Publishing a changed rate and notice previews and queues one combined push with the rate expiry',async()=>{
+ const db=new D1();try{
+  await publish(db,[quote('mmk_thb',720)]);
+  await subscribe(db);
+  const next={quotes:[quote('mmk_thb',724)],notice:'New announcement'};
+  db.sqlite.prepare('INSERT INTO admin_owner VALUES(1,?)').run('owner');
+  db.sqlite.prepare('INSERT INTO draft VALUES(1,?,7)').run(JSON.stringify(next));
+  const admin=(path,body)=>handle(new Request('https://rates.example/api/admin/'+path,{
+   method:'POST',headers:{Origin:'https://rates.example','X-Admin-Request':'1'},body:JSON.stringify(body),
+  }),db,{userId:'owner'},'',{telegramKey:secret});
+  const preview=await (await admin('push-preview',{sheet:next})).json();
+  assert.match(preview.preview.body,/724[\s\S]*New announcement/);
+  assert.equal((await admin('publish',{expected_version:7})).status,200);
+  assert.equal((await admin('publish',{expected_version:7})).status,409);
+  const event=db.sqlite.prepare('SELECT * FROM notification_events WHERE revision=2').get();
+  assert.equal(pushPayload(event,now).body,preview.preview.body);
+  assert.doesNotMatch(pushPayload(event,now,'Newer announcement').body,/New announcement/);
+  assert.equal(pushPayload(event,now).expires_at,Date.parse(next.quotes[0].valid_until));
+  await queuePush(db,now);
+  await queuePush(db,now);
+  assert.equal(db.sqlite.prepare('SELECT COUNT(*) n FROM push_outbox WHERE revision=2').get().n,1);
+ }finally{db.sqlite.close();}
+});
+
+test('Push admission is capped for new endpoints without blocking existing device renewal',async()=>{
+ const db=new D1();try{
+  const existing=subscription('existing').sub;
+  assert.equal((await subscribe(db,existing)).status,200);
+  const insert=db.sqlite.prepare("INSERT INTO push_subscribers VALUES(?,?,'{}','',1,1,0,?,?)");
+  for(let i=0;i<119;i++)insert.run('id'+i,'endpoint'+i,now,now);
+  assert.equal((await subscribe(db,subscription('burst').sub)).status,429);
+  assert.equal((await subscribe(db,existing)).status,200);
+  db.sqlite.prepare('UPDATE push_subscribers SET created_at=?').run(now-61000);
+  assert.equal((await subscribe(db,subscription('burst').sub)).status,200);
+ }finally{db.sqlite.close();}
+});

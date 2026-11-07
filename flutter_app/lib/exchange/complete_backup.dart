@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'budget.dart';
 import 'storage.dart';
+import 'restore_storage.dart';
+import 'storage_lock.dart';
 
 /// One portable file containing *only* the user's two local data sets.
 /// Published rate sheets and admin settings are intentionally excluded.
@@ -118,35 +120,36 @@ class CompleteBackupService {
   String _signature(List<PersonalRecord> records) =>
       jsonEncode(records.map((r) => r.toJson()).toList());
 
-  /// Budget is replaced only after explicit UI confirmation; exchange records
-  /// are merged by ID. If the budget write fails, undo the additive merge.
-  /// Browser storage is not a transactional database, so a separate backup
-  /// should still be saved before a restore.
-  Future<void> restore(CompleteBackupPreview preview) async {
+  /// Commit both datasets in one journal write. The existing keys can be
+  /// copied again after a crash, and readers see both values from the journal.
+  Future<void> restore(CompleteBackupPreview preview) =>
+      withStorageLock(restoreLock, () async {
+    final preferences = await budgetStore.preferences();
+    await preferences.reload();
+    await finishRestore(preferences);
+
     final currentBudget = await budgetStore.load();
     final currentRecords = await recordStore.load();
     if (currentBudget.revision != preview.previousBudget.revision ||
         _signature(currentRecords) != preview.previousRecordsSignature) {
       throw const FormatException('ဒီဖုန်းထဲက စာရင်း ပြောင်းထားပြီ။ ဖိုင်ကို ပြန်စစ်ပြီးမှ ပြန်ထည့်ပေးပါ။');
     }
-    final historyChanged = preview.mergedRecords.added > 0;
-    if (historyChanged) {
-      await recordStore.save(preview.mergedRecords.records, expectedRecords: currentRecords);
+    final nextBudget = budgetStore.backup(budgetStore.decode(budgetStore.backup(
+      preview.incoming.budget.copy(revision: currentBudget.revision + 1),
+    )));
+    final journal = jsonEncode({
+      BudgetStore.key: nextBudget,
+      RecordStore.key: _signature(preview.mergedRecords.added == 0
+          ? currentRecords : preview.mergedRecords.records),
+    });
+    if (!await preferences.setString(restoreJournal, journal)) {
+      throw const FormatException('Backup စာရင်းကို သိမ်းမရသေးပါ။ ပြန်စမ်းပေးပါ။');
     }
     try {
-      await budgetStore.save(
-        preview.incoming.budget.copy(revision: currentBudget.revision),
-        expectedRevision: currentBudget.revision,
-      );
+      await finishRestore(preferences);
     } catch (_) {
-      if (historyChanged) {
-        try {
-          await recordStore.save(currentRecords, expectedRecords: preview.mergedRecords.records);
-        } catch (_) {
-          throw const FormatException('ငွေစာရင်းသိမ်းမရခဲ့ပါ။ ငွေလဲမှတ်တမ်းလည်း ပြောင်းထားတာ ဒါမှမဟုတ် သိမ်းမရတာ ရှိလို့ ဖုံးမရေးထားပါဘူး။ လက်ရှိစာရင်းနဲ့ Backup ကို ပြန်စစ်ပေးပါ။');
-        }
-      }
-      throw const FormatException('ငွေစာရင်းသိမ်းမရလို့ ပြန်ထည့်ခြင်းကို ရပ်ထားပါတယ်။ အရင်မှတ်တမ်းတွေ ပြန်ထားပြီးပါပြီ။');
+      // The commit succeeded. Readers use the journal and the next financial
+      // write will retry copying both values before changing either dataset.
     }
-  }
+  });
 }

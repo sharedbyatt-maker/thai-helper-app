@@ -4,6 +4,17 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseSigning = listOf(
+    "BAHTZAY_KEYSTORE_PATH",
+    "BAHTZAY_KEYSTORE_PASSWORD",
+    "BAHTZAY_KEY_ALIAS",
+    "BAHTZAY_KEY_PASSWORD",
+).associateWith { providers.environmentVariable(it).orNull }
+val hasReleaseSigning = releaseSigning.values.all { !it.isNullOrBlank() }
+require(releaseSigning.values.all { it.isNullOrBlank() } || hasReleaseSigning) {
+    "Set all four BahtZay Android signing environment variables."
+}
+
 android {
     namespace = "io.github.sharedbyattmaker.bahtzay"
     compileSdk = flutter.compileSdkVersion
@@ -29,10 +40,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("bahtzayRelease") {
+                storeFile = file(releaseSigning.getValue("BAHTZAY_KEYSTORE_PATH")!!)
+                storePassword = releaseSigning.getValue("BAHTZAY_KEYSTORE_PASSWORD")
+                keyAlias = releaseSigning.getValue("BAHTZAY_KEY_ALIAS")
+                keyPassword = releaseSigning.getValue("BAHTZAY_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Production signing must be configured before store publication.
-            // Never disguise a debug key as a production release.
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("bahtzayRelease")
+            }
         }
     }
 }

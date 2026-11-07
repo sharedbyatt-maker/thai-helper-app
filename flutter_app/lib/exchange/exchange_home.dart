@@ -164,6 +164,9 @@ class _ExchangeHomeState extends State<ExchangeHome>
             lines[i] = replacement == null
                 ? CalcLine(label: previousLine.name.text)
                 : CalcLine(quote: replacement);
+            if (previousLine.name.text != original.label) {
+              lines[i].name.text = previousLine.name.text;
+            }
             previousLine.dispose();
             changedQuote = true;
           }
@@ -341,27 +344,29 @@ class _ExchangeHomeState extends State<ExchangeHome>
       }
       final calculated = <Calculation>[];
       for (var i = 0; i < lines.length; i++) {
-        late ExchangeQuote q;
+        final line = lines[i];
         try {
-          q = lines[i].quote(direction, i);
+          final quote = line.quote(direction, i);
+          final budget = targetMode ? quote.requiredBudget(value) : value;
+          if (budget == null) {
+            throw const FormatException(
+              'ဒီပမာဏက တွက်ပေးနိုင်တဲ့ အကန့်အသတ်ထက် များနေပါတယ်။',
+            );
+          }
+          final received = quote.payout(budget);
+          if (received <= 0) {
+            throw const FormatException(
+              'ပေးမယ့်ငွေက သီးသန့်နုတ်ငွေထက် နည်းနေပါတယ်။',
+            );
+          }
+          calculated.add(Calculation(quote, budget, received));
         } on FormatException catch (e) {
-          lines[i].error = e.message;
-          invalidField = lines[i].fieldKey;
-          rethrow;
+          line.error = e.message;
+          invalidField ??= line.fieldKey;
         }
-        final budget = targetMode ? q.requiredBudget(value) : value;
-        if (budget == null) {
-          throw const FormatException(
-            'ဒီပမာဏက တွက်ပေးနိုင်တဲ့ အကန့်အသတ်ထက် များနေပါတယ်။',
-          );
-        }
-        final received = q.payout(budget);
-        if (received <= 0) {
-          throw const FormatException(
-            'ပေးမယ့်ငွေက သီးသန့်နုတ်ငွေထက် နည်းနေပါတယ်။',
-          );
-        }
-        calculated.add(Calculation(q, budget, received));
+      }
+      if (calculated.isEmpty) {
+        throw FormatException(lines.first.error ?? 'ဈေးကို ပြန်စစ်ပေးပါ');
       }
       calculated.sort(
         (a, b) => targetMode
@@ -1412,7 +1417,12 @@ class _ExchangeHomeState extends State<ExchangeHome>
               line.original!,
               key: ValueKey('last_rate_notice_$index'),
             ),
-          if (hasDeduction)
+          if (line.original != null && line.error != null)
+          Text(
+            line.error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        if (hasDeduction)
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: Text(
@@ -1431,9 +1441,10 @@ class _ExchangeHomeState extends State<ExchangeHome>
               ),
               children: [
                 TextField(
+                  key: const PageStorageKey('quote_name_input'),
                   controller: line.name,
                   maxLength: 100,
-                  onChanged: (_) => invalidate(line),
+                  onChanged: (_) => invalidate(),
                   decoration: InputDecoration(
                     labelText: uiText(context, 'မှတ်ထားမယ့်နာမည်'),
                     hintText: uiText(context, 'ဥပမာ အသိတစ်ယောက်ပေးတဲ့ဈေး'),

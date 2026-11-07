@@ -4,11 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'personal_record.dart';
 import 'storage_lock.dart';
+import 'restore_storage.dart';
 
 export 'personal_record.dart';
 
 class RecordStore {
-  static const key = 'exchange_records_v2';
+  static const key = recordStorageKey;
   static const limit = 500;
   String signature(List<PersonalRecord> records) =>
       jsonEncode(records.map((r) => r.toJson()).toList());
@@ -32,14 +33,14 @@ class RecordStore {
   Future<List<PersonalRecord>> load() async {
     final p = await SharedPreferences.getInstance();
     await p.reload();
-    final raw = p.getString(key);
+    final raw = pendingRestore(p)?[key] ?? p.getString(key);
     if (raw == null) return [];
     // Never overwrite a corrupt/unsupported history silently.
     return _decode(raw);
   }
 
   Future<void> save(List<PersonalRecord> records, {List<PersonalRecord>? expectedRecords}) =>
-      withStorageLock(key, () async {
+      withStorageLock(restoreLock, () async {
     if (records.length > limit) {
       throw const FormatException(
         'မှတ်တမ်း ၅၀၀ ပြည့်နေပြီ။ အဟောင်းတွေကို ဖိုင်ထုတ်သိမ်းပြီးမှ ရှင်းပေးပါ။',
@@ -48,6 +49,7 @@ class RecordStore {
     final checked = _decode(signature(records));
     final p = await SharedPreferences.getInstance();
     await p.reload();
+    await finishRestore(p);
     final raw = p.getString(key);
     final current = raw == null ? <PersonalRecord>[] : _decode(raw);
     if (expectedRecords != null && signature(current) != signature(expectedRecords)) {
