@@ -74,10 +74,11 @@ export async function deliverPush(db,secret,fetcher=fetch,clock=Date.now){
  const rows=(await db.prepare(`SELECT o.*,s.endpoint,s.keys_json,e.payload,e.kind,e.expires_at FROM push_outbox o JOIN push_subscribers s ON s.id=o.subscriber_id AND s.version=o.subscription_version JOIN notification_events e ON e.revision=o.revision WHERE o.status=0 AND o.attempts<5 AND o.next_attempt<=? AND s.active=1 ORDER BY o.revision LIMIT 20`).bind(now).all()).results;
  const deadline=now+18000;
  for(let start=0;start<rows.length&&clock()<deadline;start+=4){await Promise.all(rows.slice(start,start+4).map(async item=>{
-  const time=clock(),payload=pushPayload(item,time);
+  const time=clock();
   const newer=await db.prepare(`SELECT e.revision FROM notification_events e JOIN revisions r ON r.id=e.revision WHERE e.kind=? AND e.revision>? LIMIT 1`).bind(item.kind,item.revision).first();
   const latest=await db.prepare('SELECT id,payload FROM revisions ORDER BY id DESC LIMIT 1').first();
   const obsolete=!eventCurrent(item,latest);
+  const payload=obsolete?null:pushPayload(item,time,JSON.parse(latest.payload).notice??'');
   if(item.expires_at<=time||!payload||newer||obsolete){await db.prepare('UPDATE push_outbox SET status=2 WHERE id=? AND status=0').bind(item.id).run();return;}
   const lease=await db.prepare(`UPDATE push_outbox SET attempts=attempts+1,next_attempt=? WHERE id=? AND status=0 AND next_attempt<=? AND EXISTS(SELECT 1 FROM push_subscribers WHERE id=? AND version=? AND active=1) AND EXISTS(SELECT 1 FROM revisions WHERE id=?) AND (SELECT MAX(id) FROM revisions)=?`).bind(time+60000,item.id,time,item.subscriber_id,item.subscription_version,item.revision,latest.id).run();
   if(!lease.meta.changes)return;

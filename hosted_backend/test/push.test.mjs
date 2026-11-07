@@ -197,6 +197,7 @@ test('Publishing a changed rate and notice previews and queues one combined push
   assert.equal((await admin('publish',{expected_version:7})).status,409);
   const event=db.sqlite.prepare('SELECT * FROM notification_events WHERE revision=2').get();
   assert.equal(pushPayload(event,now).body,preview.preview.body);
+  assert.doesNotMatch(pushPayload(event,now,'Newer announcement').body,/New announcement/);
   assert.equal(pushPayload(event,now).expires_at,Date.parse(next.quotes[0].valid_until));
   await queuePush(db,now);
   await queuePush(db,now);

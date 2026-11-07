@@ -14,14 +14,15 @@ export function shortPushText(text,limit=90){
  const parts=[...new Intl.Segmenter('my',{granularity:'grapheme'}).segment(text.replace(/\s+/gu,' ').trim())].map(x=>x.segment);
  return parts.length>limit?parts.slice(0,limit-1).join('')+'…':parts.join('');
 }
-export function pushPayload(event,now=Date.now()){
+export function pushPayload(event,now=Date.now(),currentNotice){
  const sheet=JSON.parse(event.payload);
  const fresh=(sheet.quotes||[]).filter(q=>Date.parse(q.observed_at)<=now&&Date.parse(q.valid_until)>now);
  const prices=fresh.map(q=>{const rate=Number((100000000000/q.rate_micros).toFixed(2));const meaning=q.direction==='mmk_thb'?`ကျပ် ၁ သိန်း → ${rate} ဘတ်`:`${rate} ဘတ် → ကျပ် ၁ သိန်း`;return meaning+' · '+new Date(q.observed_at).toLocaleString('en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}).join('\n');
  const notice=typeof sheet.notice==='string'?sheet.notice.trim():'';
+ const includeNotice=sheet.notification_include_notice&&notice&&(currentNotice===undefined||currentNotice===sheet.notice);
  if(event.kind==='rates'&&!fresh.length)return null;
  if(event.kind==='announcement'&&!notice)return null;
- return {title:event.kind==='announcement'?'ဘတ်ဈေး':'ဘတ်ဈေး တင်ထားပြီ 🔔',body:event.kind==='announcement'?shortPushText(notice):[prices,sheet.notification_include_notice&&notice?shortPushText(notice):''].filter(Boolean).join('\n'),url:APP_URL+'?tab='+(['rates','wallet','calculator','history'].includes(sheet.notification_target)?sheet.notification_target:'rates'),tag:'bahtzay-'+event.kind,revision:event.revision,kind:event.kind,expires_at:Math.min(event.expires_at,...(event.kind==='rates'?fresh.map(q=>Date.parse(q.valid_until)):[]))};
+ return {title:event.kind==='announcement'?'ဘတ်ဈေး':'ဘတ်ဈေး တင်ထားပြီ 🔔',body:event.kind==='announcement'?shortPushText(notice):[prices,includeNotice?shortPushText(notice):''].filter(Boolean).join('\n'),url:APP_URL+'?tab='+(['rates','wallet','calculator','history'].includes(sheet.notification_target)?sheet.notification_target:'rates'),tag:'bahtzay-'+event.kind,revision:event.revision,kind:event.kind,expires_at:Math.min(event.expires_at,...(event.kind==='rates'?fresh.map(q=>Date.parse(q.valid_until)):[]))};
 }
 export async function publishAnnouncement(db,notice,expectedRevision,expectedVersion,now=Date.now(),target='rates'){
  if(!['rates','wallet','calculator','history'].includes(target))return {status:400,data:{error:'Invalid notification target'}};
