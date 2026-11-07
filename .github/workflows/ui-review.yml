@@ -11,7 +11,7 @@ permissions:
   contents: read
 jobs:
   render:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'codex/current-ui-polish-preview'
+    if: github.event.pull_request.head.repo.full_name == github.repository && (github.head_ref == 'codex/current-ui-polish-preview' || github.head_ref == 'codex/bahtzay-release-readiness')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -27,7 +27,7 @@ jobs:
           path: candidate
       - uses: actions/checkout@v4
         with:
-          ref: acb2c34ba73010313a84f3e2dc3a7c5810349a8a
+          ref: ${{ github.head_ref == 'codex/current-ui-polish-preview' && 'acb2c34ba73010313a84f3e2dc3a7c5810349a8a' || github.event.pull_request.base.sha }}
           path: baseline
       - uses: subosito/flutter-action@v2
         with:
@@ -58,7 +58,15 @@ jobs:
         run: |
           python3 -m pip install Pillow
           python3 scripts/compose_ui_review.py
+      - name: Upload baseline and candidate renders
+        if: github.head_ref == 'codex/bahtzay-release-readiness'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bahtzay-ui-baseline-comparison
+          path: candidate/design/reviews/
+          if-no-files-found: error
       - name: Save evidence on a separate review branch
+        if: github.head_ref == 'codex/current-ui-polish-preview'
         working-directory: candidate
         run: |
           git config user.name 'github-actions[bot]'
