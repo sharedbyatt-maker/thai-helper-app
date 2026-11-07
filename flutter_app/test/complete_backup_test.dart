@@ -5,30 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thai_helper/exchange/budget.dart';
 import 'package:thai_helper/exchange/complete_backup.dart';
 import 'package:thai_helper/exchange/models.dart';
+import 'package:thai_helper/exchange/restore_storage.dart';
 import 'package:thai_helper/exchange/storage.dart';
 
 final fixedDay = DateTime.utc(2026, 10, 18);
-
-class RejectingBudgetStore extends BudgetStore {
-  RejectingBudgetStore() : super(clock: () => fixedDay);
-
-  @override
-  Future<BudgetData> save(BudgetData next,
-      {required int expectedRevision, bool replaceCorrupt = false}) async {
-    throw const FormatException('simulate budget write failure');
-  }
-}
-
-class ConcurrentRejectingBudgetStore extends RejectingBudgetStore {
-  @override
-  Future<BudgetData> save(BudgetData next,
-      {required int expectedRevision, bool replaceCorrupt = false}) async {
-    final store = RecordStore();
-    final current = await store.load();
-    await store.save([...current, exchangeRecord('other-tab')], expectedRecords: current);
-    throw const FormatException('budget failed after another tab saved history');
-  }
-}
 
 PersonalRecord exchangeRecord(String id) {
   final at = DateTime.utc(2026, 10, 17, 3);
@@ -154,7 +134,7 @@ void main() {
     }
   });
 
-  test('Preview becomes invalid if data changed; failed budget save rolls back record merge', () async {
+  test('Preview becomes invalid if data changed', () async {
     final b = BudgetStore(clock: () => fixedDay);
     final r = RecordStore();
     final service = CompleteBackupService(budgetStore: b, recordStore: r);
@@ -169,13 +149,6 @@ void main() {
     expect((await b.load()).opening, 70000);
     expect((await r.load()).map((e) => e.id), ['keep']);
 
-    final failing = CompleteBackupService(
-      budgetStore: RejectingBudgetStore(), recordStore: r,
-    );
-    final current = await failing.preview(backup);
-    await expectLater(failing.restore(current), throwsFormatException);
-    expect((await b.load()).opening, 70000);
-    expect((await r.load()).map((e) => e.id), ['keep']);
   });
 
   test('Corrupt local history blocks export/restore without erasing any budget data', () async {
@@ -193,19 +166,25 @@ void main() {
     expect(prefs.getString(RecordStore.key), 'not a JSON history');
   });
 
-  test('Failed restore never rolls back over a newer exchange-history edit', () async {
+  test('Interrupted restore exposes both committed values and the next write finishes copying', () async {
     final b = BudgetStore(clock: () => fixedDay), r = RecordStore();
-    await b.save(budget('original-budget', 20000), expectedRevision: 0);
+    final old = await b.save(budget('old-budget', 20000), expectedRevision: 0);
     await r.save([exchangeRecord('keep')]);
-    final service = CompleteBackupService(
-      budgetStore: ConcurrentRejectingBudgetStore(), recordStore: r,
-    );
-    final incoming = service.encode(CompleteBackup(
-      budget: budget('replacement', 70000), records: [exchangeRecord('imported')],
-    ));
-    final preview = await service.preview(incoming);
-    await expectLater(service.restore(preview), throwsFormatException);
-    expect((await r.load()).map((e) => e.id).toSet(), {'keep', 'imported', 'other-tab'});
-    expect((await b.load()).entries.single.id, 'original-budget');
+    final prefs = await SharedPreferences.getInstance();
+    final nextBudget = budget('replacement', 70000).copy(revision: old.revision + 1);
+    final nextRecords = [exchangeRecord('keep'), exchangeRecord('imported')];
+    await prefs.setString(restoreJournal, jsonEncode({
+      BudgetStore.key: b.backup(nextBudget),
+      RecordStore.key: r.signature(nextRecords),
+    }));
+    // Simulate interruption after only one of the legacy keys was copied.
+    await prefs.setString(RecordStore.key, r.signature(nextRecords));
+    expect((await b.load()).entries.single.id, 'replacement');
+    expect((await r.load()).map((e) => e.id), ['keep', 'imported']);
+
+    await r.save([...nextRecords, exchangeRecord('new')], expectedRecords: nextRecords);
+    expect(prefs.getString(restoreJournal), isNull);
+    expect((await b.load()).entries.single.id, 'replacement');
+    expect((await r.load()).map((e) => e.id), ['keep', 'imported', 'new']);
   });
 }

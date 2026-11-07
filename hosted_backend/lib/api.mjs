@@ -1,7 +1,7 @@
 import { readRelease,saveRelease } from './app-release.mjs';
 import { readAds,saveAds,emergencyOff,saveAdDraft,rollbackAds } from './ad-config.mjs';
 import { pushApi,schedulePush,ownerPushTest,pushHistory } from './push.mjs';
-import { eventInsert,publishAnnouncement,pushPayload } from './notification-events.mjs';
+import { eventInsert,publicationNotification,publishAnnouncement,pushPayload } from './notification-events.mjs';
 import { deletePublishedRevision } from './revision-management.mjs';
 import { repairPath, repairTestPublication } from './restore-six-days.mjs';
 import { Invalid, validate } from './validate.mjs';
@@ -71,8 +71,8 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   if(path==='/api/admin/push-preview'&&req.method==='POST'){
    let input;try{input=JSON.parse(await bodyText(req,131072));}catch{return json({error:'JSON required'},400);}
    const sheet=validate(input.sheet);const now=Date.now();
-   const previous=await publicSheet();const kind=sheet.notice&&sheet.notice!==previous.notice?'announcement':'rates';
-   return json({preview:pushPayload({kind,payload:JSON.stringify(sheet),expires_at:now+86400000},now)});
+   const {kind,includeNotice}=publicationNotification(sheet,await publicSheet(),now);
+   return json({preview:pushPayload({kind,payload:JSON.stringify({...sheet,notification_include_notice:includeNotice}),expires_at:now+86400000},now)});
   }
   if(path==='/api/admin/push-history'&&req.method==='GET')return json(await pushHistory(db));
   if(path==='/api/admin/push-test'&&req.method==='POST'){
@@ -140,12 +140,13 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
     const retained=previous.quotes.find(x=>x.id===q.id&&x.direction===q.direction);
     if(!retained||Object.keys(q).some(k=>retained[k]!==q[k]))return json({error:'အဟောင်းနှုန်းကို ပြင်ထားပါသည်။ ပြန်စစ်ထားသော အချိန် သတ်မှတ်ပါ။'},400);
    }
-   const now=new Date().toISOString();
+   const time=Date.now(),now=new Date(time).toISOString();
+   const {kind,includeNotice}=publicationNotification(sheet,previous,time);
    // batch is atomic. SELECT and UPDATE both compare the validated version.
    const result=await db.batch([
     db.prepare('INSERT INTO revisions(payload,published_at) SELECT payload,? FROM draft WHERE id=1 AND version=?').bind(now,version),
     db.prepare('UPDATE draft SET version=version+1 WHERE id=1 AND version=?').bind(version),
-    eventInsert(db,noticeChanged?'announcement':'rates',crypto.randomUUID(),Date.now(),'id=last_insert_rowid() AND changes()=1'),
+    eventInsert(db,kind,crypto.randomUUID(),time,'id=last_insert_rowid() AND changes()=1',[],'rates',includeNotice),
    ]);
    if(result[0].meta.changes){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}
    return result[0].meta.changes?json({ok:true,draft_version:version+1,published:await publicSheet()}):json(conflict,409);
