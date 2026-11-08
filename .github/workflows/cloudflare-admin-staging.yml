@@ -105,5 +105,13 @@ jobs:
             done
             unset key
           fi
-          curl --fail --retry 3 "https://bahtzay-api-staging.$BAHTZAY_WORKERS_SUBDOMAIN.workers.dev/api/v2/push/config" |
-            node -e 'const result=JSON.parse(require("node:fs").readFileSync(0,"utf8")); if(!result.available || !result.public_key) process.exit(1); console.log("Staging push configuration is ready")'
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --max-time 10 "https://bahtzay-api-staging.$BAHTZAY_WORKERS_SUBDOMAIN.workers.dev/api/v2/push/config" |
+              node -e 'const result=JSON.parse(require("node:fs").readFileSync(0,"utf8")); if(!result.available || !result.public_key) process.exit(1)'; then
+              echo "Staging push configuration is ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Staging push configuration did not become available"
+          exit 1
