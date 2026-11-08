@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths: ['flutter_app/**', '.github/workflows/daily-rates.yml', 'scripts/prepare_web_push.mjs']
+    paths: ['flutter_app/**', '.github/workflows/daily-rates.yml', 'scripts/prepare_web_push.mjs', 'scripts/resolve_rates_api.sh']
 env:
   FLUTTER_SUPPRESS_ANALYTICS: "true"
   DART_SUPPRESS_ANALYTICS: "true"
@@ -27,8 +27,9 @@ jobs:
       - name: Validate and build
         working-directory: flutter_app
         env:
-          RATES_API: ${{ vars.RATES_API || 'https://bahtzay-rates.muddyhinny2048.chatgpt.site' }}
+          RATES_API: ${{ vars.RATES_API }}
         run: |
+          RATES_API="$(bash ../scripts/resolve_rates_api.sh)"
           python3 ../scripts/fetch_fonts.py
           flutter pub get
           flutter analyze
