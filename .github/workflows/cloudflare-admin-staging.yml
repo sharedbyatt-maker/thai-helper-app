@@ -42,10 +42,10 @@ jobs:
         working-directory: hosted_backend/cloudflare
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      BAHTZAY_D1_ID: ${{ vars.BAHTZAY_D1_ID }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '350e79fdd9728a3ea894269c8b6ab3f2' }}
+      BAHTZAY_D1_ID: ${{ vars.BAHTZAY_D1_ID || '10e6e37e-45a0-4e4b-9760-f35272ccdb55' }}
       BAHTZAY_ADMIN_EMAIL: ${{ vars.BAHTZAY_ADMIN_EMAIL }}
-      BAHTZAY_WORKERS_SUBDOMAIN: ${{ vars.BAHTZAY_WORKERS_SUBDOMAIN }}
+      BAHTZAY_WORKERS_SUBDOMAIN: ${{ vars.BAHTZAY_WORKERS_SUBDOMAIN || 'sharedbyatt' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
