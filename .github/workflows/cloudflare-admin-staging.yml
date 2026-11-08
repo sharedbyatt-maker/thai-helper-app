@@ -35,7 +35,7 @@ jobs:
           done
 
   staging:
-    if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Start BahtZay Cloudflare staging deployment')
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Enable BahtZay staging push configuration')
     needs: bundle
     runs-on: ubuntu-latest
     environment: cloudflare-admin-staging
@@ -87,3 +87,23 @@ jobs:
           npx --yes wrangler@4 deploy --config wrangler.public.jsonc
           npx --yes wrangler@4 deploy --config wrangler.admin.jsonc
           curl --fail --retry 3 "https://bahtzay-api-staging.$BAHTZAY_WORKERS_SUBDOMAIN.workers.dev/api/health"
+      - name: Initialize shared staging notification secret
+        run: |
+          for kind in admin public; do
+            npx --yes wrangler@4 secret list --format json --config "wrangler.$kind.jsonc" > "$RUNNER_TEMP/bahtzay-$kind-secret-names.json"
+          done
+          count=$(node -e 'const fs=require("node:fs"); console.log(process.argv.slice(1).filter(p=>JSON.parse(fs.readFileSync(p,"utf8")).some(s=>s.name==="TELEGRAM_CONFIG_KEY")).length)' "$RUNNER_TEMP/bahtzay-admin-secret-names.json" "$RUNNER_TEMP/bahtzay-public-secret-names.json")
+          if [ "$count" = 1 ]; then
+            echo "::error::Staging secret is present on only one Worker; reconcile before deploying notifications"
+            exit 1
+          fi
+          if [ "$count" = 0 ]; then
+            key=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')
+            echo "::add-mask::$key"
+            for kind in admin public; do
+              printf '%s' "$key" | npx --yes wrangler@4 secret put TELEGRAM_CONFIG_KEY --config "wrangler.$kind.jsonc"
+            done
+            unset key
+          fi
+          curl --fail --retry 3 "https://bahtzay-api-staging.$BAHTZAY_WORKERS_SUBDOMAIN.workers.dev/api/v2/push/config" |
+            node -e 'const result=JSON.parse(require("node:fs").readFileSync(0,"utf8")); if(!result.available || !result.public_key) process.exit(1); console.log("Staging push configuration is ready")'
