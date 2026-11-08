@@ -8,6 +8,7 @@ export async function ensurePushConfig(db,secret){
  if(!row){const keys=await vapidKeys();await db.prepare('INSERT OR IGNORE INTO push_config(id,public_key,sealed) VALUES(1,?,?)').bind(keys.publicKey,await seal(keys,secret)).run();row=await db.prepare('SELECT * FROM push_config WHERE id=1').first();}
  return row;
 }
+const defaultPushFetch=(url,request)=>globalThis.fetch(url,request);
 const tokenOK=token=>typeof token==='string'&&/^[a-f0-9]{64}$/.test(token);
 export async function pushApi(req,db,path,data,runtime={}){
  if(path==='/api/v2/push/config'&&req.method==='GET'){
@@ -44,7 +45,7 @@ export async function pushApi(req,db,path,data,runtime={}){
   const config=await ensurePushConfig(db,runtime.telegramKey),keys=await unseal(config.sealed,runtime.telegramKey);
   try{
    const request=await webPushRequest({endpoint:row.endpoint,keys:JSON.parse(row.keys_json)},{title:'ဘတ်ဈေး 🔔',body:'Noti ချိတ်ဆက်ပြီးပြီနော်။',url:APP_URL,tag:'bahtzay-test'},keys);
-   const response=await (runtime.fetcher||fetch)(row.endpoint,request);
+   const response=await (runtime.fetcher||defaultPushFetch)(row.endpoint,request);
    return response.status>=200&&response.status<300?{status:200,data:{ok:true}}:{status:503,data:{error:'ဖုန်းကို ပို့မရသေးဘူး။ Browser noti ခွင့်ကို ပြန်စစ်ပေးပါ။'}};
   }catch{return {status:503,data:{error:'လိုင်းမရသေးဘူး။ ခဏနေ ပြန်စမ်းပေးပါ။'}};}
  }
@@ -66,7 +67,7 @@ export async function queuePush(db,now=Date.now()){
   if(subscribers.length)await db.batch(subscribers.map(s=>db.prepare(`INSERT OR IGNORE INTO push_outbox(id,subscriber_id,subscription_version,revision,status,attempts,next_attempt) SELECT ?,?,?,?,0,0,0 WHERE EXISTS(SELECT 1 FROM push_subscribers WHERE id=? AND version=? AND active=1)`).bind(`${s.id}:${s.version}:${event.revision}`,s.id,s.version,event.revision,s.id,s.version)));
  }
 }
-export async function deliverPush(db,secret,fetcher=fetch,clock=Date.now){
+export async function deliverPush(db,secret,fetcher=defaultPushFetch,clock=Date.now){
  const now=clock();
  await db.prepare(`UPDATE push_outbox SET status=2 WHERE status=0 AND (attempts>=5 OR NOT EXISTS(SELECT 1 FROM push_subscribers s WHERE s.id=push_outbox.subscriber_id AND s.version=push_outbox.subscription_version AND s.active=1) OR NOT EXISTS(SELECT 1 FROM revisions r WHERE r.id=push_outbox.revision))`).run();
  const config=await db.prepare('SELECT * FROM push_config WHERE id=1').first();if(!config)return 0;
@@ -100,7 +101,7 @@ let lastAttempt=0;
 export function schedulePush(db,runtime={},force=false){
  if(!runtime.waitUntil)return;
  const now=Date.now();if(!force&&now-lastAttempt<60000)return;lastAttempt=now;
- runtime.waitUntil((async()=>{await db.prepare('DELETE FROM push_subscribers WHERE active=0 AND updated_at<?').bind(Date.now()-30*86400000).run();const active=await db.prepare('SELECT COUNT(*) AS n FROM push_subscribers WHERE active=1').first();if(!active.n)return;const deadline=Date.now()+20000;for(let i=0;i<5&&Date.now()<deadline;i++){await queuePush(db);if(!await deliverPush(db,runtime.telegramKey,runtime.fetcher||fetch))break;}})().catch(()=>console.error('Phone notifications deferred')));
+ runtime.waitUntil((async()=>{await db.prepare('DELETE FROM push_subscribers WHERE active=0 AND updated_at<?').bind(Date.now()-30*86400000).run();const active=await db.prepare('SELECT COUNT(*) AS n FROM push_subscribers WHERE active=1').first();if(!active.n)return;const deadline=Date.now()+20000;for(let i=0;i<5&&Date.now()<deadline;i++){await queuePush(db);if(!await deliverPush(db,runtime.telegramKey,runtime.fetcher||defaultPushFetch))break;}})().catch(()=>console.error('Phone notifications deferred')));
 }
 
 // Counts are push-service results, never read receipts. No endpoints or device secrets leave this API.
@@ -126,10 +127,11 @@ export async function ownerPushTest(db,data,runtime={}){
   phase='PUSH_ENCRYPT';
   const request=await webPushRequest(sub,payload,keys,now);
   phase='PUSH_NETWORK';
-  const response=await (runtime.fetcher||fetch)(sub.endpoint,request);
+  const response=await (runtime.fetcher||defaultPushFetch)(sub.endpoint,request);
   return response.ok?{status:200,data:{ok:true}}:{status:503,data:{error:'Push service က လက်မခံသေးပါ။ (HTTP '+response.status+')'}};
  }catch(error){
   const kind=['AbortError','TimeoutError','DataError','NotSupportedError','OperationError','TypeError'].includes(error?.name)?' '+error.name:'';
-  return {status:503,data:{error:'စမ်းသပ်ပို့မှု မအောင်မြင်ပါ။ ('+phase+kind+')'}};
+  const detail=phase==='PUSH_NETWORK'&&/illegal invocation|incorrect this/i.test(error?.message||'')?' Invocation':phase==='PUSH_NETWORK'&&/redirect/i.test(error?.message||'')?' Redirect':'';
+  return {status:503,data:{error:'စမ်းသပ်ပို့မှု မအောင်မြင်ပါ။ ('+phase+kind+detail+')'}};
  }
 }
