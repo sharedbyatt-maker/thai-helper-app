@@ -48,8 +48,13 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   if(path==='/api/v2/alerts'&&req.method==='GET')return json(await publicTelegramInfo(db,runtime));
   if(path==='/api/v2/history'&&req.method==='GET'){
    const since=new Date(Date.now()-31*86400000).toISOString();
-   const rows=await db.prepare('SELECT id,payload,published_at FROM revisions WHERE published_at>=? ORDER BY id DESC LIMIT 400').bind(since).all();
-   return json(publicHistory(rows.results));
+   const sql=runtime.includeLegacyHistory
+    ? 'SELECT id,payload,published_at FROM revisions r WHERE published_at>=? AND NOT EXISTS (SELECT 1 FROM public_history_exclusions x WHERE x.revision_id=r.id AND x.published_at=r.published_at) ORDER BY id DESC LIMIT 400'
+    : 'SELECT id,payload,published_at FROM revisions WHERE published_at>=? ORDER BY id DESC LIMIT 400';
+   const rows=await db.prepare(sql).bind(since).all();
+   const legacy=runtime.includeLegacyHistory
+    ? (await db.prepare('SELECT id,payload FROM legacy_public_history ORDER BY id DESC').all()).results : [];
+   return json(publicHistory([...rows.results,...legacy]));
   }
   if(publicRoute&&req.method==='GET'){scheduleAlerts(db,runtime);schedulePush(db,runtime);return json(await publicSheet());}
   if(path==='/api/health'&&req.method==='GET'){await db.prepare('SELECT 1').first();return json({ok:true,storage:'D1'});}

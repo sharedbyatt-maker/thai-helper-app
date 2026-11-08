@@ -12,6 +12,7 @@ function runtime(env, ctx) {
     waitUntil: promise => ctx.waitUntil(promise),
     telegramKey: env.TELEGRAM_CONFIG_KEY,
     publicApiOrigin: env.PUBLIC_API_ORIGIN,
+    includeLegacyHistory: true,
   };
 }
 
