@@ -217,3 +217,35 @@ test('Push admission is capped for new endpoints without blocking existing devic
   assert.equal((await subscribe(db,subscription('burst').sub)).status,200);
  }finally{db.sqlite.close();}
 });
+
+test('Owner push follows one same-origin redirect without changing the signed POST',async()=>{
+ const db=new D1();try{
+  const own=subscription('redirect-device').sub;
+  const target=new URL('/wp/test-redirect',own.endpoint).href;
+  const sent=[];
+  const runtime={telegramKey:secret,fetcher:async(url,request)=>{
+   sent.push([url,request]);
+   return sent.length===1?new Response(null,{status:307,headers:{Location:target}}):accepted();
+  }};
+  assert.equal((await ownerPushTest(db,{subscription:own},runtime)).status,200);
+  assert.deepEqual(sent.map(([url])=>url),[own.endpoint,target]);
+  assert.equal(sent[1][1],sent[0][1]);
+  assert.equal(sent[1][1].method,'POST');
+  assert.equal(sent[1][1].redirect,'manual');
+ }finally{db.sqlite.close();}
+});
+
+test('Owner push does not send credentials or payload across a redirect origin',async()=>{
+ const db=new D1();try{
+  const own=subscription('redirect-device').sub;
+  const sent=[];
+  const runtime={telegramKey:secret,fetcher:async url=>{
+   sent.push(url);
+   return new Response(null,{status:302,headers:{Location:'https://updates.push.services.mozilla.com/other'}});
+  }};
+  const result=await ownerPushTest(db,{subscription:own},runtime);
+  assert.equal(result.status,503);
+  assert.match(result.data.error,/HTTP 302/);
+  assert.deepEqual(sent,[own.endpoint]);
+ }finally{db.sqlite.close();}
+});

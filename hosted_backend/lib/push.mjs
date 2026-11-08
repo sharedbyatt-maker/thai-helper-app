@@ -1,5 +1,5 @@
 import {seal,unseal} from './secrets.mjs';
-import {vapidKeys,validatePushSubscription,webPushRequest} from './web-push-crypto.mjs';
+import {vapidKeys,validPushEndpoint,validatePushSubscription,webPushRequest} from './web-push-crypto.mjs';
 import {pushPayload,APP_URL} from './notification-events.mjs';
 const hash=async text=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),b=>b.toString(16).padStart(2,'0')).join('');
 export async function ensurePushConfig(db,secret){
@@ -9,6 +9,20 @@ export async function ensurePushConfig(db,secret){
  return row;
 }
 const defaultPushFetch=(url,request)=>globalThis.fetch(url,request);
+async function fetchPush(fetcher,endpoint,request){
+ const options={...request,redirect:'manual'};
+ const response=await fetcher(endpoint,options);
+ if(![301,302,307,308].includes(response.status))return response;
+ const location=response.headers?.get('Location');
+ if(!location)return response;
+ let target;
+ try{target=new URL(location,endpoint);}catch{return response;}
+ // Keep the signed audience, headers and encrypted POST on the original origin.
+ if(target.href===endpoint||target.origin!==new URL(endpoint).origin||!validPushEndpoint(target.href))return response;
+ await response.body?.cancel();
+ return fetcher(target.href,options);
+}
+
 const tokenOK=token=>typeof token==='string'&&/^[a-f0-9]{64}$/.test(token);
 export async function pushApi(req,db,path,data,runtime={}){
  if(path==='/api/v2/push/config'&&req.method==='GET'){
@@ -45,7 +59,7 @@ export async function pushApi(req,db,path,data,runtime={}){
   const config=await ensurePushConfig(db,runtime.telegramKey),keys=await unseal(config.sealed,runtime.telegramKey);
   try{
    const request=await webPushRequest({endpoint:row.endpoint,keys:JSON.parse(row.keys_json)},{title:'ဘတ်ဈေး 🔔',body:'Noti ချိတ်ဆက်ပြီးပြီနော်။',url:APP_URL,tag:'bahtzay-test'},keys);
-   const response=await (runtime.fetcher||defaultPushFetch)(row.endpoint,request);
+   const response=await fetchPush(runtime.fetcher||defaultPushFetch,row.endpoint,request);
    return response.status>=200&&response.status<300?{status:200,data:{ok:true}}:{status:503,data:{error:'ဖုန်းကို ပို့မရသေးဘူး။ Browser noti ခွင့်ကို ပြန်စစ်ပေးပါ။'}};
   }catch{return {status:503,data:{error:'လိုင်းမရသေးဘူး။ ခဏနေ ပြန်စမ်းပေးပါ။'}};}
  }
@@ -85,7 +99,7 @@ export async function deliverPush(db,secret,fetcher=defaultPushFetch,clock=Date.
   if(!lease.meta.changes)return;
   let status=0,error='',delay=Math.min(1800,60*2**item.attempts);
   try{
-   const response=await fetcher(item.endpoint,await webPushRequest({endpoint:item.endpoint,keys:JSON.parse(item.keys_json)},payload,keys,time));
+   const response=await fetchPush(fetcher,item.endpoint,await webPushRequest({endpoint:item.endpoint,keys:JSON.parse(item.keys_json)},payload,keys,time));
    if(response.status>=200&&response.status<300)status=1;
    else if(response.status===404||response.status===410){status=2;await db.prepare("UPDATE push_subscribers SET active=0,endpoint='',keys_json='{}',updated_at=? WHERE id=? AND version=?").bind(time,item.subscriber_id,item.subscription_version).run();}
    else{error='HTTP '+response.status;const raw=response.headers?.get('Retry-After');const after=raw?(Number(raw)||Math.ceil((Date.parse(raw)-time)/1000)):0;if(Number.isFinite(after)&&after>0)delay=Math.max(delay,after);}
@@ -127,7 +141,7 @@ export async function ownerPushTest(db,data,runtime={}){
   phase='PUSH_ENCRYPT';
   const request=await webPushRequest(sub,payload,keys,now);
   phase='PUSH_NETWORK';
-  const response=await (runtime.fetcher||defaultPushFetch)(sub.endpoint,request);
+  const response=await fetchPush(runtime.fetcher||defaultPushFetch,sub.endpoint,request);
   return response.ok?{status:200,data:{ok:true}}:{status:503,data:{error:'Push service က လက်မခံသေးပါ။ (HTTP '+response.status+')'}};
  }catch(error){
   const kind=['AbortError','TimeoutError','DataError','NotSupportedError','OperationError','TypeError'].includes(error?.name)?' '+error.name:'';
