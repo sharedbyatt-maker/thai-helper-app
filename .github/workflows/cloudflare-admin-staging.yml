@@ -35,7 +35,7 @@ jobs:
           done
 
   staging:
-    if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Enable BahtZay staging push configuration')
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Diagnose BahtZay staging push delivery')
     needs: bundle
     runs-on: ubuntu-latest
     environment: cloudflare-admin-staging

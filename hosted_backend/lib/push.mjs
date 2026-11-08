@@ -119,10 +119,17 @@ export async function ownerPushTest(db,data,runtime={}){
  // One owner test per minute across devices; atomic claim also blocks double-clicks.
  const claim=await db.prepare(`INSERT INTO push_outbox(id,subscriber_id,subscription_version,revision,status,attempts,next_attempt) VALUES('owner-test','owner',0,0,1,0,?) ON CONFLICT(id) DO UPDATE SET next_attempt=excluded.next_attempt WHERE push_outbox.next_attempt<=?`).bind(now+60000,now).run();
  if(!claim.meta.changes)return {status:429,data:{error:'တစ်မိနစ်စောင့်ပြီး ပြန်စမ်းပါ။'}};
+ let phase='PUSH_KEY';
  try{
   const keys=await unseal(config.sealed,runtime.telegramKey);
   const payload={title:'ဘတ်ဈေး 🔔',body:'ဒီ Admin စက်ဆီပဲ စမ်းပို့ထားပါတယ်။',url:APP_URL+'?tab=rates',tag:'bahtzay-owner-test',expires_at:now+60000};
-  const response=await (runtime.fetcher||fetch)(sub.endpoint,await webPushRequest(sub,payload,keys,now));
-  return response.ok?{status:200,data:{ok:true}}:{status:503,data:{error:'Push service က လက်မခံသေးပါ။'}};
- }catch{return {status:503,data:{error:'စမ်းသပ်ပို့မှု မအောင်မြင်ပါ။'}};}
+  phase='PUSH_ENCRYPT';
+  const request=await webPushRequest(sub,payload,keys,now);
+  phase='PUSH_NETWORK';
+  const response=await (runtime.fetcher||fetch)(sub.endpoint,request);
+  return response.ok?{status:200,data:{ok:true}}:{status:503,data:{error:'Push service က လက်မခံသေးပါ။ (HTTP '+response.status+')'}};
+ }catch(error){
+  const kind=['AbortError','TimeoutError','DataError','NotSupportedError','OperationError','TypeError'].includes(error?.name)?' '+error.name:'';
+  return {status:503,data:{error:'စမ်းသပ်ပို့မှု မအောင်မြင်ပါ။ ('+phase+kind+')'}};
+ }
 }
