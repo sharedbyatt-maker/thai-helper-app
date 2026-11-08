@@ -1,0 +1,86 @@
+name: BahtZay Cloudflare staging
+
+on:
+  pull_request:
+    paths:
+      - 'hosted_backend/cloudflare/**'
+      - 'hosted_backend/lib/**'
+      - 'hosted_backend/public/admin/**'
+      - '.github/workflows/cloudflare-admin-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hosted_backend/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build both Worker bundles
+        run: |
+          node build-admin.mjs
+          for kind in admin public; do
+            sed 's/REPLACE_WITH_D1_DATABASE_ID/00000000-0000-0000-0000-000000000000/' "wrangler.$kind.example.jsonc" > "wrangler.$kind.jsonc"
+            npx --yes wrangler@4 deploy --dry-run --config "wrangler.$kind.jsonc"
+          done
+
+  staging:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    needs: bundle
+    runs-on: ubuntu-latest
+    environment: cloudflare-admin-staging
+    concurrency: bahtzay-cloudflare-admin-staging
+    defaults:
+      run:
+        working-directory: hosted_backend/cloudflare
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      BAHTZAY_D1_ID: ${{ vars.BAHTZAY_D1_ID }}
+      BAHTZAY_ADMIN_EMAIL: ${{ vars.BAHTZAY_ADMIN_EMAIL }}
+      BAHTZAY_WORKERS_SUBDOMAIN: ${{ vars.BAHTZAY_WORKERS_SUBDOMAIN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Configure staging Workers
+        run: |
+          : "${CLOUDFLARE_API_TOKEN:?Set the Cloudflare deployment token in environment secrets}"
+          node build-admin.mjs
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const { CLOUDFLARE_ACCOUNT_ID, BAHTZAY_D1_ID, BAHTZAY_ADMIN_EMAIL, BAHTZAY_WORKERS_SUBDOMAIN } = process.env;
+          if (!/^[0-9a-f]{32}$/i.test(CLOUDFLARE_ACCOUNT_ID) ||
+              !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(BAHTZAY_D1_ID) ||
+              !/^[^@\s]+@[^@\s]+$/.test(BAHTZAY_ADMIN_EMAIL) ||
+              !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(BAHTZAY_WORKERS_SUBDOMAIN)) {
+            throw new Error('Check the Cloudflare staging environment variables');
+          }
+          for (const kind of ['admin', 'public']) {
+            const config = JSON.parse(readFileSync('wrangler.' + kind + '.example.jsonc', 'utf8'));
+            config.name += '-staging';
+            config.d1_databases[0].database_name = 'bahtzay-staging';
+            config.d1_databases[0].database_id = BAHTZAY_D1_ID;
+            if (kind === 'admin') {
+              config.vars = {
+                ADMIN_OWNER_EMAIL: BAHTZAY_ADMIN_EMAIL,
+                PUBLIC_API_ORIGIN: 'https://bahtzay-api-staging.' + BAHTZAY_WORKERS_SUBDOMAIN + '.workers.dev',
+              };
+            }
+            writeFileSync('wrangler.' + kind + '.jsonc', JSON.stringify(config));
+          }
+          JS
+      - name: Apply migrations and deploy staging Workers
+        run: |
+          npx --yes wrangler@4 d1 migrations apply bahtzay-staging --remote --config wrangler.public.jsonc
+          npx --yes wrangler@4 deploy --config wrangler.public.jsonc
+          npx --yes wrangler@4 deploy --config wrangler.admin.jsonc
+          curl --fail --retry 3 "https://bahtzay-api-staging.$BAHTZAY_WORKERS_SUBDOMAIN.workers.dev/api/health"
