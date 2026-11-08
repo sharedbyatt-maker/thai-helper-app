@@ -18,7 +18,7 @@ if [ -z "$BAHTZAY_BUILD_URL" ]; then
   echo 'PUBLIC_APP_URL or Cloudflare CF_PAGES_URL is required.' >&2
   exit 1
 fi
-BAHTZAY_API="${RATES_API:-https://bahtzay-rates.muddyhinny2048.chatgpt.site}"
+BAHTZAY_API="$(bash scripts/resolve_rates_api.sh)"
 python3 scripts/fetch_fonts.py
 node --test tests/push_browser.test.cjs tests/branding.test.cjs
 (

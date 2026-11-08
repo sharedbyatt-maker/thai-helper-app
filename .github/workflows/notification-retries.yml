@@ -13,9 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - uses: actions/checkout@v4
       # Publications send immediately. This public read only resumes existing
       # opt-in deliveries after temporary outages; it never publishes prices.
       - name: Resume queued deliveries
         env:
-          RATES_API: ${{ vars.RATES_API || 'https://bahtzay-rates.muddyhinny2048.chatgpt.site' }}
-        run: curl --user-agent "Mozilla/5.0 (compatible; BahtzayNotificationRetry/1.0)" --fail --silent --show-error --max-time 25 --retry 2 "$RATES_API/api/v2/rates" --output /dev/null
+          RATES_API: ${{ vars.RATES_API }}
+        run: |
+          RATES_API="$(bash scripts/resolve_rates_api.sh)"
+          curl --user-agent "Mozilla/5.0 (compatible; BahtzayNotificationRetry/1.0)" --fail --silent --show-error --max-time 25 --retry 2 "$RATES_API/api/v2/rates" --output /dev/null
