@@ -1,0 +1,19 @@
+{
+  "name": "bahtzay-admin",
+  "main": "admin.mjs",
+  "compatibility_date": "2026-11-07",
+  "workers_dev": true,
+  "preview_urls": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bahtzay",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "../drizzle"
+    }
+  ],
+  "vars": {
+    "ADMIN_OWNER_EMAIL": "REPLACE_WITH_OWNER_EMAIL",
+    "PUBLIC_API_ORIGIN": "https://bahtzay-api.REPLACE_WITH_SUBDOMAIN.workers.dev"
+  }
+}
