@@ -7,6 +7,9 @@ on:
       - 'hosted_backend/lib/**'
       - 'hosted_backend/public/admin/**'
       - '.github/workflows/cloudflare-admin-staging.yml'
+  push:
+    branches: [master]
+    paths: ['.github/workflows/cloudflare-admin-staging.yml']
   workflow_dispatch:
 
 permissions:
@@ -32,7 +35,7 @@ jobs:
           done
 
   staging:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Start BahtZay Cloudflare staging deployment')
     needs: bundle
     runs-on: ubuntu-latest
     environment: cloudflare-admin-staging
