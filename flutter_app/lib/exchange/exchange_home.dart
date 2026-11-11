@@ -627,22 +627,54 @@ class _ExchangeHomeState extends State<ExchangeHome>
           ),
         );
       }
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: ExchangeDirection.values
-            .map(
-              (d) => ChoiceChip(
+      return Row(
+        children: [
+          for (final d in ExchangeDirection.values) ...[
+            if (d != ExchangeDirection.values.first) const SizedBox(width: 8),
+            Expanded(
+              child: ChoiceChip(
                 key: ValueKey('direction_${d.key}'),
-                label: Text(d.label),
                 selected: d == direction,
                 onSelected: (_) => changeDirection(d),
+                showCheckmark: false,
+                selectedColor: scheme.primary,
+                backgroundColor: scheme.surfaceContainerLow,
+                side: BorderSide(
+                  color: d == direction ? scheme.primary : scheme.outlineVariant,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
+                labelPadding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 9,
+                ),
+                label: SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        d == direction ? Icons.check_rounded : Icons.swap_horiz_rounded,
+                        size: 18,
+                        color: d == direction ? scheme.onPrimary : scheme.primary,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        d.label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: d == direction ? scheme.onPrimary : scheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            )
-            .toList(),
+            ),
+          ],
+        ],
       );
     },
   );
@@ -1067,20 +1099,39 @@ class _ExchangeHomeState extends State<ExchangeHome>
         ),
         directionPicker(),
         const SizedBox(height: 14),
-        SegmentedButton<bool>(
-          key: const ValueKey('calculation_mode'),
-          segments: const [
-            ButtonSegment(
-              value: false,
-              label: Text('ပေးမယ့်ငွေ'),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 296),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<bool>(
+                key: const ValueKey('calculation_mode'),
+                style: SegmentedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                  selectedBackgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  selectedForegroundColor: Theme.of(context).colorScheme.onSurface,
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                  textStyle: Theme.of(context).textTheme.labelMedium,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    label: Text('ပေးမယ့်ငွေ', textAlign: TextAlign.center),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text('ရချင်တဲ့ငွေ', textAlign: TextAlign.center),
+                  ),
+                ],
+                selected: {targetMode},
+                onSelectionChanged: (selection) => setTargetMode(selection.single),
+              ),
             ),
-            ButtonSegment(
-              value: true,
-              label: Text('ရချင်တဲ့ငွေ'),
-            ),
-          ],
-          selected: {targetMode},
-          onSelectionChanged: (selection) => setTargetMode(selection.single),
+          ),
         ),
         const SizedBox(height: 14),
         panel(
