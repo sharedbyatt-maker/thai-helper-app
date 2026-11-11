@@ -1,0 +1,28 @@
+name: BahtZay private preview bundle
+on:
+  push:
+    branches: [codex/bahtzay-private-preview-build]
+permissions:
+  contents: read
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: python3 scripts/fetch_fonts.py
+      - working-directory: flutter_app
+        run: |
+          flutter pub get
+          flutter build web --release --no-web-resources-cdn --base-href / --dart-define=RATES_API=https://bahtzay-api-staging.sharedbyatt.workers.dev --dart-define=PUBLIC_APP_URL=https://thai-helper-app.pages.dev/
+      - run: node scripts/prepare_web_push.mjs flutter_app/build/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bahtzay-private-web-build
+          path: flutter_app/build/web/
+          if-no-files-found: error
+          retention-days: 7
