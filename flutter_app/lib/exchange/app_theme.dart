@@ -14,9 +14,9 @@ ThemeData buildAppTheme(Brightness brightness) {
     secondary: dark ? const Color(0xffe4c480) : const Color(0xff785b22),
     surface: dark ? const Color(0xff14251f) : const Color(0xffffffff),
     onSurface: dark ? const Color(0xffe7f0e9) : const Color(0xff173c33),
-    onSurfaceVariant: dark ? const Color(0xffb8cdc2) : const Color(0xff5b7068),
-    outline: dark ? const Color(0xff829c8e) : const Color(0xff72887b),
-    outlineVariant: dark ? const Color(0xff344d40) : const Color(0xffdce7e1),
+    onSurfaceVariant: dark ? const Color(0xffb8cdc2) : const Color(0xff4c625a),
+    outline: dark ? const Color(0xff829c8e) : const Color(0xff788980),
+    outlineVariant: dark ? const Color(0xff344d40) : const Color(0xffcbd8d0),
   );
   final base = ThemeData(
     useMaterial3: true,
@@ -25,9 +25,10 @@ ThemeData buildAppTheme(Brightness brightness) {
     fontFamily: 'Noto Sans Myanmar',
     fontFamilyFallback: const ['Bahtzay UI Symbols', 'Noto Sans Symbols 2'],
   );
+  final controlOutline = dark ? scheme.outlineVariant : scheme.outline;
   final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
   return base.copyWith(
-    scaffoldBackgroundColor: dark ? const Color(0xff0d1b16) : const Color(0xfff4f7f5),
+    scaffoldBackgroundColor: dark ? const Color(0xff0d1b16) : const Color(0xffeef3ef),
     textTheme: base.textTheme.copyWith(
       titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, height: 1.6),
       titleMedium: base.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600, height: 1.6),
@@ -36,7 +37,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       labelLarge: base.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600, height: 1.5),
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: dark ? const Color(0xff0d1b16) : const Color(0xfff4f7f5),
+      backgroundColor: dark ? const Color(0xff0d1b16) : const Color(0xffeef3ef),
       foregroundColor: scheme.onSurface,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
@@ -55,7 +56,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       fillColor: dark ? const Color(0xff102119) : const Color(0xffffffff),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: scheme.outlineVariant)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: controlOutline)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: scheme.primary, width: 2)),
       hintStyle: base.textTheme.bodyMedium?.copyWith(
         color: scheme.onSurfaceVariant, fontSize: 16, height: 1.65,
@@ -67,7 +68,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     )),
     outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
       minimumSize: const Size(48, 48), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      shape: rounded, side: BorderSide(color: scheme.outlineVariant),
+      shape: rounded, side: BorderSide(color: controlOutline),
     )),
     textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(minimumSize: const Size(48, 48), shape: rounded)),
     navigationBarTheme: NavigationBarThemeData(
