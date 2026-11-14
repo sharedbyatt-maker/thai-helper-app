@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 import 'package:flutter/material.dart' hide Text;
 
@@ -522,6 +522,25 @@ Future<void> showRateAlerts(
   BuildContext context,
   ExchangeDirection direction,
 ) async {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ဈေးနဲ့ ကြေညာချက် အသိပေးမယ်'),
+        content: const SizedBox(
+          width: 430,
+          child: SingleChildScrollView(child: PhoneNotifications()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ပိတ်မယ်'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
   final target = TextEditingController();
   String? error;
   bool busy = false, news = true;
