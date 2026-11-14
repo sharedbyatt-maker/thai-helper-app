@@ -35,7 +35,7 @@ jobs:
           done
 
   staging:
-    if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Restore BahtZay legacy public rate history')
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Restore BahtZay legacy public rate history' || startsWith(github.event.head_commit.message, 'Deploy BahtZay Android FCM sender'))
     needs: bundle
     runs-on: ubuntu-latest
     environment: cloudflare-admin-staging

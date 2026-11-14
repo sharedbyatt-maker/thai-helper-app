@@ -11,6 +11,7 @@ function runtime(env, ctx) {
   return {
     waitUntil: promise => ctx.waitUntil(promise),
     telegramKey: env.TELEGRAM_CONFIG_KEY,
+    fcmServiceAccount: env.FCM_SERVICE_ACCOUNT_JSON,
     publicApiOrigin: env.PUBLIC_API_ORIGIN,
     includeLegacyHistory: true,
   };
