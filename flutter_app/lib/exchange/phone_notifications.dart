@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart' hide Text;
 import 'user_language.dart' show Text;
 import 'package:url_launcher/url_launcher.dart';
@@ -43,7 +44,9 @@ class _PhoneNotificationsState extends State<PhoneNotifications> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     final active = info?['active'] == true;
+    final subscribed = active || info?['subscribed'] == true;
     final supported = info?['supported'] == true;
     return Container(
       key: const ValueKey('phone_notifications'),
@@ -69,11 +72,11 @@ class _PhoneNotificationsState extends State<PhoneNotifications> {
               children: [
                 FilledButton.icon(
                   key: const ValueKey('phone_push_toggle'),
-                  onPressed: busy ? null : () => run(active ? 'disable' : 'enable'),
+                  onPressed: busy ? null : () => run(subscribed ? 'disable' : 'enable'),
                   icon: Icon(active ? Icons.notifications_off_outlined : Icons.notifications_active_outlined, size: 18),
-                  label: Text(busy ? 'ချိတ်ဆက်နေတယ်…' : active ? 'Noti ပိတ်မယ်' : 'ဖုန်း noti ဖွင့်မယ်'),
+                  label: Text(busy ? 'ချိတ်ဆက်နေတယ်…' : subscribed ? 'Noti ပိတ်မယ်' : 'ဖုန်း noti ဖွင့်မယ်'),
                 ),
-                if (active)
+                if (active && !android)
                   TextButton(
                     key: const ValueKey('phone_push_test'),
                     onPressed: busy ? null : () => run('test'),
@@ -90,7 +93,8 @@ class _PhoneNotificationsState extends State<PhoneNotifications> {
             try { await launchUrl(Uri.parse(publicAppUrl).resolve('privacy.html'), mode: LaunchMode.externalApplication); } catch (_) { /* The disclosure remains available in this panel. */ }
           }, child: const Text('ကိုယ်ရေးအချက်အလက် အသေးစိတ်')),
           const SizedBox(height: 8),
-          const Text('Noti ပို့ဖို့ browser ရဲ့ ချိတ်ဆက်လိပ်စာကိုပဲ သိမ်းမယ်။ ကိုယ့်ငွေပမာဏနဲ့ မှတ်တမ်းတွေ မပို့ပါဘူး။ ဒီနေရာကနေ အချိန်မရွေး ပိတ်နိုင်တယ်။', style: TextStyle(fontSize: 11, height: 1.8)),
+          if (!android) const Text('Noti ပို့ဖို့ browser ရဲ့ ချိတ်ဆက်လိပ်စာကိုပဲ သိမ်းမယ်။ ကိုယ့်ငွေပမာဏနဲ့ မှတ်တမ်းတွေ မပို့ပါဘူး။ ဒီနေရာကနေ အချိန်မရွေး ပိတ်နိုင်တယ်။', style: TextStyle(fontSize: 11, height: 1.8))
+          else const Text('ဖုန်း noti ဖွင့်ရင် Firebase က ဒီစက်အတွက် notification စာရင်းသွင်းမှုကို စီမံပေးမယ်။ ကိုယ့်ငွေပမာဏနဲ့ မှတ်တမ်းတွေ မပို့ပါဘူး။', style: TextStyle(fontSize: 11, height: 1.8)),
         ],
       ),
     );
