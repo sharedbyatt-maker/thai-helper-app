@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1088965070114",
+    "project_id": "bahtzay-6ff5d",
+    "storage_bucket": "bahtzay-6ff5d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1088965070114:android:24cca85d2cd328d954a97b",
+        "android_client_info": {
+          "package_name": "io.github.sharedbyattmaker.bahtzay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIEGgOpQxnjkPNIGVvQ0NObtgY4WGlyzs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
