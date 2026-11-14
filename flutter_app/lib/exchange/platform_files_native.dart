@@ -47,5 +47,5 @@ Future<Map<String, dynamic>> phoneNotifications(
   'supported': false,
   'active': false,
   'reason':
-      'ဒီ version မှာ ဖုန်း noti မသုံးနိုင်သေးဘူး။ Telegram နဲ့ အသိပေးမှု သုံးနိုင်တယ်။',
+      'ဒီ version မှာ ဖုန်း noti မသုံးနိုင်သေးဘူး။',
 };
