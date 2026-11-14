@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart' hide Text;
 import 'user_language.dart' show LanguageMenu, Text, uiText;
 
@@ -83,7 +84,9 @@ class AppSettingsSheet extends StatelessWidget {
                   key: const ValueKey('settings_notifications'),
                   leading: const Icon(Icons.notifications_active_outlined),
                   title: const Text('ဈေးနဲ့ ကြေညာချက် အသိပေးမယ်'),
-                  subtitle: const Text('ဖုန်း noti / Telegram'),
+                  subtitle: Text(!kIsWeb && defaultTargetPlatform == TargetPlatform.android
+                      ? 'ဖုန်း noti'
+                      : 'ဖုန်း noti / Telegram'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => open(onNotifications),
                 ),
