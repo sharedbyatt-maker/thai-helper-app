@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'package:flutter/widgets.dart' show Rect;
 import 'package:file_selector/file_selector.dart';
@@ -43,9 +45,14 @@ Future<bool> installApp() async => false;
 Future<Map<String, dynamic>> phoneNotifications(
   String action,
   String api,
-) async => {
-  'supported': false,
-  'active': false,
-  'reason':
-      'ဒီ version မှာ ဖုန်း noti မသုံးနိုင်သေးဘူး။',
-};
+) async {
+  if (Platform.isAndroid) {
+    const channel = MethodChannel('bahtzay/notifications');
+    return (await channel.invokeMapMethod<String, dynamic>(action))!;
+  }
+  return {
+    'supported': false,
+    'active': false,
+    'reason': 'ဒီ version မှာ ဖုန်း noti မသုံးနိုင်သေးဘူး။',
+  };
+}
