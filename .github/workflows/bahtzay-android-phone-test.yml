@@ -32,17 +32,21 @@ jobs:
           curl --fail --silent --show-error --retry 3 "$rates_api/api/health"
           cd flutter_app
           flutter pub get
-          flutter build apk --debug --target-platform android-arm64 --dart-define="RATES_API=$rates_api" --dart-define=PUBLIC_APP_URL=https://thai-helper-app.pages.dev/
+          flutter build apk --debug --target-platform android-arm64,android-x64 --dart-define="RATES_API=$rates_api" --dart-define=PUBLIC_APP_URL=https://thai-helper-app.pages.dev/
       - name: Verify APK manifest and signature
         run: |
           apk=flutter_app/build/app/outputs/flutter-apk/app-debug.apk
           tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$tools_dir/aapt" dump badging "$apk" | tee "$RUNNER_TEMP/apk-badging.txt"
           grep -F "package: name='io.github.sharedbyattmaker.bahtzay'" "$RUNNER_TEMP/apk-badging.txt"
+          for abi in arm64-v8a x86_64; do
+            unzip -p "$apk" "lib/$abi/libflutter.so" > "$RUNNER_TEMP/libflutter-$abi.so"
+            readelf -h "$RUNNER_TEMP/libflutter-$abi.so" | grep 'Machine:'
+          done
           "$tools_dir/apksigner" verify --verbose "$apk"
-          cp "$apk" BahtZay-1.0.0-Android-Test-arm64.apk
+          cp "$apk" BahtZay-1.0.0-Android-Test-arm64-x64.apk
       - uses: actions/upload-artifact@v4
         with:
           name: bahtzay-phone-test-apk
-          path: BahtZay-1.0.0-Android-Test-arm64.apk
+          path: BahtZay-1.0.0-Android-Test-arm64-x64.apk
           if-no-files-found: error
