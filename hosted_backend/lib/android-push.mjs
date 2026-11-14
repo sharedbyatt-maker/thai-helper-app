@@ -31,7 +31,7 @@ async function accessToken(secret, fetcher) {
       assertion: assertion + '.' + base64url(new Uint8Array(signature)),
     }),
   });
-  if (!response.ok) throw new Error('FCM authorization failed');
+  if (!response.ok) throw new Error('FCM OAuth HTTP ' + response.status);
   const { access_token: token, expires_in: seconds } = await response.json();
   if (typeof token !== 'string' || !Number.isFinite(seconds)) throw new Error('Invalid OAuth response');
   cachedToken = { secret, token, until: Date.now() + (seconds - 60) * 1000 };
@@ -78,6 +78,11 @@ export async function deliverAndroidPush(db, secret, eventCurrent, fetcher = fet
   }
 }
 
+export async function initializeAndroidPush(db, runtime, now = Date.now()) {
+  if (!runtime.fcmServiceAccount) return;
+  await db.prepare('INSERT OR IGNORE INTO android_push_delivery(revision,enabled_at) VALUES (0,?)').bind(now).run();
+}
+
 let lastCheck;
 export function scheduleAndroidPush(db, runtime, eventCurrent, force) {
   if (!runtime.fcmServiceAccount || !runtime.waitUntil) return;
@@ -85,7 +90,7 @@ export function scheduleAndroidPush(db, runtime, eventCurrent, force) {
   if (!force && lastCheck !== undefined && now - lastCheck < 60000) return;
   lastCheck = now;
   runtime.waitUntil((async () => {
-    await db.prepare('INSERT OR IGNORE INTO android_push_delivery(revision,enabled_at) VALUES (0,?)').bind(now).run();
+    await initializeAndroidPush(db, runtime, now);
     await deliverAndroidPush(db, runtime.fcmServiceAccount, eventCurrent, runtime.fetcher || fetch);
-  })().catch(error => console.error('Android push deferred:', error.name)));
+  })().catch(error => console.error('Android push deferred:', error instanceof Error && /^FCM (?:OAuth|send failed:) HTTP \d{3}$/.test(error.message) ? error.message : error.name)));
 }

@@ -9,7 +9,7 @@ on:
       - '.github/workflows/cloudflare-admin-staging.yml'
   push:
     branches: [master]
-    paths: ['.github/workflows/cloudflare-admin-staging.yml']
+    paths: ['.github/workflows/cloudflare-admin-staging.yml', 'hosted_backend/lib/android-push.mjs']
   workflow_dispatch:
 
 permissions:
