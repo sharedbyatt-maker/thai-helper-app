@@ -1,0 +1,48 @@
+name: BahtZay Android phone test
+on:
+  push:
+    branches: [codex/bahtzay-android-phone-test]
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare bundled fonts and icons
+        run: |
+          python -m pip install Pillow==12.3.0
+          python scripts/fetch_fonts.py
+          python scripts/prepare_native_icons.py
+      - name: Build installable Android test APK against Cloudflare
+        run: |
+          rates_api="$(bash scripts/resolve_rates_api.sh)"
+          curl --fail --silent --show-error --retry 3 "$rates_api/api/health"
+          cd flutter_app
+          flutter pub get
+          flutter build apk --debug --target-platform android-arm64 --dart-define="RATES_API=$rates_api" --dart-define=PUBLIC_APP_URL=https://thai-helper-app.pages.dev/
+      - name: Verify APK manifest and signature
+        run: |
+          apk=flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          tools_dir="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$tools_dir/aapt" dump badging "$apk" | tee "$RUNNER_TEMP/apk-badging.txt"
+          grep -F "package: name='io.github.sharedbyattmaker.bahtzay'" "$RUNNER_TEMP/apk-badging.txt"
+          "$tools_dir/apksigner" verify --verbose "$apk"
+          cp "$apk" BahtZay-1.0.0-Android-Test-arm64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bahtzay-phone-test-apk
+          path: BahtZay-1.0.0-Android-Test-arm64.apk
+          if-no-files-found: error
