@@ -1,3 +1,4 @@
+import { scheduleAndroidPush } from './android-push.mjs';
 import {seal,unseal} from './secrets.mjs';
 import {vapidKeys,validPushEndpoint,validatePushSubscription,webPushRequest} from './web-push-crypto.mjs';
 import {pushPayload,APP_URL} from './notification-events.mjs';
@@ -113,6 +114,7 @@ export async function deliverPush(db,secret,fetcher=defaultPushFetch,clock=Date.
 }
 let lastAttempt=0;
 export function schedulePush(db,runtime={},force=false){
+ scheduleAndroidPush(db,runtime,eventCurrent,force);
  if(!runtime.waitUntil)return;
  const now=Date.now();if(!force&&now-lastAttempt<60000)return;lastAttempt=now;
  runtime.waitUntil((async()=>{await db.prepare('DELETE FROM push_subscribers WHERE active=0 AND updated_at<?').bind(Date.now()-30*86400000).run();const active=await db.prepare('SELECT COUNT(*) AS n FROM push_subscribers WHERE active=1').first();if(!active.n)return;const deadline=Date.now()+20000;for(let i=0;i<5&&Date.now()<deadline;i++){await queuePush(db);if(!await deliverPush(db,runtime.telegramKey,runtime.fetcher||defaultPushFetch))break;}})().catch(()=>console.error('Phone notifications deferred')));
