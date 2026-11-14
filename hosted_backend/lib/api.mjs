@@ -1,3 +1,4 @@
+import { initializeAndroidPush } from './android-push.mjs';
 import { readRelease,saveRelease } from './app-release.mjs';
 import { readAds,saveAds,emergencyOff,saveAdDraft,rollbackAds } from './ad-config.mjs';
 import { pushApi,schedulePush,ownerPushTest,pushHistory } from './push.mjs';
@@ -20,6 +21,7 @@ async function bodyText(req, limit) {
 const EMPTY={schema_version:2,revision:0,published_at:null,notice:'နှုန်းမတင်ရသေးပါ။ ကိုယ်ရထားသောဈေးနှင့် တွက်နိုင်သည်။',quotes:[]};
 const conflict={error:'Draft ပြောင်းထားပါသည်။ Reload လုပ်ပါ။'};
 export async function handle(req, db, user, bootstrapEmail, runtime={}) {
+ const startedAt=Date.now();
  const path=new URL(req.url).pathname;
  const phoneRoute=path.startsWith('/api/v2/push/');
  const publicRoute=['/api/v2/rates','/api/rates','/api/v2/history','/api/v2/alerts','/api/v2/app-release','/api/v2/ads'].includes(path);
@@ -28,6 +30,8 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
   const row=await db.prepare('SELECT * FROM revisions ORDER BY id DESC LIMIT 1').first();
   return row?{...JSON.parse(row.payload),schema_version:2,revision:row.id,published_at:row.published_at}:EMPTY;
  };
+ const prepareAndroidPush=()=>initializeAndroidPush(db,runtime,startedAt)
+  .catch(()=>console.error('Android push initialization deferred'));
  try {
   if(path==='/api/v2/app-release'&&req.method==='GET')return json(await readRelease(db,true));
   if(path==='/api/v2/ads'&&req.method==='GET')return json(await readAds(db,true));
@@ -44,7 +48,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    const result=await replaceConfirmedHistory(db,input?.expected_revision);
    return json(result.data,result.status);
   }
-  if(path==='/api/telegram/webhook'&&req.method==='POST'){const response=await webhook(req,db,await bodyText(req,32768),runtime);scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);return response;}
+  if(path==='/api/telegram/webhook'&&req.method==='POST'){await prepareAndroidPush();const response=await webhook(req,db,await bodyText(req,32768),runtime);scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);return response;}
   if(path==='/api/v2/alerts'&&req.method==='GET')return json(await publicTelegramInfo(db,runtime));
   if(path==='/api/v2/history'&&req.method==='GET'){
    const since=new Date(Date.now()-31*86400000).toISOString();
@@ -134,6 +138,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    return result.meta.changes?json({ok:true,draft_version:version+1}):json(conflict,409);
   }
   if(path==='/api/admin/publish'&&req.method==='POST'){
+   await prepareAndroidPush();
    const row=await db.prepare('SELECT payload,version FROM draft WHERE id=1').first();
    if(!row||row.version!==version)return json(conflict,409);
    const sheet=validate(JSON.parse(row.payload));
@@ -156,7 +161,7 @@ export async function handle(req, db, user, bootstrapEmail, runtime={}) {
    if(result[0].meta.changes){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}
    return result[0].meta.changes?json({ok:true,draft_version:version+1,published:await publicSheet()}):json(conflict,409);
   }
-  if(path==='/api/admin/announcement'&&req.method==='POST'){const result=await publishAnnouncement(db,data.notice,data.expected_revision,version,Date.now(),data.target||'rates');if(result.status===200){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}return json(result.data,result.status);}
+  if(path==='/api/admin/announcement'&&req.method==='POST'){await prepareAndroidPush();const result=await publishAnnouncement(db,data.notice,data.expected_revision,version,Date.now(),data.target||'rates');if(result.status===200){scheduleAlerts(db,runtime,true);schedulePush(db,runtime,true);}return json(result.data,result.status);}
   if(path==='/api/admin/delete-revision'&&req.method==='POST'){const result=await deletePublishedRevision(db,data.revision,data.expected_revision,version);return json(result.data,result.status);}
   if(path==='/api/admin/restore'&&req.method==='POST'){
    if(!Number.isSafeInteger(data.revision))return json({error:'Revision လိုပါသည်'},400);
