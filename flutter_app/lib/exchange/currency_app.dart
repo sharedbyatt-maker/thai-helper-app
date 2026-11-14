@@ -109,6 +109,7 @@ class _CurrencyAppState extends State<CurrencyApp> {
     return MaterialApp(
       title: 'ဘတ်ဈေး',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const MaterialScrollBehavior().copyWith(overscroll: false),
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
       themeMode: mode,
